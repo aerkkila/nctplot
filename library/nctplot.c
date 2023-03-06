@@ -17,7 +17,8 @@ static const Uint32 default_sleep=8; // ms
 static Uint32 sleeptime;
 static int win_w, win_h, xid, yid, zid, draw_w, draw_h, znum, pending_varnum=-1;
 static size_t stepsize_z;
-static int invert_y=1, invert_c, stop, echo_on=1, has_echoed, fill_on, play_on, play_inv, update_minmax=1;
+static int invert_y=1, invert_c, stop, echo_on=1, has_echoed, fill_on, play_on, play_inv, update_minmax=1, usenan;
+static long long nanval; // custom nan-value if usenan = 1
 static int cmapnum=18, cmappix=30, cmapspace=10, call_resized, call_redraw, offset_i;
 static float minshift, maxshift, minshift_abs, maxshift_abs;
 static float space; // data / pixels in 1D
@@ -188,8 +189,8 @@ static void set_dimids() {
     draw_funcptr = yid<0? draw1d: draw2d;
     if(zid>=0) {
 	zvar = var->super->dims[var->dimids[zid]];
-	time0 = nct_mktime0(zvar, NULL);
-	if(!zvar->data)
+	time0 = nct_mktime0_nofail(zvar, NULL);
+	if(!zvar->data && nct_iscoord(zvar))
 	    nct_load(zvar);
     }
     else {
@@ -306,6 +307,13 @@ static void toggle_var(Arg intptr) {
     *(int*)intptr.v = !*(int*)intptr.v;
     set_draw_params();
     call_redraw = 1;
+}
+
+static void set_nan(Arg _) {
+    printf("enter NAN: "), fflush(stdout);
+    if(scanf("%lli", &nanval) != 1)
+	warn("scanf");
+    usenan = 1;
 }
 
 static void use_pending(Arg _);
@@ -528,6 +536,8 @@ static Binding keydown_bindings[] = {
     { SDLK_v,        KMOD_ALT,            set_prog_mode, {.i=variables_m}  },
     { SDLK_w,        0,                   use_lastvar,                     },
     { SDLK_m,        0,                   set_prog_mode, {.i=mousepaint_m} },
+    { SDLK_n,        0,                   set_nan,			   },
+    { SDLK_n,        KMOD_SHIFT,          toggle_var,	 {.v=&usenan}	   },
     { SDLK_RIGHT,    0,                   inc_znum,      {.i=1}            },
     { SDLK_LEFT,     0,                   inc_znum,      {.i=-1}           },
     { SDLK_RIGHT,    KMOD_SHIFT,          inc_offset_i,  {.i=5}            },

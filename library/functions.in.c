@@ -91,6 +91,8 @@ static void draw2d_@nctype(const nct_var* var) {
 	    if (val != val)
 		continue;
 #endif
+	    if (usenan && val==nanval)
+		continue;
 	    int value = CVAL(val,minmax);
 	    if (invert_c) value = 259-value;
 	    char* c = COLORVALUE(cmapnum,value);
