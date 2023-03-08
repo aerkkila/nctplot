@@ -1,19 +1,21 @@
+MAKE = make --no-print-directory
+
 all: executable.target library.target
 
 executable.target: library.target
-	make -C executable
+	$(MAKE) -C executable
 
 library.target: 
-	make -C library
+	$(MAKE) -C library
 
 install: executable.target library.target
-	make -C executable install
-	make -C library install
+	$(MAKE) -C executable install
+	$(MAKE) -C library install
 
 uninstall:
-	make -C executable uninstall
-	make -C library uninstall
+	$(MAKE) -C executable uninstall
+	$(MAKE) -C library uninstall
 
 clean:
-	make -C executable clean
-	make -C library clean
+	$(MAKE) -C executable clean
+	$(MAKE) -C library clean
