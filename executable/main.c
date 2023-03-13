@@ -18,9 +18,9 @@ int main(int argc, char** argv) {
     if (argv[argind][0] == '-')
 	concat_arg = argv[argind++];
     set = nct_read_nc(argv[argind++]);
-    while(argind < argc) {
-	nct_readm_nc(set1, argv[argind++]);
-	nct_concat(set, &set1, concat_arg, argc-1-argind-1);
+    for(; argind < argc; argind++) {
+	nct_readm_nc(set1, argv[argind]);
+	nct_concat(set, &set1, concat_arg, argc-argind-1);
 	nct_free1(&set1);
     }
 

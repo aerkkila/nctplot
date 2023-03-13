@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -O2 -g -Wall
+CFLAGS = -O0 -g -Wall
 prefix = /usr/local
 bindir = $(prefix)/bin
 
