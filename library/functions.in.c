@@ -48,6 +48,8 @@ static void draw_echo_@nctype(ctype minmax[]) {
 			  ((val)-(minmax)[0])*255 / ((minmax)[1]-(minmax)[0]) )
 
 static void draw2d_@nctype(const nct_var* var) {
+    int usenan = globs.usenan;
+    long long nanval = globs.nanval;
     int xlen = NCTVARDIM(var, xid)->len;
     float dj=0;
     ctype minmax[2], range;
@@ -70,11 +72,11 @@ static void draw2d_@nctype(const nct_var* var) {
     minmax[1] += range*maxshift;
     if (prog_mode == variables_m)
 	curses_write_vars();
-    else if (echo_on)
+    else if (globs.echo)
 	draw_echo_@nctype(minmax);
 
     size_t offset = znum*stepsize_z*(zid>=0);
-    SDL_SetRenderDrawColor(rend, color_bg[0], color_bg[1], color_bg[2], 255);
+    SDL_SetRenderDrawColor(rend, globs.color_bg[0], globs.color_bg[1], globs.color_bg[2], 255);
     SDL_RenderClear(rend);
     if (minmax[0] != minmax[0]) return; // Return if all values are nan.
 
@@ -94,9 +96,9 @@ static void draw2d_@nctype(const nct_var* var) {
 	    if (usenan && val==nanval)
 		continue;
 	    int value = CVAL(val,minmax);
-	    if (invert_c) value = 259-value;
+	    if (invert_c) value = 0xff-value;
 	    char* c = COLORVALUE(cmapnum,value);
-	    SDL_SetRenderDrawColor(rend, c[0], c[1], c[2], 255);
+	    SDL_SetRenderDrawColor(rend, c[0], c[1], c[2], 0xff);
 	    for(int j=j0; j<j1; j++)
 		for(int ii=0; ii<diff; ii++)
 		    SDL_RenderDrawPoint(rend, i+ii, j);
@@ -105,9 +107,10 @@ static void draw2d_@nctype(const nct_var* var) {
     }
 
     int j0,j1;
-    if (invert_y)
+    if (globs.invert_y)
 	for(j0=j1=draw_h-1; j0>=0; j0=j1) {
 	    size_t cmp = (size_t)dj;
+	    // TODO: Tehdäänkö tässä kaikki nan-arvot yksittäin?
 	    while((--j1>0) & ((size_t)(dj+=space)==cmp));
 	    draw_thick_i_line(j1, j0, dj-space);
 	}
@@ -131,13 +134,13 @@ static void draw1d_@nctype(const nct_var* var) {
 	minmax [1] += 1;
     if (prog_mode == variables_m)
 	curses_write_vars();
-    else if (echo_on)
+    else if (globs.echo)
 	draw_echo_@nctype(minmax);
-    SDL_SetRenderDrawColor(rend, color_bg[0], color_bg[1], color_bg[2], 255);
+    SDL_SetRenderDrawColor(rend, globs.color_bg[0], globs.color_bg[1], globs.color_bg[2], 255);
     SDL_RenderClear(rend);
     if (minmax[0] != minmax[0]) return;
     double di=0;
-    SDL_SetRenderDrawColor(rend, color_fg[0], color_fg[1], color_fg[2], 255);
+    SDL_SetRenderDrawColor(rend, globs.color_fg[0], globs.color_fg[1], globs.color_fg[2], 255);
     for(int i=0; i<win_w; i++, di+=space) {
 	int y = (((ctype*)var->data)[(int)di] - minmax[0]) * win_h / (minmax[1]-minmax[0]);
 	SDL_RenderDrawPoint(rend, i, y);

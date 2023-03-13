@@ -5,8 +5,15 @@
 #include <sys/time.h>
 #include <err.h>
 #include <dlfcn.h> // dlopen, dlerror, etc. for mousepaint
+#include "nctplot.h"
 
-/* Global variables */
+static struct nctplot_globals globs = {
+    .color_fg = {255, 255, 255},
+    .echo = 1,
+    .invert_y = 1,
+};
+
+/* Static variables. Global in the context of this library. */
 static SDL_Renderer* rend;
 static SDL_Window* window;
 static SDL_Texture* base;
@@ -17,13 +24,10 @@ static const Uint32 default_sleep=8; // ms
 static Uint32 sleeptime;
 static int win_w, win_h, xid, yid, zid, draw_w, draw_h, znum, pending_varnum=-1;
 static size_t stepsize_z;
-static int invert_y=1, invert_c, stop, echo_on=1, has_echoed, fill_on, play_on, play_inv, update_minmax=1, usenan;
-static long long nanval; // custom nan-value if usenan = 1
+static char invert_c, stop, has_echoed, fill_on, play_on, play_inv, update_minmax=1;
 static int cmapnum=18, cmappix=30, cmapspace=10, call_resized, call_redraw, offset_i;
 static float minshift, maxshift, minshift_abs, maxshift_abs;
-static float space; // data / pixels in 1D
-static unsigned char color_fg[3] = {255, 255, 255};
-static unsigned char color_bg[3] = {0, 0, 0};
+static float space; // (n(data) / n(pixels)) in one direction
 static const char* echo_highlight = "\033[1;93m";
 static void (*draw_funcptr)(const nct_var*);
 static enum {no_m, variables_m=-100, n_cursesmodes, mousepaint_m} prog_mode = no_m;
@@ -45,6 +49,9 @@ static void quit(Arg _);
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 
 #include "functions.c"
+#ifdef HAVE_SHPLIB
+#include "coastlines.c"
+#endif
 
 static SDL_Event event;
 
@@ -125,14 +132,14 @@ static long get_varpos_xy(int x, int y) {
     y = (int)(y*space);
     x = (int)(x*space) + offset_i;
     if(x>=xlen || y>=ylen) return -1;
-    if(invert_y && yid>=0)
+    if(globs.invert_y && yid>=0)
 	y = NCTVARDIM(var, yid)->len - y - 1;
     return (zid>=0)*xlen*ylen*znum + (yid>=0)*xlen*y + x;
 }
 
 static void mousemotion() {
     static int count;
-    if(prog_mode == variables_m || !echo_on) return;
+    if(prog_mode == variables_m || !globs.echo) return;
     if(!count++) return;
     int x = event.motion.x;
     int y = event.motion.y;
@@ -163,6 +170,8 @@ static void redraw(nct_var* var) {
 
     SDL_SetRenderTarget(rend, base);
     draw_funcptr(var);
+    if (globs.coastlines)
+	coastlines(NULL);
     SDL_SetRenderTarget(rend, NULL);
 }
 
@@ -304,16 +313,16 @@ static void shift_min_abs(Arg shift) {
 }
 
 static void toggle_var(Arg intptr) {
-    *(int*)intptr.v = !*(int*)intptr.v;
+    *(char*)intptr.v = !*(char*)intptr.v;
     set_draw_params();
     call_redraw = 1;
 }
 
 static void set_nan(Arg _) {
     printf("enter NAN: "), fflush(stdout);
-    if(scanf("%lli", &nanval) != 1)
+    if(scanf("%lli", &globs.nanval) != 1)
 	warn("scanf");
-    usenan = 1;
+    globs.usenan = 1;
 }
 
 static void use_pending(Arg _);
@@ -522,22 +531,23 @@ static Binding keydown_bindings[] = {
     { SDLK_1,        KMOD_SHIFT|KMOD_ALT, shift_max_abs, {.f=-0.02}        },
     { SDLK_2,        KMOD_ALT,            shift_min_abs, {.f=0.02}         },
     { SDLK_2,        KMOD_SHIFT|KMOD_ALT, shift_max_abs, {.f=0.02}         },
-    { SDLK_e,        0,                   toggle_var,    {.v=&echo_on}     },
+    { SDLK_e,        0,                   toggle_var,    {.v=&globs.echo}  },
     { SDLK_f,        0,                   toggle_var,    {.v=&fill_on}     },
-    { SDLK_i,        0,                   toggle_var,    {.v=&invert_y}    },
+    { SDLK_i,        0,                   toggle_var,    {.v=&globs.invert_y}},
     { SDLK_j,        0,                   jump_to,       {0}               },
     { SDLK_SPACE,    0,                   toggle_var,    {.v=&play_on}     },
     { SDLK_SPACE,    KMOD_SHIFT,          toggle_var,    {.v=&play_inv}    },
     { SDLK_c,        0,                   cmap_ichange,  {.i=1}            },
     { SDLK_c,        KMOD_SHIFT,          cmap_ichange,  {.i=-1}           },
     { SDLK_c,        KMOD_ALT,            toggle_var,    {.v=&invert_c}    },
+    { SDLK_l,	     0,			  toggle_var,    {.v=&globs.coastlines}},
     { SDLK_v,        0,                   var_ichange,   {.i=1}            },
     { SDLK_v,        KMOD_SHIFT,          var_ichange,   {.i=-1}           },
     { SDLK_v,        KMOD_ALT,            set_prog_mode, {.i=variables_m}  },
     { SDLK_w,        0,                   use_lastvar,                     },
     { SDLK_m,        0,                   set_prog_mode, {.i=mousepaint_m} },
     { SDLK_n,        0,                   set_nan,			   },
-    { SDLK_n,        KMOD_SHIFT,          toggle_var,	 {.v=&usenan}	   },
+    { SDLK_n,        KMOD_SHIFT,          toggle_var,	 {.v=&globs.usenan}},
     { SDLK_RIGHT,    0,                   inc_znum,      {.i=1}            },
     { SDLK_LEFT,     0,                   inc_znum,      {.i=-1}           },
     { SDLK_RIGHT,    KMOD_SHIFT,          inc_offset_i,  {.i=5}            },
@@ -666,4 +676,8 @@ void nctplot_(void* vobject, int isset) {
     mp_params = (struct Mp_params){0};
 
     mainloop();
+}
+
+struct nctplot_globals* nctplot_get_globals() {
+    return &globs;
 }

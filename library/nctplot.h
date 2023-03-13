@@ -4,6 +4,13 @@
 #include <nctietue3.h>
 #define nctplot(set_or_var) nctplot_(set_or_var, nct_isset(*(set_or_var)))
 
+struct nctplot_globals {
+    long long nanval; // custom nan-value if usenan = 1
+    char usenan, coastlines, echo, invert_y;
+    unsigned char color_fg[3], color_bg[3];
+};
+
 void nctplot_(void* set_or_var, int isset);
+struct nctplot_globals* nctplot_get_globals();
 
 #endif
