@@ -10,24 +10,16 @@ static int init_default_conversion() {
     if (!(v=nct_get_var(var->super, "lat")))
 	if(!(v=nct_get_var(var->super, "latitude")))
 	    return 1;
-    if (!v->data) {
-	nct_load(v);
-	if (!v->data)
-	    return 1;
-    }
-    lat0 = nct_get_floating(v, 0);
-    latspace = 1 / (nct_get_floating(v, 1) - lat0) / space;
+    double (*getfunk)(const nct_var*, size_t) = v->data ? nct_get_floating : nct_getl_floating;
+    lat0 = getfunk(v, 0);
+    latspace = 1 / (getfunk(v, 1) - lat0) / space;
 
     if (!(v=nct_get_var(var->super, "lon")))
 	if(!(v=nct_get_var(var->super, "longitude")))
 	    return 2;
-    if (!v->data) {
-	nct_load(v);
-	if (!v->data)
-	    return 2;
-    }
-    lon0 = nct_get_floating(v, 0);
-    lonspace = 1 / (nct_get_floating(v, 1) - lon0) / space;
+    getfunk = v->data ? nct_get_floating : nct_getl_floating;
+    lon0 = getfunk(v, 0);
+    lonspace = 1 / (getfunk(v, 1) - lon0) / space;
 
     return 0;
 }
