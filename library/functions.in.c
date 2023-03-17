@@ -13,9 +13,10 @@ static void print_value_@nctype(const nct_var* var, size_t pos) {
 #define A echo_highlight
 #define B nct_default_color
 static void draw_echo_@nctype(ctype minmax[]) {
-    if (!has_echoed++)
+    if (!has_echoed)
 	for(int i=0; i<5; i++)
 	    putchar('\n');
+    has_echoed = 1;
     printf("\033[5F%s%s%s: min %s%@form%s, max %s%@form%s\033[K\n"
 	   "x: %s%s(%zu)%s",
 	   A,var->name,B, A,minmax[0],B, A,minmax[1],B,
