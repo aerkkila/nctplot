@@ -34,7 +34,8 @@ static SDL_Point default_conversion(float lat, float lon) {
 static void coastlines(SDL_Point (*latlon2point)(float,float)) {
     if (!latlon2point) {
 	if (init_default_conversion()) {
-	    nct_puterror("Failed initializing default conversion.");
+	    nct_puterror("Failed initializing default conversion.\n");
+	    globs.coastlines = 0;
 	    return;
 	}
 	latlon2point = default_conversion;
