@@ -292,6 +292,13 @@ static void pending_var_inc(Arg _) {
 	curses_write_vars();
 }
 
+static void print_var(Arg _) {
+    if(has_echoed)
+	for(int i=0; i<echo_h; i++)
+	    printf("\033[A\033[2K");
+    nct_print(var->super);
+}
+
 static void shift_max(Arg shift) {
     maxshift += shift.f;
     call_redraw = 1;
@@ -548,6 +555,7 @@ static Binding keydown_bindings[] = {
     { SDLK_m,        0,                   set_prog_mode, {.i=mousepaint_m} },
     { SDLK_n,        0,                   set_nan,			   },
     { SDLK_n,        KMOD_SHIFT,          toggle_var,	 {.v=&globs.usenan}},
+    { SDLK_p,	     0,			  print_var,			   },
     { SDLK_RIGHT,    0,                   inc_znum,      {.i=1}            },
     { SDLK_LEFT,     0,                   inc_znum,      {.i=-1}           },
     { SDLK_RIGHT,    KMOD_SHIFT,          inc_offset_i,  {.i=5}            },

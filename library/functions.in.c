@@ -9,6 +9,9 @@ static void print_value_@nctype(const nct_var* var, size_t pos) {
 }
 
 #define NCTVARDIM(a,b) ((a)->super->dims[(a)->dimids[b]])
+#ifndef echo_h
+#define echo_h 5
+#endif
 
 #define A echo_highlight
 #define B nct_default_color
@@ -17,8 +20,9 @@ static void draw_echo_@nctype(ctype minmax[]) {
 	for(int i=0; i<5; i++)
 	    putchar('\n');
     has_echoed = 1;
-    printf("\033[5F%s%s%s: min %s%@form%s, max %s%@form%s\033[K\n"
+    printf("\r\033[%iA%s%s%s: min %s%@form%s, max %s%@form%s\033[K\n"
 	   "x: %s%s(%zu)%s",
+	   echo_h,
 	   A,var->name,B, A,minmax[0],B, A,minmax[1],B,
 	   A,NCTVARDIM(var, xid)->name,NCTVARDIM(var, xid)->len,B);
     if (yid>=0)

@@ -11,8 +11,7 @@ int main(int argc, char** argv) {
     }
     /* The first argument may tell how to concatenate.
        The rest tell which files to concatenate. */
-    /* TODO: implement a method in nctietue3-library
-       which allows combining lazy read and concatenation. */
+    /* TODO: read lazily and load when necessary. */
     int argind = 1;
     char* concat_arg = NULL;
     if (argv[argind][0] == '-')
