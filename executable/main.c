@@ -6,12 +6,11 @@ int main(int argc, char** argv) {
 	return 0; // TODO: usage
     nct_readflags = nct_ratt;
     if (argc == 2) {
-	set = nct_read_ncf(argv[1], nct_rlazy|nct_ratt);
+	set = nct_read_ncf(argv[1], nct_rcoord|nct_ratt);
 	goto plot;
     }
     /* The first argument may tell how to concatenate.
        The rest tell which files to concatenate. */
-    /* TODO: read lazily and load when necessary. */
     int argind = 1;
     char* concat_arg = NULL;
     if (argv[argind][0] == '-')

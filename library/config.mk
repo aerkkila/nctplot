@@ -1,4 +1,4 @@
-# shplib is used in drawing coastlines. Remove the following if you don't have shplib installed.
+# shplib is used in drawing coastlines. Comment out or remove the following two lines if you don't have shplib installed.
 HAVE_SHPLIB = -DHAVE_SHPLIB
 libraries += -lshp -lm
 

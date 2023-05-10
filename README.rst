@@ -1,50 +1,49 @@
-=============================
-Plotting data to color images
-=============================
+========================
+Viewing netcdf form data
+========================
 
-This is like ncview but subjectively better.
-The purpose of this software is to show 3-dimensional data as 2-dimensional color images.
-Data with 4-dimensions (each value has 3 coordinates) is shown as video where the slowest changing dimension is time coordinate.
-Data with 2-dimensions (each value has 1 coordinate) can be plotted primitively but this is buggy and not recommended.
+This program shows netcdf files as color images.
+The window contains only the plot and a colorbar
+and other information is shown on the command line.
 
-This is meant to be run from the command line.
-The window contains only the color image and a colorbar.
-All other information is shown only on the command line.
-
-Library
-=======
-Contains a library called nctplot which works with nctietue3 library.
-
-Minimal usage:
---------------
-.. code:: c
-nct_set* set = nct_read_nc("some-file.nc");
-nctplot(set);
-nct_free1(set);
-
-Executable
-===========
-Contains a small executable which reads netcdf files, concatenates them if needed and calls the library to plot them.
-
-Improvements to ncview
-----------------------
+Some features
+-------------
 * This works well with tiling window managers / compositors.
-* This works also on Wayland.
-* One doesn't need a mouse to use this.
-* This is easy to use in codes because this is also a library.
-* Windows can be enargened steplessly.
+* Mouse is not needed for basic use.
 * Multiple files can be opened as one file.
 * Files can be edited by drawing with mouse.
 * This shows just the image and not some control panel.
-* This doesn't forcefully draw the coastlines that make seeing the actual data impossible.
-* This is a small and therefore hackable library.
+* Coastlines if user wants them.
 
-How is this worse than ncview?
-------------------------------
-* 1D-variables are badly supported.
-* 4D-variables are not supported.
-* Variable groups are not supported.
-* One has to know the key bindings.
+Things not yet implemented
+--------------------------
+* Better suport for 1D-variables.
+* Support for 4D-variables.
+* Support for variable groups.
+* Coordinate tranformations.
+* Better performance.
+* Output to file.
+
+Installation
+------------
+make
+make install # as root
+Library nctietue3 must be installed (github.com/aerkkila/nctietue3).
+Other dependencies are SDL2 and ncurses.
+An optional dependeny is shapelib for drawing coastlines.
+See library/config.mk to install without shapelib.
+
+Usage
+-----
+The executable is called nctplot.
+This can also be used from C-codes with:
+>>> #include <nctplot.h>
+>>> nctplot(args);
+Compile the code with -lnctplot
+
+Keybindings are easily found in the source code:
+Search keydown_bindings in library/nctplot.c.
+No other documentation exists.
 
 Bugs:
 -----
