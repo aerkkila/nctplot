@@ -26,7 +26,7 @@ static int win_w, win_h, xid, yid, zid, draw_w, draw_h, znum, pending_varnum=-1;
 static size_t stepsize_z;
 static char invert_c, stop, has_echoed, fill_on, play_on, play_inv, update_minmax=1;
 static int cmapnum=18, cmappix=30, cmapspace=10, call_resized, call_redraw, offset_i;
-static float minshift, maxshift, minshift_abs, maxshift_abs;
+static float minshift, maxshift, minshift_abs, maxshift_abs, zoom=1;
 static float space; // (n(data) / n(pixels)) in one direction
 static const char* echo_highlight = "\033[1;93m";
 static void (*draw_funcptr)(const nct_var*);
@@ -221,6 +221,7 @@ static void set_draw_params() {
 	space = (float)(xlen)/(win_w);
 	ylen  = win_h * space;
     }
+    space *= zoom;
     if(offset_i < 0) offset_i = 0;
     draw_w = (xlen-offset_i) / space; // how many pixels data can reach
     draw_h = ylen / space;
@@ -264,6 +265,12 @@ static void inc_offset_i(Arg arg) {
 static void inc_znum(Arg intarg) {
     size_t zlen = NCTVARDIM(var,zid)->len;
     znum = (znum + zlen + intarg.i) % zlen;
+    call_redraw = 1;
+}
+
+static void inc_zoom(Arg arg) {
+    zoom += arg.f;
+    set_draw_params();
     call_redraw = 1;
 }
 
@@ -556,10 +563,12 @@ static Binding keydown_bindings[] = {
     { SDLK_n,        0,                   set_nan,			   },
     { SDLK_n,        KMOD_SHIFT,          toggle_var,	 {.v=&globs.usenan}},
     { SDLK_p,	     0,			  print_var,			   },
+    { SDLK_PLUS,     0,			  inc_zoom,	 {.f=-0.04}	   }, // smaller number is more zoom
+    { SDLK_MINUS,    0,			  inc_zoom,	 {.f=+0.04}	   }, // larger number is less zoom
     { SDLK_RIGHT,    0,                   inc_znum,      {.i=1}            },
     { SDLK_LEFT,     0,                   inc_znum,      {.i=-1}           },
-    { SDLK_RIGHT,    KMOD_SHIFT,          inc_offset_i,  {.i=5}            },
-    { SDLK_LEFT,     KMOD_SHIFT,          inc_offset_i,  {.i=-5}           },
+    { SDLK_RIGHT,    KMOD_SHIFT,          inc_offset_i,  {.i=7}            },
+    { SDLK_LEFT,     KMOD_SHIFT,          inc_offset_i,  {.i=-7}           },
     { SDLK_RIGHT,    KMOD_SHIFT|KMOD_ALT, inc_offset_i,  {.i=1}            },
     { SDLK_LEFT,     KMOD_SHIFT|KMOD_ALT, inc_offset_i,  {.i=-1}           },
     { SDLK_s,        0,                   set_sleep,     {0}               },
