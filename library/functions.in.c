@@ -90,9 +90,9 @@ static void draw2d_@nctype(const nct_var* var) {
      * j0, j1 and i are window coordinates, jj and (size_t)di are data coordinates */
     void draw_thick_i_line(int j0, int j1, size_t jj) {
 	size_t start = jj*xlen;
-	int diff = j1-j0;
 	float di = offset_i;
-	for(int i=0; i<draw_w; i+=diff, di+=space*diff) {
+	int i=0;
+	while (i<draw_w) {
 	    ctype val = ((ctype*)var->data)[offset + start + (size_t)di];
 #if __nctype__==NC_DOUBLE || __nctype__==NC_FLOAT
 	    if (val != val)
@@ -104,11 +104,15 @@ static void draw2d_@nctype(const nct_var* var) {
 	    if (invert_c) value = 0xff-value;
 	    char* c = COLORVALUE(cmapnum,value);
 	    SDL_SetRenderDrawColor(rend, c[0], c[1], c[2], 0xff);
-	    for(int j=j0; j<j1; j++)
-		for(int ii=0; ii<diff; ii++)
-		    SDL_RenderDrawPoint(rend, i+ii, j);
+	    int i_ = i;
+	    for(int j=j0; j<j1; j++) {
+		i_ = i;
+		for(float f=0; f<1; f+=space)
+		    SDL_RenderDrawPoint(rend, i_++, j);
+	    }
+	    di++;
+	    i = i_;
 	}
-	di = 0;
     }
 
     int j0,j1;
