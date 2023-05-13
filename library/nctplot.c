@@ -25,7 +25,7 @@ static Uint32 sleeptime;
 static int win_w, win_h, xid, yid, zid, draw_w, draw_h, znum, pending_varnum=-1;
 static size_t stepsize_z;
 static char invert_c, stop, has_echoed, fill_on, play_on, play_inv, update_minmax=1;
-static int cmapnum=18, cmappix=30, cmapspace=10, call_resized, call_redraw, offset_i;
+static int cmapnum=18, cmappix=30, cmapspace=10, call_resized, call_redraw, offset_i, offset_j;
 static float minshift, maxshift, minshift_abs, maxshift_abs, zoom=1;
 static float space; // (n(data) / n(pixels)) in one direction
 static const char* echo_highlight = "\033[1;93m";
@@ -129,7 +129,7 @@ static void draw_colormap() {
 static long get_varpos_xy(int x, int y) {
     int xlen = NCTVARDIM(var, xid)->len;
     int ylen = NCTVARDIM(var, yid)->len;
-    y = (int)(y*space);
+    y = (int)(y*space) + offset_j;
     x = (int)(x*space) + offset_i;
     if(x>=xlen || y>=ylen) return -1;
     if(globs.invert_y && yid>=0)
@@ -222,9 +222,10 @@ static void set_draw_params() {
 	ylen  = win_h * space;
     }
     space *= zoom;
-    if(offset_i < 0) offset_i = 0;
+    if (offset_i < 0) offset_i = 0;
+    if (offset_j < 0) offset_j = 0;
     draw_w = (xlen-offset_i) / space; // how many pixels data can reach
-    draw_h = ylen / space;
+    draw_h = (ylen-offset_j) / space;
     draw_w = MIN(win_w, draw_w);
     draw_h = MIN(win_h-cmapspace-cmappix, draw_h);
     if(zid>=0)
@@ -258,6 +259,12 @@ static void end_curses(Arg _) {
 
 static void inc_offset_i(Arg arg) {
     offset_i += arg.i;
+    set_draw_params();
+    call_redraw = 1;
+}
+
+static void inc_offset_j(Arg arg) {
+    offset_j += globs.invert_y ? -arg.i : arg.i;
     set_draw_params();
     call_redraw = 1;
 }
@@ -571,6 +578,10 @@ static Binding keydown_bindings[] = {
     { SDLK_LEFT,     KMOD_SHIFT,          inc_offset_i,  {.i=-7}           },
     { SDLK_RIGHT,    KMOD_SHIFT|KMOD_ALT, inc_offset_i,  {.i=1}            },
     { SDLK_LEFT,     KMOD_SHIFT|KMOD_ALT, inc_offset_i,  {.i=-1}           },
+    { SDLK_UP,	     KMOD_SHIFT,          inc_offset_j,  {.i=-7}           },
+    { SDLK_DOWN,     KMOD_SHIFT,          inc_offset_j,  {.i=7}            },
+    { SDLK_UP,	     KMOD_SHIFT|KMOD_ALT, inc_offset_j,  {.i=-1}           },
+    { SDLK_DOWN,     KMOD_SHIFT|KMOD_ALT, inc_offset_j,  {.i=1}            },
     { SDLK_s,        0,                   set_sleep,     {0}               },
     { SDLK_RETURN,   0,                   use_pending,   {0}               },
     { SDLK_KP_ENTER, 0,                   use_pending,   {0}               },

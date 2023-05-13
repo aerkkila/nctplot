@@ -116,7 +116,7 @@ static void draw2d_@nctype(const nct_var* var) {
     }
 
     int j0,j1;
-    float fdataj = 0;
+    float fdataj = offset_j;
     if (globs.invert_y)
 	for(j0=j1=draw_h-1; j0>=0; j0=j1) {
 	    float f = 0;
