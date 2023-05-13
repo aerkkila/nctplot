@@ -56,7 +56,6 @@ static void draw2d_@nctype(const nct_var* var) {
     int usenan = globs.usenan;
     long long nanval = globs.nanval;
     int xlen = NCTVARDIM(var, xid)->len;
-    float dj=0;
     ctype minmax[2], range;
     static ctype minmax_static[2];
     if (update_minmax) {
@@ -90,10 +89,10 @@ static void draw2d_@nctype(const nct_var* var) {
      * j0, j1 and i are window coordinates, jj and (size_t)di are data coordinates */
     void draw_thick_i_line(int j0, int j1, size_t jj) {
 	size_t start = jj*xlen;
-	float di = offset_i;
 	int i=0;
+	float di = offset_i;
 	while (i<draw_w) {
-	    ctype val = ((ctype*)var->data)[offset + start + (size_t)di];
+	    ctype val = ((ctype*)var->data)[offset + start + (size_t)round(di)];
 #if __nctype__==NC_DOUBLE || __nctype__==NC_FLOAT
 	    if (val != val)
 		continue;
@@ -105,29 +104,31 @@ static void draw2d_@nctype(const nct_var* var) {
 	    char* c = COLORVALUE(cmapnum,value);
 	    SDL_SetRenderDrawColor(rend, c[0], c[1], c[2], 0xff);
 	    int i_ = i;
+	    float f = 0;
 	    for(int j=j0; j<j1; j++) {
 		i_ = i;
-		for(float f=0; f<1; f+=space)
+		for(f=0; f<1; f+=space)
 		    SDL_RenderDrawPoint(rend, i_++, j);
 	    }
-	    di++;
+	    di += f;
 	    i = i_;
 	}
     }
 
     int j0,j1;
+    float fdataj = 0;
     if (globs.invert_y)
 	for(j0=j1=draw_h-1; j0>=0; j0=j1) {
-	    size_t cmp = (size_t)dj;
-	    // TODO: Tehdäänkö tässä kaikki nan-arvot yksittäin?
-	    while((--j1>0) & ((size_t)(dj+=space)==cmp));
-	    draw_thick_i_line(j1, j0, dj-space);
+	    float f = 0;
+	    while((--j1>=0) & ((f+=space)<1));
+	    fdataj += f;
+	    draw_thick_i_line(j1, j0, round(fdataj));
 	}
     else
 	for(j0=j1=0; j0<draw_h; j0=j1) {
-	    size_t cmp = (size_t)dj;
-	    while((++j1<draw_h) & ((size_t)(dj+=space)==cmp));
-	    draw_thick_i_line(j0, j1, dj-space);
+	    float f = 0;
+	    while((++j1<draw_h) & ((f+=space)<1));
+	    draw_thick_i_line(j0, j1, round(fdataj));
 	}
     draw_colormap();
 }
