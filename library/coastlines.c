@@ -2,7 +2,7 @@
 #include <math.h>
 #include "shpname.h"
 
-static float lat0, lon0, latspace, lonspace;
+static float lat0_, lon0_, latspace, lonspace, lat0, lon0;
 
 static int init_default_conversion() {
     nct_var* v;
@@ -11,15 +11,15 @@ static int init_default_conversion() {
 	if(!(v=nct_get_var(var->super, "latitude")))
 	    return 1;
     double (*getfunk)(const nct_var*, size_t) = v->data ? nct_get_floating : nct_getl_floating;
-    lat0 = getfunk(v, 0);
-    latspace = 1 / (getfunk(v, 1) - lat0) / space;
+    lat0_ = getfunk(v, 0);
+    latspace = 1 / (getfunk(v, 1) - lat0_) / space;
 
     if (!(v=nct_get_var(var->super, "lon")))
 	if(!(v=nct_get_var(var->super, "longitude")))
 	    return 2;
     getfunk = v->data ? nct_get_floating : nct_getl_floating;
-    lon0 = getfunk(v, 0);
-    lonspace = 1 / (getfunk(v, 1) - lon0) / space;
+    lon0_ = getfunk(v, 0);
+    lonspace = 1 / (getfunk(v, 1) - lon0_) / space;
 
     return 0;
 }
@@ -40,6 +40,9 @@ static void coastlines(SDL_Point (*latlon2point)(float,float)) {
 	}
 	latlon2point = default_conversion;
     }
+
+    lat0 = lat0_ + offset_j;
+    lon0 = lon0_ + offset_i;
 
     SHPHandle shp = SHPOpen(shpname, "r");
     int nent, shptype;
