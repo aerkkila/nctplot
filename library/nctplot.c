@@ -90,7 +90,7 @@ static void curses_write_vars() {
 	vars++;
 	move(row, col);
 	int att1 = (svar==var)*(A_UNDERLINE|A_BOLD);
-	int att2 = (svar->id==pending_varnum)*(A_REVERSE);
+	int att2 = (nct_varid(svar)==pending_varnum)*(A_REVERSE);
 	attron(att|att1|att2);
 	printw("%i. ", vars);
 	attroff(att);
@@ -291,17 +291,17 @@ static void jump_to(Arg _) {
 }
 
 static void pending_var_dec(Arg _) {
-    if (pending_varnum<0) pending_varnum = var->id;
+    if (pending_varnum<0) pending_varnum = nct_varid(var);
     nct_var* var1 = nct_prevvar(var->super->vars[pending_varnum]);
-    pending_varnum = var1 ? var1->id : nct_lastvar(var->super)->id;
+    pending_varnum = var1 ? nct_varid(var1) : nct_varid(nct_lastvar(var->super));
     if (prog_mode == variables_m)
 	curses_write_vars();
 }
 
 static void pending_var_inc(Arg _) {
-    if (pending_varnum<0) pending_varnum = var->id;
+    if (pending_varnum<0) pending_varnum = nct_varid(var);
     nct_var* var1 = nct_nextvar(var->super->vars[pending_varnum]);
-    pending_varnum = var1 ? var1->id : nct_firstvar(var->super)->id;
+    pending_varnum = var1 ? nct_varid(var1) : nct_varid(nct_firstvar(var->super));
     if (prog_mode == variables_m)
 	curses_write_vars();
 }
