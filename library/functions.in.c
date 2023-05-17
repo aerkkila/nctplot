@@ -84,6 +84,11 @@ static void draw2d_@nctype(const nct_var* var) {
     SDL_RenderClear(rend);
     if (minmax[0] != minmax[0]) return; // Return if all values are nan.
 
+    int pixels_per_datum = 1.0 / space;
+    float data_per_istep = pixels_per_datum * space;
+    pixels_per_datum += data_per_istep < 1;
+    data_per_istep = pixels_per_datum*space;
+
     /* Draws a data row to the screen.
      * Data is scaled so that each datum becomes j1-j0 pixels high and wide.
      * j0, j1 and i are window coordinates, jj and (size_t)di are data coordinates */
@@ -94,23 +99,26 @@ static void draw2d_@nctype(const nct_var* var) {
 	while (i<draw_w) {
 	    ctype val = ((ctype*)var->data)[offset + start + (size_t)round(di)];
 #if __nctype__==NC_DOUBLE || __nctype__==NC_FLOAT
-	    if (val != val)
-		continue;
+	    if (val != val) {
+		di += data_per_istep;
+		i += pixels_per_datum;
+		continue; }
 #endif
-	    if (usenan && val==nanval)
-		continue;
+	    if (usenan && val==nanval) {
+		di += data_per_istep;
+		i += pixels_per_datum;
+		continue; }
 	    int value = CVAL(val,minmax);
 	    if (invert_c) value = 0xff-value;
 	    char* c = COLORVALUE(cmapnum,value);
 	    SDL_SetRenderDrawColor(rend, c[0], c[1], c[2], 0xff);
 	    int i_ = i;
-	    float f = 0;
 	    for(int j=j0; j<j1; j++) {
 		i_ = i;
-		for(f=0; f<1; f+=space)
+		for(int _i=0; _i<pixels_per_datum; _i++)
 		    SDL_RenderDrawPoint(rend, i_++, j);
 	    }
-	    di += f;
+	    di += data_per_istep;
 	    i = i_;
 	}
     }
