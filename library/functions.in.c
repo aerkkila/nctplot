@@ -58,6 +58,7 @@ static void draw2d_@nctype(const nct_var* var) {
     int xlen = NCTVARDIM(var, xid)->len;
     ctype minmax[2], range;
     static ctype minmax_static[2];
+    long dlen = var->len;
     if (update_minmax) {
 	update_minmax = 0;
 	nct_minmax_@nctype(var, minmax_static);
@@ -85,9 +86,9 @@ static void draw2d_@nctype(const nct_var* var) {
     if (minmax[0] != minmax[0]) return; // Return if all values are nan.
 
     int pixels_per_datum = 1.0 / space;
-    float data_per_istep = pixels_per_datum * space;
-    pixels_per_datum += data_per_istep < 1;
-    data_per_istep = pixels_per_datum*space;
+    float data_per_step = pixels_per_datum * space;
+    pixels_per_datum += data_per_step < 1;
+    data_per_step = pixels_per_datum*space;
 
     /* Draws a data row to the screen.
      * Data is scaled so that each datum becomes j1-j0 pixels high and wide.
@@ -95,17 +96,20 @@ static void draw2d_@nctype(const nct_var* var) {
     void draw_thick_i_line(int j0, int j1, size_t jj) {
 	size_t start = jj*xlen;
 	int i=0;
-	float di = offset_i;
+	float di = offset_i + 0.5*data_per_step;
 	while (i<draw_w) {
-	    ctype val = ((ctype*)var->data)[offset + start + (size_t)round(di)];
+	    long ind = offset + start + (size_t)round(di);
+	    if (ind >= dlen)
+		return;
+	    ctype val = ((ctype*)var->data)[ind];
 #if __nctype__==NC_DOUBLE || __nctype__==NC_FLOAT
 	    if (val != val) {
-		di += data_per_istep;
+		di += data_per_step;
 		i += pixels_per_datum;
 		continue; }
 #endif
 	    if (usenan && val==nanval) {
-		di += data_per_istep;
+		di += data_per_step;
 		i += pixels_per_datum;
 		continue; }
 	    int value = CVAL(val,minmax);
@@ -118,25 +122,30 @@ static void draw2d_@nctype(const nct_var* var) {
 		for(int _i=0; _i<pixels_per_datum; _i++)
 		    SDL_RenderDrawPoint(rend, i_++, j);
 	    }
-	    di += data_per_istep;
+	    di += data_per_step;
 	    i = i_;
 	}
     }
 
     int j0,j1;
-    float fdataj = offset_j;
+    float fdataj = offset_j + 0.5*data_per_step;
     if (globs.invert_y)
 	for(j0=j1=draw_h-1; j0>=0; j0=j1) {
-	    float f = 0;
-	    while((--j1>=0) & ((f+=space)<1));
-	    fdataj += f;
+	    //float f = 0;
+	    //while((--j1>=0) & ((f+=space)<1));
+	    //fdataj += f;
+	    j1 -= pixels_per_datum;
 	    draw_thick_i_line(j1, j0, round(fdataj));
+	    fdataj += data_per_step;
 	}
     else
 	for(j0=j1=0; j0<draw_h; j0=j1) {
-	    float f = 0;
-	    while((++j1<draw_h) & ((f+=space)<1));
+	    //float f = 0;
+	    //while((++j1<draw_h) & ((f+=space)<1));
+	    //fdataj += f;
+	    j1 += pixels_per_datum;
 	    draw_thick_i_line(j0, j1, round(fdataj));
+	    fdataj += data_per_step;
 	}
     draw_colormap();
 }
