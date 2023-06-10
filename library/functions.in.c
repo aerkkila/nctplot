@@ -3,6 +3,7 @@
 #define __nctype__ @nctype
 
 void* nct_minmax_@nctype(const nct_var*, void* result); // global but hidden function
+void* nct_minmax_nan_@nctype(const nct_var*, long nanval, void* result); // global but hidden function
 
 static void print_value_@nctype(const nct_var* var, size_t pos) {
     printf("%@form", ((@ctype*)var->data)[pos]);
@@ -61,7 +62,10 @@ static void draw2d_@nctype(const nct_var* var) {
     long dlen = var->len;
     if (update_minmax) {
 	update_minmax = 0;
-	nct_minmax_@nctype(var, minmax_static);
+	if (usenan)
+	    nct_minmax_nan_@nctype(var, nanval, minmax_static);
+	else
+	    nct_minmax_@nctype(var, minmax_static);
     }
     memcpy(minmax, minmax_static, 2*sizeof(ctype));
     range = minmax[1]-minmax[0];

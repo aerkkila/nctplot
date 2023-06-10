@@ -343,7 +343,7 @@ static void set_nan(Arg _) {
     printf("enter NAN: "), fflush(stdout);
     if(scanf("%lli", &globs.nanval) != 1)
 	warn("scanf");
-    globs.usenan = 1;
+    globs.usenan = update_minmax = call_redraw = 1;
 }
 
 static void use_pending(Arg _);
