@@ -461,6 +461,34 @@ static void mp_save(Arg) {
 	mp_params.filename[0] = '\0';
 }
 
+static void mp_save_frame(Arg) {
+    int zero = 0;
+    if (!mp_params.filename[0]) {
+	zero = 1;
+	long unsigned timevar = time(NULL);
+	sprintf(mp_params.filename, "%lu.nc", timevar);
+    }
+    nct_set out = {0};
+    int len = 1;
+    int id = 0;
+    if (yid >= 0) {
+	nct_copy_var(&out, nct_get_vardim(var, yid), 1);
+	len *= out.dims[id++]->len;
+    }
+    nct_copy_var(&out, nct_get_vardim(var, xid), 1);
+    len *= out.dims[id++]->len;
+
+    void* data = var->data;
+    data += (zid >= 0) * znum * stepsize_z * nctypelen(var->dtype);
+    nct_ensure_unique_name(nct_add_var_alldims(&out, data, var->dtype, "data"))
+	-> not_freeable = 1;
+
+    nct_write_nc(&out, mp_params.filename);
+    nct_free1(&out);
+    if (zero)
+	mp_params.filename[0] = '\0';
+}
+
 static void mp_set_action(Arg arg) {
     char str[256];
     if(var->dtype == NC_DOUBLE || var->dtype == NC_FLOAT) {
@@ -525,12 +553,14 @@ static void mousepaint() {
 
 /* In mousepaint_m mode these override the default bindings. */
 static Binding keydown_bindings_mousepaint_m[] = {
-    { SDLK_SPACE,     0,          mp_set_action,           },
-    { SDLK_RETURN,    0,          mp_save,                 },
-    { SDLK_KP_ENTER,  0,          mp_save,                 },
-    { SDLK_s,         0,          mp_set_filename,         },
-    { SDLK_PLUS,      0,          mp_size,         {.i=1}  },
-    { SDLK_MINUS,     0,          mp_size,         {.i=-1} },
+    { SDLK_SPACE,	0,		mp_set_action,			},
+    { SDLK_RETURN,	0,		mp_save,			},
+    { SDLK_KP_ENTER,	0,		mp_save,			},
+    { SDLK_RETURN,	KMOD_SHIFT,	mp_save_frame,			},
+    { SDLK_KP_ENTER,	KMOD_SHIFT,	mp_save_frame,			},
+    { SDLK_s,		0,		mp_set_filename,		},
+    { SDLK_PLUS,	0,		mp_size,		{.i=1}  },
+    { SDLK_MINUS,	0,		mp_size,		{.i=-1} },
 };
 
 /* In variables_m mode these override the default bindings. */
