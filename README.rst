@@ -10,24 +10,24 @@ Some features
 -------------
 * This works well with tiling window managers / compositors.
 * Mouse is not needed for basic use.
+* Zooming is possible.
 * Multiple files can be opened as one file.
 * Files can be edited by drawing with mouse.
-* This shows just the image and not some control panel.
+* Shows just the image instead of some control panel (compare to ncview).
 * Coastlines if user wants them.
 
-Things not yet implemented
---------------------------
+Things yet to do
+----------------
 * Better suport for 1D-variables.
 * Support for 4D-variables.
 * Support for variable groups.
 * Coordinate tranformations.
 * Better performance.
-* Output to file.
 
 Installation
 ------------
-make
-make install # as root
+~$ make
+~# make install
 Library nctietue3 must be installed (github.com/aerkkila/nctietue3).
 Other dependencies are SDL2 and ncurses.
 An optional dependeny is shapelib for drawing coastlines.
