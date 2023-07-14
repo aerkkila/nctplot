@@ -48,7 +48,7 @@ static void quit(Arg _);
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 
-#include "functions.c"
+#include "functions.c" // draw1d, draw2d
 #ifdef HAVE_SHPLIB
 #include "coastlines.c"
 #endif
@@ -572,49 +572,49 @@ static Binding keydown_bindings_variables_m[] = {
 };
 
 static Binding keydown_bindings[] = {
-    { SDLK_q,        0,                   quit,          {0}               },
-    { SDLK_ESCAPE,   0,                   end_curses,    {0}               },
-    { SDLK_1,        0,                   shift_min,     {.f=-0.02}        },
-    { SDLK_1,        KMOD_SHIFT,          shift_max,     {.f=-0.02}        },
-    { SDLK_2,        0,                   shift_min,     {.f=0.02}         },
-    { SDLK_2,        KMOD_SHIFT,          shift_max,     {.f=0.02}         },
-    { SDLK_1,        KMOD_ALT,            shift_min_abs, {.f=-0.02}        },
-    { SDLK_1,        KMOD_SHIFT|KMOD_ALT, shift_max_abs, {.f=-0.02}        },
-    { SDLK_2,        KMOD_ALT,            shift_min_abs, {.f=0.02}         },
-    { SDLK_2,        KMOD_SHIFT|KMOD_ALT, shift_max_abs, {.f=0.02}         },
-    { SDLK_e,        0,                   toggle_var,    {.v=&globs.echo}  },
-    { SDLK_f,        0,                   toggle_var,    {.v=&fill_on}     },
-    { SDLK_i,        0,                   toggle_var,    {.v=&globs.invert_y}},
-    { SDLK_j,        0,                   jump_to,       {0}               },
-    { SDLK_SPACE,    0,                   toggle_var,    {.v=&play_on}     },
-    { SDLK_SPACE,    KMOD_SHIFT,          toggle_var,    {.v=&play_inv}    },
-    { SDLK_c,        0,                   cmap_ichange,  {.i=1}            },
-    { SDLK_c,        KMOD_SHIFT,          cmap_ichange,  {.i=-1}           },
-    { SDLK_c,        KMOD_ALT,            toggle_var,    {.v=&invert_c}    },
-    { SDLK_l,	     0,			  toggle_var,    {.v=&globs.coastlines}},
-    { SDLK_v,        0,                   var_ichange,   {.i=1}            },
-    { SDLK_v,        KMOD_SHIFT,          var_ichange,   {.i=-1}           },
-    { SDLK_v,        KMOD_ALT,            set_prog_mode, {.i=variables_m}  },
-    { SDLK_w,        0,                   use_lastvar,                     },
-    { SDLK_m,        0,                   set_prog_mode, {.i=mousepaint_m} },
-    { SDLK_n,        0,                   set_nan,			   },
-    { SDLK_n,        KMOD_SHIFT,          toggle_var,	 {.v=&globs.usenan}},
-    { SDLK_p,	     0,			  print_var,			   },
-    { SDLK_PLUS,     0,			  inc_zoom,	 {.f=-0.04}	   }, // smaller number is more zoom
-    { SDLK_MINUS,    0,			  inc_zoom,	 {.f=+0.04}	   }, // larger number is less zoom
-    { SDLK_RIGHT,    0,                   inc_znum,      {.i=1}            },
-    { SDLK_LEFT,     0,                   inc_znum,      {.i=-1}           },
-    { SDLK_RIGHT,    KMOD_SHIFT,          inc_offset_i,  {.i=7}            },
-    { SDLK_LEFT,     KMOD_SHIFT,          inc_offset_i,  {.i=-7}           },
-    { SDLK_RIGHT,    KMOD_SHIFT|KMOD_ALT, inc_offset_i,  {.i=1}            },
-    { SDLK_LEFT,     KMOD_SHIFT|KMOD_ALT, inc_offset_i,  {.i=-1}           },
-    { SDLK_UP,	     KMOD_SHIFT,          inc_offset_j,  {.i=-7}           },
-    { SDLK_DOWN,     KMOD_SHIFT,          inc_offset_j,  {.i=7}            },
-    { SDLK_UP,	     KMOD_SHIFT|KMOD_ALT, inc_offset_j,  {.i=-1}           },
-    { SDLK_DOWN,     KMOD_SHIFT|KMOD_ALT, inc_offset_j,  {.i=1}            },
-    { SDLK_s,        0,                   set_sleep,     {0}               },
-    { SDLK_RETURN,   0,                   use_pending,   {0}               },
-    { SDLK_KP_ENTER, 0,                   use_pending,   {0}               },
+    { SDLK_q,		0,			quit,		{0}			},
+    { SDLK_ESCAPE,	0,			end_curses,	{0}			},
+    { SDLK_1,		0,			shift_min,	{.f=-0.02}		},
+    { SDLK_1,		KMOD_SHIFT,		shift_max,	{.f=-0.02}		},
+    { SDLK_2,		0,			shift_min,	{.f=0.02}		},
+    { SDLK_2,		KMOD_SHIFT,		shift_max,	{.f=0.02}		},
+    { SDLK_1,		KMOD_ALT,		shift_min_abs,	{.f=-0.02}		},
+    { SDLK_1,		KMOD_SHIFT|KMOD_ALT,	shift_max_abs,	{.f=-0.02}		},
+    { SDLK_2,		KMOD_ALT,		shift_min_abs,	{.f=0.02}		},
+    { SDLK_2,		KMOD_SHIFT|KMOD_ALT,	shift_max_abs,	{.f=0.02}		},
+    { SDLK_e,		0,			toggle_var,	{.v=&globs.echo}	},
+    { SDLK_f,		0,			toggle_var,	{.v=&fill_on}		},
+    { SDLK_i,		0,			toggle_var,	{.v=&globs.invert_y}	},
+    { SDLK_j,		0,			jump_to,	{0}			},
+    { SDLK_SPACE,	0,			toggle_var,	{.v=&play_on}		},
+    { SDLK_SPACE,	KMOD_SHIFT,		toggle_var,	{.v=&play_inv}		},
+    { SDLK_c,		0,			cmap_ichange,	{.i=1}			},
+    { SDLK_c,		KMOD_SHIFT,		cmap_ichange,	{.i=-1}			},
+    { SDLK_c,		KMOD_ALT,		toggle_var,	{.v=&invert_c}		},
+    { SDLK_l,		0,			toggle_var,	{.v=&globs.coastlines}	},
+    { SDLK_v,		0,			var_ichange,	{.i=1}			},
+    { SDLK_v,		KMOD_SHIFT,		var_ichange,	{.i=-1}			},
+    { SDLK_v,		KMOD_ALT,		set_prog_mode,	{.i=variables_m}	},
+    { SDLK_w,		0,			use_lastvar,				},
+    { SDLK_m,		0,			set_prog_mode,	{.i=mousepaint_m}	},
+    { SDLK_n,		0,			set_nan,				},
+    { SDLK_n,		KMOD_SHIFT,		toggle_var,	{.v=&globs.usenan}	},
+    { SDLK_p,		0,			print_var,				},
+    { SDLK_PLUS,	0,			inc_zoom,	{.f=-0.04}		}, // smaller number is more zoom
+    { SDLK_MINUS,	0,			inc_zoom,	{.f=+0.04}		}, // larger number is less zoom
+    { SDLK_RIGHT,	0,			inc_znum,	{.i=1}			},
+    { SDLK_LEFT,	0,			inc_znum,	{.i=-1}			},
+    { SDLK_RIGHT,	KMOD_SHIFT,		inc_offset_i,	{.i=7}			},
+    { SDLK_LEFT,	KMOD_SHIFT,		inc_offset_i,	{.i=-7}			},
+    { SDLK_RIGHT,	KMOD_SHIFT|KMOD_ALT,	inc_offset_i,	{.i=1}			},
+    { SDLK_LEFT,	KMOD_SHIFT|KMOD_ALT,	inc_offset_i,	{.i=-1}			},
+    { SDLK_UP,		KMOD_SHIFT,		inc_offset_j,	{.i=-7}			},
+    { SDLK_DOWN,	KMOD_SHIFT,		inc_offset_j,	{.i=7}			},
+    { SDLK_UP,		KMOD_SHIFT|KMOD_ALT,	inc_offset_j,	{.i=-1}			},
+    { SDLK_DOWN,	KMOD_SHIFT|KMOD_ALT,	inc_offset_j,	{.i=1}			},
+    { SDLK_s,		0,			set_sleep,	{0}			},
+    { SDLK_RETURN,	0,			use_pending,	{0}			},
+    { SDLK_KP_ENTER,	0,			use_pending,	{0}			},
 };
 
 static int get_modstate() {
