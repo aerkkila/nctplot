@@ -27,18 +27,18 @@ Things yet to do
 
 Installation
 ------------
-~$ make
-~# make install
+    >>> ~$ make
+    >>> ~# make install
 
 Dependencies:
-* nctietue3 (github.com/aerkkila/nctietue3)
-* SDL2
-* ncurses
+    * nctietue3 (github.com/aerkkila/nctietue3)
+    * SDL2
+    * ncurses
 
 Optional dependencies:
-* shapelib (for coastlines)
-* nctproj->proj (for coordinate transformations)
-  - nctproj is integrated into nctietue3 unless it was compiled without proj-library
+    * shapelib (for coastlines)
+    * nctietue3::nctproj (requires proj) (for coordinate transformations)
+        - nctproj is integrated into nctietue3 unless it was compiled without proj-library
 
 See library/config.mk to disable optional dependencies.
 
@@ -46,8 +46,8 @@ Usage
 -----
 The executable is called nctplot.
 This can also be used from C-codes with:
->>> #include <nctplot.h>
->>> nctplot(args);
+    >>> #include <nctplot.h>
+    >>> nctplot(args);
 Compile the code with -lnctplot
 
 Keybindings are easily found in the source code:
