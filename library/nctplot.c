@@ -6,6 +6,9 @@
 #include <err.h>
 #include <dlfcn.h> // dlopen, dlerror, etc. for mousepaint
 #include "nctplot.h"
+#ifdef HAVE_NCTPROJ
+#include <nctproj.h>
+#endif
 
 static struct nctplot_globals globs = {
     .color_fg = {255, 255, 255},
@@ -420,7 +423,28 @@ static void quit(Arg _) {
     SDL_Quit();
 }
 
+#ifdef HAVE_NCTPROJ
+static void convert_coord(Arg _) {
+    char from[256], to[256];
+    int i;
+    printf("from: ");
+    for (i=0; i<255; i++)
+	if ((from[i] = getchar()) == '\n')
+	    break;
+    from[i] = 0;
+    printf("to: ");
+    for (i=0; i<255; i++)
+	if ((to[i] = getchar()) == '\n')
+	    break;
+    to[i] = 0;
+    var = nctproj_open_converted_var(var, from, to, NULL);
+    nct_load_stream(var, var->len);
+    variable_changed();
+}
+#endif
+
 static int mp_set_fvalue(char str[256]);
+static int mp_set_lfvalue(char str[256]);
 static int mp_set_ivalue(char str[256]);
 
 #define TMP mp_params.size
@@ -491,8 +515,10 @@ static void mp_save_frame(Arg) {
 
 static void mp_set_action(Arg arg) {
     char str[256];
-    if(var->dtype == NC_DOUBLE || var->dtype == NC_FLOAT) {
+    if(var->dtype == NC_FLOAT) {
 	if(!mp_set_fvalue(str)) return; }
+    else if (var->dtype == NC_DOUBLE) {
+	if(!mp_set_lfvalue(str)) return; }
     else {
 	if(!mp_set_ivalue(str)) return; }
 
@@ -517,6 +543,16 @@ static void mp_set_filename(Arg arg) {
 }
 
 static int mp_set_fvalue(char str[256]) {
+    printf("set floating point value or *.so with void function(void* in, void* out): ");
+    if(scanf("%255s", str) != 1)
+	warn("scanf");
+    if(sscanf(str, "%f", &mp_params.value.f) == 1) {
+	mp_params.mode = fixed_mp;
+	return 0; }
+    return 1;
+}
+
+static int mp_set_lfvalue(char str[256]) {
     printf("set floating point value or *.so with void function(void* in, void* out): ");
     if(scanf("%255s", str) != 1)
 	warn("scanf");
@@ -572,8 +608,8 @@ static Binding keydown_bindings_variables_m[] = {
 };
 
 static Binding keydown_bindings[] = {
-    { SDLK_q,		0,			quit,		{0}			},
-    { SDLK_ESCAPE,	0,			end_curses,	{0}			},
+    { SDLK_q,		0,			quit,					},
+    { SDLK_ESCAPE,	0,			end_curses,				},
     { SDLK_1,		0,			shift_min,	{.f=-0.02}		},
     { SDLK_1,		KMOD_SHIFT,		shift_max,	{.f=-0.02}		},
     { SDLK_2,		0,			shift_min,	{.f=0.02}		},
@@ -585,7 +621,7 @@ static Binding keydown_bindings[] = {
     { SDLK_e,		0,			toggle_var,	{.v=&globs.echo}	},
     { SDLK_f,		0,			toggle_var,	{.v=&fill_on}		},
     { SDLK_i,		0,			toggle_var,	{.v=&globs.invert_y}	},
-    { SDLK_j,		0,			jump_to,	{0}			},
+    { SDLK_j,		0,			jump_to,				},
     { SDLK_SPACE,	0,			toggle_var,	{.v=&play_on}		},
     { SDLK_SPACE,	KMOD_SHIFT,		toggle_var,	{.v=&play_inv}		},
     { SDLK_c,		0,			cmap_ichange,	{.i=1}			},
@@ -612,9 +648,12 @@ static Binding keydown_bindings[] = {
     { SDLK_DOWN,	KMOD_SHIFT,		inc_offset_j,	{.i=7}			},
     { SDLK_UP,		KMOD_SHIFT|KMOD_ALT,	inc_offset_j,	{.i=-1}			},
     { SDLK_DOWN,	KMOD_SHIFT|KMOD_ALT,	inc_offset_j,	{.i=1}			},
-    { SDLK_s,		0,			set_sleep,	{0}			},
-    { SDLK_RETURN,	0,			use_pending,	{0}			},
-    { SDLK_KP_ENTER,	0,			use_pending,	{0}			},
+    { SDLK_s,		0,			set_sleep,				},
+    { SDLK_RETURN,	0,			use_pending,				},
+    { SDLK_KP_ENTER,	0,			use_pending,				},
+#ifdef HAVE_NCTPROJ
+    { SDLK_t,		0,			convert_coord,				},
+#endif
 };
 
 static int get_modstate() {
