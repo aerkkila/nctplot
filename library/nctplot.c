@@ -246,6 +246,12 @@ static void variable_changed() {
 	nct_load(var);
     set_dimids();
     set_draw_params();
+    nct_att* att;
+    if (var->dtype != NC_FLOAT && var->dtype != NC_DOUBLE &&
+	    ((att = nct_get_varatt(var, "_FillValue")) || (att = nct_get_varatt(var, "FillValue")))) {
+	globs.usenan = 1;
+	globs.nanval = nct_getatt_integer(att, 0);
+    }
     call_redraw = update_minmax = 1;
 }
 
@@ -752,6 +758,7 @@ void nctplot_(void* vobject, int isset) {
 	win_w = dm.w;
 	win_h = dm.h;
     }
+
     set_dimids();
     int xlen = var->super->dims[var->dimids[xid]]->len, ylen;
     if (yid>=0)
@@ -764,11 +771,10 @@ void nctplot_(void* vobject, int isset) {
     rend = SDL_CreateRenderer(window, -1, SDL_RENDERER_TARGETTEXTURE);
     SDL_GetWindowSize(window, &win_w, &win_h);
     base = SDL_CreateTexture(rend, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, win_w, win_h);
-    set_draw_params();
+    variable_changed();
 
     sleeptime = default_sleep;
     stop = has_echoed = play_on = play_inv = 0;
-    call_redraw = update_minmax = 1;
     lastvar = NULL;
     mp_params = (struct Mp_params){0};
 
