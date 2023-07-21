@@ -432,16 +432,19 @@ static void quit(Arg _) {
 #ifdef HAVE_NCTPROJ
 static void convert_coord(Arg _) {
     char from[256], to[256];
-    int i;
+    int i = 0;
     printf("from: ");
-    for (i=0; i<255; i++)
-	if ((from[i] = getchar()) == '\n')
-	    break;
+    while (!i)
+	for (i=0; i<255; i++)
+	    if ((from[i] = getchar()) == '\n')
+		break;
     from[i] = 0;
     printf("to: ");
-    for (i=0; i<255; i++)
-	if ((to[i] = getchar()) == '\n')
-	    break;
+    i = 0;
+    while (!i)
+	for (i=0; i<255; i++)
+	    if ((to[i] = getchar()) == '\n')
+		break;
     to[i] = 0;
     var = nctproj_open_converted_var(var, from, to, NULL);
     nct_load_stream(var, var->len);
