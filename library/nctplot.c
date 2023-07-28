@@ -31,6 +31,7 @@ static char invert_c, stop, has_echoed, fill_on, play_on, play_inv, update_minma
 static int cmapnum=18, cmappix=30, cmapspace=10, call_resized, call_redraw, offset_i, offset_j;
 static float minshift, maxshift, minshift_abs, maxshift_abs, zoom=1;
 static float space; // (n(data) / n(pixels)) in one direction
+static char minmax[8*2];
 static const char* echo_highlight = "\033[1;93m";
 static void (*draw_funcptr)(const nct_var*);
 static enum {no_m, variables_m=-100, n_cursesmodes, mousepaint_m} prog_mode = no_m;
@@ -129,6 +130,48 @@ static void draw_colormap() {
 	}	
 }
 
+#define A echo_highlight
+#define B nct_default_color
+static void my_echo(void* minmax) {
+    int size1 = nctypelen(var->dtype);
+    if (!has_echoed)
+	for(int i=0; i<5; i++)
+	    putchar('\n');
+    has_echoed = 1;
+    printf("\r\033[%iA", echo_h); // move cursor to start
+    printf("%s%s%s: ", A, var->name, B);
+    printf("min %s", A);   nct_print_datum(var->dtype, minmax);       printf("%s", B);
+    printf(", max %s", A); nct_print_datum(var->dtype, minmax+size1); printf("%s", B);
+    printf("\033[K\n");
+    {
+	nct_var* xdim = nct_get_vardim(var, xid);
+	printf("x: %s%s(%zu)%s", A, xdim->name, xdim->len, B);
+    }
+    if (yid >= 0) {
+	nct_var* ydim = nct_get_vardim(var, yid);
+	printf(", y: %s%s(%zu)%s", A, ydim->name, ydim->len, B);
+    }
+    if (zvar) {
+	printf(", z: %s%s(%i/%zu ", A, zvar->name, znum+1, zvar->len);
+	if (time0.d >= 0) {
+	    char help[128];
+	    strftime(help, 128, "%F %T", nct_localtime((long)nct_get_integer(zvar,znum), time0));
+	    printf(" %s", help);
+	}
+	else
+	    nct_print_datum(zvar->dtype, zvar->data+znum*nctypelen(zvar->dtype));
+	printf(")%s", B);
+    }
+    printf("\033[K\n"
+	    "minshift %s%.4f%s, maxshift %s%.4f%s\033[K\n"
+	    "space = %s%.4f%s\033[K\n"
+	    "colormap = %s%s%s\033[K\n",
+	    A,minshift,B, A,maxshift,B,
+	    A,space,B, A,colormaps[cmapnum*2+1],B);
+}
+#undef A
+#undef B
+
 static long get_varpos_xy(int x, int y) {
     int xlen = NCTVARDIM(var, xid)->len;
     int ylen = NCTVARDIM(var, yid)->len;
@@ -170,11 +213,20 @@ static void redraw(nct_var* var) {
 	}
 	nct_load(var);
     }
+    if (update_minmax) {
+	update_minmax = 0;
+	if (globs.usenan)
+	    nct_minmax_nan(var, globs.nanval, minmax);
+	else
+	    nct_minmax(var, minmax);
+    }
 
     SDL_SetRenderTarget(rend, base);
     draw_funcptr(var);
     if (globs.coastlines)
 	coastlines(NULL);
+    if (globs.echo && prog_mode > n_cursesmodes)
+	my_echo(minmax);
     SDL_SetRenderTarget(rend, NULL);
 }
 

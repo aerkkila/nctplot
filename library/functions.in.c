@@ -16,6 +16,7 @@ static void print_value_@nctype(const nct_var* var, size_t pos) {
 
 #define A echo_highlight
 #define B nct_default_color
+#if 0
 static void draw_echo_@nctype(ctype minmax[]) {
     if (!has_echoed)
 	for(int i=0; i<5; i++)
@@ -46,6 +47,7 @@ static void draw_echo_@nctype(ctype minmax[]) {
 	   A,minshift,B, A,maxshift,B,
 	   A,space,B, A,colormaps[cmapnum*2+1],B);
 }
+#endif
 #undef A
 #undef B
 
@@ -57,18 +59,11 @@ static void draw2d_@nctype(const nct_var* var) {
     int usenan = globs.usenan;
     long long nanval = globs.nanval;
     int xlen = NCTVARDIM(var, xid)->len;
-    ctype minmax[2], range;
-    static ctype minmax_static[2];
+    ctype range;
     long dlen = var->len;
-    if (update_minmax) {
-	update_minmax = 0;
-	if (usenan)
-	    nct_minmax_nan_@nctype(var, nanval, minmax_static);
-	else
-	    nct_minmax_@nctype(var, minmax_static);
-    }
-    memcpy(minmax, minmax_static, 2*sizeof(ctype));
-    range = minmax[1]-minmax[0];
+    ctype my_minmax[2];
+    memcpy(my_minmax, minmax, 2*sizeof(ctype));
+    range = my_minmax[1] - my_minmax[0];
     if (minshift_abs != 0) {
 	minshift += minshift_abs/range;
 	minshift_abs = 0;
@@ -77,17 +72,15 @@ static void draw2d_@nctype(const nct_var* var) {
 	maxshift += maxshift_abs/range;
 	maxshift_abs = 0;
     }
-    minmax[0] += range*minshift;
-    minmax[1] += range*maxshift;
+    my_minmax[0] += range*minshift;
+    my_minmax[1] += range*maxshift;
     if (prog_mode == variables_m)
 	curses_write_vars();
-    else if (globs.echo)
-	draw_echo_@nctype(minmax);
 
     size_t offset = znum*stepsize_z*(zid>=0);
     SDL_SetRenderDrawColor(rend, globs.color_bg[0], globs.color_bg[1], globs.color_bg[2], 255);
     SDL_RenderClear(rend);
-    if (minmax[0] != minmax[0]) return; // Return if all values are nan.
+    if (my_minmax[0] != my_minmax[0]) return; // Return if all values are nan.
 
     int pixels_per_datum = 1.0 / space;
     float data_per_step = pixels_per_datum * space;
@@ -116,7 +109,7 @@ static void draw2d_@nctype(const nct_var* var) {
 		di += data_per_step;
 		i += pixels_per_datum;
 		continue; }
-	    int value = CVAL(val,minmax);
+	    int value = CVAL(val,my_minmax);
 	    if (invert_c) value = 0xff-value;
 	    char* c = COLORVALUE(cmapnum,value);
 	    SDL_SetRenderDrawColor(rend, c[0], c[1], c[2], 0xff);
@@ -156,24 +149,22 @@ static void draw2d_@nctype(const nct_var* var) {
 #undef CVAL
 
 static void draw1d_@nctype(const nct_var* var) {
-    ctype minmax[2], range;
-    nct_minmax_@nctype(var, minmax);
-    range = minmax[1]-minmax[0];
-    minmax[0] += range*minshift;
-    minmax[1] += range*maxshift;
-    if (minmax[1] == minmax[0])
-	minmax [1] += 1;
+    ctype my_minmax[2], range;
+    memcpy(my_minmax, minmax, 2*sizeof(ctype));
+    range = my_minmax[1]-my_minmax[0];
+    my_minmax[0] += range*minshift;
+    my_minmax[1] += range*maxshift;
+    if (my_minmax[1] == my_minmax[0])
+	my_minmax [1] += 1;
     if (prog_mode == variables_m)
 	curses_write_vars();
-    else if (globs.echo)
-	draw_echo_@nctype(minmax);
     SDL_SetRenderDrawColor(rend, globs.color_bg[0], globs.color_bg[1], globs.color_bg[2], 255);
     SDL_RenderClear(rend);
-    if (minmax[0] != minmax[0]) return;
+    if (my_minmax[0] != my_minmax[0]) return;
     double di=0;
     SDL_SetRenderDrawColor(rend, globs.color_fg[0], globs.color_fg[1], globs.color_fg[2], 255);
     for(int i=0; i<win_w; i++, di+=space) {
-	int y = (((ctype*)var->data)[(int)di] - minmax[0]) * win_h / (minmax[1]-minmax[0]);
+	int y = (((ctype*)var->data)[(int)di] - my_minmax[0]) * win_h / (my_minmax[1]-my_minmax[0]);
 	SDL_RenderDrawPoint(rend, i, y);
     }
 }
