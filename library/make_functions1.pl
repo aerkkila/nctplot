@@ -6,7 +6,6 @@
 $ntypes = @nctypes;
 
 $functions = '
-void print_value_@nctype(const nct_var*, size_t);
 void draw1d_@nctype(const nct_var*);
 void draw2d_@nctype(const nct_var*);
 ';

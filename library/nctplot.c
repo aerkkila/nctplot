@@ -192,7 +192,7 @@ static void mousemotion() {
     long pos = get_varpos_xy(x,y);
     if(pos < 0) return;
     printf("\033[A\r");
-    print_value(var, pos);
+    nct_print_datum(var->dtype, var->data + pos*nctypelen(var->dtype));
     printf("[%zu (%i,%i)]\033[K\n", pos,(int)(y*space),(int)(x*space));
 }
 

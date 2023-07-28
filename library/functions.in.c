@@ -5,51 +5,10 @@
 void* nct_minmax_@nctype(const nct_var*, void* result); // global but hidden function
 void* nct_minmax_nan_@nctype(const nct_var*, long nanval, void* result); // global but hidden function
 
-static void print_value_@nctype(const nct_var* var, size_t pos) {
-    printf("%@form", ((@ctype*)var->data)[pos]);
-}
-
 #define NCTVARDIM(a,b) ((a)->super->dims[(a)->dimids[b]])
 #ifndef echo_h
 #define echo_h 5
 #endif
-
-#define A echo_highlight
-#define B nct_default_color
-#if 0
-static void draw_echo_@nctype(ctype minmax[]) {
-    if (!has_echoed)
-	for(int i=0; i<5; i++)
-	    putchar('\n');
-    has_echoed = 1;
-    printf("\r\033[%iA%s%s%s: min %s%@form%s, max %s%@form%s\033[K\n"
-	   "x: %s%s(%zu)%s",
-	   echo_h,
-	   A,var->name,B, A,minmax[0],B, A,minmax[1],B,
-	   A,NCTVARDIM(var, xid)->name,NCTVARDIM(var, xid)->len,B);
-    if (yid>=0)
-	printf(", y: %s%s(%zu)%s",
-	       A,NCTVARDIM(var, yid)->name,NCTVARDIM(var, yid)->len,B);
-    if (zvar) {
-	printf(", z: %s%s(%i/%zu",
-	       A,NCTVARDIM(var, zid)->name,znum+1,NCTVARDIM(var, zid)->len);
-	if (time0.d >= 0) {
-	    char help[128];
-	    strftime(help, 128, "%F %T", nct_localtime((long)nct_get_integer(zvar,znum), time0));
-	    printf(" %s", help);
-	}
-	printf(")%s", B);
-    }
-    printf("\033[K\n"
-	   "minshift %s%.4f%s, maxshift %s%.4f%s\033[K\n"
-	   "space = %s%.4f%s\033[K\n"
-	   "colormap = %s%s%s\033[K\n",
-	   A,minshift,B, A,maxshift,B,
-	   A,space,B, A,colormaps[cmapnum*2+1],B);
-}
-#endif
-#undef A
-#undef B
 
 #define CVAL(val,minmax) ((val) <  (minmax)[0] ? 0   :			\
 			  (val) >= (minmax)[1] ? 255 :			\
