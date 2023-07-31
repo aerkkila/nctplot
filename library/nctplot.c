@@ -16,22 +16,32 @@ static struct nctplot_globals globs = {
     .invert_y = 1,
 };
 
+typedef struct {
+    nct_var *var, *zvar;
+    nct_anyd time0;
+    char minmax[8*2];
+    SDL_Point* coasts;
+    int znum;
+    size_t stepsize_z;
+} plottable;
+
 /* Static variables. Global in the context of this library. */
+static plottable* plottables;
+static int pltind, prev_pltind;
+#define plt (plottables[pltind])
+static nct_var* var; // = plt.var
 static SDL_Renderer* rend;
 static SDL_Window* window;
 static SDL_Texture* base;
-static nct_var *var, *zvar, *lastvar;
 static nct_anyd time0 = {.d=-1};
 static WINDOW *wnd;
 static const Uint32 default_sleep=8; // ms
 static Uint32 sleeptime;
-static int win_w, win_h, xid, yid, zid, draw_w, draw_h, znum, pending_varnum=-1;
-static size_t stepsize_z;
+static int win_w, win_h, xid, yid, zid, draw_w, draw_h, pending_varnum=-1;
 static char invert_c, stop, has_echoed, fill_on, play_on, play_inv, update_minmax=1;
 static int cmapnum=18, cmappix=30, cmapspace=10, call_resized, call_redraw, offset_i, offset_j;
 static float minshift, maxshift, minshift_abs, maxshift_abs, zoom=1;
 static float space; // (n(data) / n(pixels)) in one direction
-static char minmax[8*2];
 static const char* echo_highlight = "\033[1;93m";
 static void (*draw_funcptr)(const nct_var*);
 static enum {no_m, variables_m=-100, n_cursesmodes, mousepaint_m} prog_mode = no_m;
@@ -39,6 +49,7 @@ static enum {no_m, variables_m=-100, n_cursesmodes, mousepaint_m} prog_mode = no
 typedef union Arg Arg;
 typedef struct Binding Binding;
 
+static void my_echo(void* minmax);
 static void redraw(nct_var* var);
 static void draw_colormap();
 static void set_dimids();
@@ -133,6 +144,9 @@ static void draw_colormap() {
 #define A echo_highlight
 #define B nct_default_color
 static void my_echo(void* minmax) {
+    if (!(globs.echo && prog_mode > n_cursesmodes))
+	return;
+    nct_var *zvar = plt.zvar;
     int size1 = nctypelen(var->dtype);
     if (!has_echoed)
 	for(int i=0; i<5; i++)
@@ -152,14 +166,14 @@ static void my_echo(void* minmax) {
 	printf(", y: %s%s(%zu)%s", A, ydim->name, ydim->len, B);
     }
     if (zvar) {
-	printf(", z: %s%s(%i/%zu ", A, zvar->name, znum+1, zvar->len);
+	printf(", z: %s%s(%i/%zu ", A, zvar->name, plt.znum+1, zvar->len);
 	if (time0.d >= 0) {
 	    char help[128];
-	    strftime(help, 128, "%F %T", nct_localtime((long)nct_get_integer(zvar,znum), time0));
+	    strftime(help, 128, "%F %T", nct_localtime((long)nct_get_integer(zvar, plt.znum), time0));
 	    printf(" %s", help);
 	}
 	else
-	    nct_print_datum(zvar->dtype, zvar->data+znum*nctypelen(zvar->dtype));
+	    nct_print_datum(zvar->dtype, zvar->data+plt.znum*nctypelen(zvar->dtype));
 	printf(")%s", B);
     }
     printf("\033[K\n"
@@ -180,7 +194,7 @@ static long get_varpos_xy(int x, int y) {
     if(x>=xlen || y>=ylen) return -1;
     if(globs.invert_y && yid>=0)
 	y = NCTVARDIM(var, yid)->len - y - 1;
-    return (zid>=0)*xlen*ylen*znum + (yid>=0)*xlen*y + x;
+    return (zid>=0)*xlen*ylen*plt.znum + (yid>=0)*xlen*y + x;
 }
 
 static void mousemotion() {
@@ -216,17 +230,18 @@ static void redraw(nct_var* var) {
     if (update_minmax) {
 	update_minmax = 0;
 	if (globs.usenan)
-	    nct_minmax_nan(var, globs.nanval, minmax);
+	    nct_minmax_nan(var, globs.nanval, plt.minmax);
 	else
-	    nct_minmax(var, minmax);
+	    nct_minmax(var, plt.minmax);
     }
 
     SDL_SetRenderTarget(rend, base);
     draw_funcptr(var);
-    if (globs.coastlines)
-	coastlines(NULL);
-    if (globs.echo && prog_mode > n_cursesmodes)
-	my_echo(minmax);
+    if (globs.coastlines) {
+	if (!plt.coasts)
+	    plt.coasts = init_coastlines(NULL);
+	draw_coastlines(plt.coasts);
+    }
     SDL_SetRenderTarget(rend, NULL);
 }
 
@@ -252,14 +267,14 @@ static void set_dimids() {
     zid = var->ndims-3;
     draw_funcptr = yid<0? draw1d: draw2d;
     if(zid>=0) {
-	zvar = var->super->dims[var->dimids[zid]];
-	time0 = nct_mktime0_nofail(zvar, NULL);
-	if(!zvar->data && nct_iscoord(zvar))
-	    nct_load(zvar);
+	plt.zvar = var->super->dims[var->dimids[zid]];
+	plt.time0 = nct_mktime0_nofail(plt.zvar, NULL);
+	if(!plt.zvar->data && nct_iscoord(plt.zvar))
+	    nct_load(plt.zvar);
     }
     else {
-	zvar = NULL;
-	time0.d = -1;
+	plt.zvar = NULL;
+	plt.time0.d = -1;
     }
 }
 
@@ -268,9 +283,9 @@ static void set_dimids() {
 #define GET_SPACE(a,b,c,d) (fill_on? GET_SPACE_FILL(a,b,c,d): GET_SPACE_NONFILL(a,b,c,d))
 
 static void set_draw_params() {
-    int xlen = NCTVARDIM(var, xid)->len, ylen;
+    int xlen = nct_get_vardim(var, xid)->len, ylen;
     if(yid>=0) {
-	ylen  = NCTVARDIM(var, yid)->len;
+	ylen  = nct_get_vardim(var, yid)->len;
 	space = GET_SPACE(xlen, win_w, ylen, win_h-cmapspace-cmappix);
     } else {
 	space = (float)(xlen)/(win_w);
@@ -284,7 +299,7 @@ static void set_draw_params() {
     draw_w = MIN(win_w, draw_w);
     draw_h = MIN(win_h-cmapspace-cmappix, draw_h);
     if(zid>=0)
-	stepsize_z = nct_get_len_from(var, zid+1);
+	plt.stepsize_z = nct_get_len_from(var, zid+1);
 }
 
 static uint_fast64_t time_now_ms() {
@@ -294,6 +309,10 @@ static uint_fast64_t time_now_ms() {
 }
 
 static void variable_changed() {
+    pltind = nct_varid(var);
+    if (!plt.var) // using this variable for the first time
+	update_minmax = 1;
+    plt.var = var;
     if(!var->data)
 	nct_load(var);
     set_dimids();
@@ -304,7 +323,7 @@ static void variable_changed() {
 	globs.usenan = 1;
 	globs.nanval = nct_getatt_integer(att, 0);
     }
-    call_redraw = update_minmax = 1;
+    call_redraw = 1;
 }
 
 static void cmap_ichange(Arg jump) {
@@ -332,7 +351,7 @@ static void inc_offset_j(Arg arg) {
 
 static void inc_znum(Arg intarg) {
     size_t zlen = NCTVARDIM(var,zid)->len;
-    znum = (znum + zlen + intarg.i) % zlen;
+    plt.znum = (plt.znum + zlen + intarg.i) % zlen;
     call_redraw = 1;
 }
 
@@ -345,8 +364,8 @@ static void inc_zoom(Arg arg) {
 static void jump_to(Arg _) {
     printf("Enter a framemumber to jump to ");
     fflush(stdout);
-    if(scanf("%i", &znum) != 1)
-	znum = 0;
+    if(scanf("%i", &plt.znum) != 1)
+	plt.znum = 0;
     printf("\033[A\r\033[K");
     fflush(stdout);
 }
@@ -407,20 +426,18 @@ static void set_nan(Arg _) {
     globs.usenan = update_minmax = call_redraw = 1;
 }
 
-static void use_pending(Arg _);
-
-static void use_and_exit(Arg _) {
-    use_pending(_);
-    end_curses(_);
-}
-
 static void use_pending(Arg _) {
-    lastvar = var;
+    prev_pltind = pltind;
     if(pending_varnum >= 0) {
 	var = var->super->vars[pending_varnum];
 	pending_varnum = -1;
     }
     variable_changed();
+}
+
+static void use_and_exit(Arg _) {
+    use_pending(_);
+    end_curses(_);
 }
 
 static void var_ichange(Arg jump) {
@@ -461,19 +478,22 @@ static void set_sleep(Arg _) {
 }
 
 static void use_lastvar(Arg _) {
-    if(!lastvar) return;
-    nct_var* tmp = var;
-    var = lastvar;
-    lastvar = tmp;
+    if (prev_pltind < 0) return;
+    int tmp = pltind;
+    var = var->super->vars[prev_pltind];
+    prev_pltind = tmp;
     variable_changed();
 }
 
 static void quit(Arg _) {
     stop = 1;
-    if(prog_mode != no_m)
+    if (prog_mode < n_cursesmodes)
 	end_curses((Arg){0});
-    if(mp_params.dlhandle)
+    if (mp_params.dlhandle)
 	dlclose(mp_params.dlhandle);
+    free_coastlines();
+    for(int i=0; i<var->super->nvars; i++)
+	free(plottables[i].coasts);
     mp_params = (struct Mp_params){0};
     SDL_DestroyTexture(base);
     SDL_DestroyRenderer(rend);
@@ -564,7 +584,7 @@ static void mp_save_frame(Arg) {
     len *= out.dims[id++]->len;
 
     void* data = var->data;
-    data += (zid >= 0) * znum * stepsize_z * nctypelen(var->dtype);
+    data += (zid >= 0) * plt.znum * plt.stepsize_z * nctypelen(var->dtype);
     nct_ensure_unique_name(nct_add_var_alldims(&out, data, var->dtype, "data"))
 	-> not_freeable = 1;
 
@@ -800,6 +820,7 @@ void nctplot_(void* vobject, int isset) {
     if (!var) {
 	nct_puterror("No variable to plot\n");
 	return; }
+    
     if (SDL_Init(SDL_INIT_VIDEO)) {
 	nct_puterror("sdl_init: %s\n", SDL_GetError());
 	return; }
@@ -814,6 +835,9 @@ void nctplot_(void* vobject, int isset) {
 	win_h = dm.h;
     }
 
+    plottables = calloc(var->super->nvars, sizeof(plottable));
+    pltind = nct_varid(var);
+    plottables[pltind].var = var;
     set_dimids();
     int xlen = var->super->dims[var->dimids[xid]]->len, ylen;
     if (yid>=0)
@@ -830,7 +854,7 @@ void nctplot_(void* vobject, int isset) {
 
     sleeptime = default_sleep;
     stop = has_echoed = play_on = play_inv = 0;
-    lastvar = NULL;
+    prev_pltind = -1;
     mp_params = (struct Mp_params){0};
 
     mainloop();

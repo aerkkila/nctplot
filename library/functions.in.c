@@ -17,11 +17,11 @@ void* nct_minmax_nan_@nctype(const nct_var*, long nanval, void* result); // glob
 static void draw2d_@nctype(const nct_var* var) {
     int usenan = globs.usenan;
     long long nanval = globs.nanval;
-    int xlen = NCTVARDIM(var, xid)->len;
+    int xlen = nct_get_vardim(var, xid)->len;
     ctype range;
     long dlen = var->len;
     ctype my_minmax[2];
-    memcpy(my_minmax, minmax, 2*sizeof(ctype));
+    memcpy(my_minmax, plt.minmax, 2*sizeof(ctype));
     range = my_minmax[1] - my_minmax[0];
     if (minshift_abs != 0) {
 	minshift += minshift_abs/range;
@@ -36,7 +36,9 @@ static void draw2d_@nctype(const nct_var* var) {
     if (prog_mode == variables_m)
 	curses_write_vars();
 
-    size_t offset = znum*stepsize_z*(zid>=0);
+    my_echo(my_minmax);
+
+    size_t offset = plt.znum*plt.stepsize_z*(zid>=0);
     SDL_SetRenderDrawColor(rend, globs.color_bg[0], globs.color_bg[1], globs.color_bg[2], 255);
     SDL_RenderClear(rend);
     if (my_minmax[0] != my_minmax[0]) return; // Return if all values are nan.
@@ -109,7 +111,7 @@ static void draw2d_@nctype(const nct_var* var) {
 
 static void draw1d_@nctype(const nct_var* var) {
     ctype my_minmax[2], range;
-    memcpy(my_minmax, minmax, 2*sizeof(ctype));
+    memcpy(my_minmax, plt.minmax, 2*sizeof(ctype));
     range = my_minmax[1]-my_minmax[0];
     my_minmax[0] += range*minshift;
     my_minmax[1] += range*maxshift;
@@ -117,6 +119,7 @@ static void draw1d_@nctype(const nct_var* var) {
 	my_minmax [1] += 1;
     if (prog_mode == variables_m)
 	curses_write_vars();
+    my_echo(my_minmax);
     SDL_SetRenderDrawColor(rend, globs.color_bg[0], globs.color_bg[1], globs.color_bg[2], 255);
     SDL_RenderClear(rend);
     if (my_minmax[0] != my_minmax[0]) return;
