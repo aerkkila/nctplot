@@ -20,14 +20,17 @@ typedef struct {
     nct_var *var, *zvar;
     nct_anyd time0;
     char minmax[8*2];
-    SDL_Point* coasts;
     int znum;
     size_t stepsize_z;
+    /* for coastlines */
+    double* coasts;
+    char* crs;
+    double x0, y0, xspace, yspace;
 } plottable;
 
 /* Static variables. Global in the context of this library. */
 static plottable* plottables;
-static int pltind, prev_pltind;
+static int pltind, prev_pltind, n_plottables;
 #define plt (plottables[pltind])
 static nct_var* var; // = plt.var
 static SDL_Renderer* rend;
@@ -239,8 +242,8 @@ static void redraw(nct_var* var) {
     draw_funcptr(var);
     if (globs.coastlines) {
 	if (!plt.coasts)
-	    plt.coasts = init_coastlines(NULL);
-	draw_coastlines(plt.coasts);
+	    init_coastlines(&plt, NULL);
+	draw_coastlines(&plt);
     }
     SDL_SetRenderTarget(rend, NULL);
 }
@@ -310,6 +313,12 @@ static uint_fast64_t time_now_ms() {
 
 static void variable_changed() {
     pltind = nct_varid(var);
+    if (pltind >= n_plottables) { // possible if a new variable was created
+	int add = pltind + 1 - n_plottables;
+	n_plottables = pltind + 1;
+	plottables = realloc(plottables, n_plottables*sizeof(plottable));
+	memset(plottables+n_plottables-add, 0, add*sizeof(plottable));
+    }
     if (!plt.var) // using this variable for the first time
 	update_minmax = 1;
     plt.var = var;
@@ -485,6 +494,11 @@ static void use_lastvar(Arg _) {
     variable_changed();
 }
 
+static void free_plottable(plottable* plott) {
+    free(plott->coasts);
+    free(plott->crs);
+}
+
 static void quit(Arg _) {
     stop = 1;
     if (prog_mode < n_cursesmodes)
@@ -492,8 +506,8 @@ static void quit(Arg _) {
     if (mp_params.dlhandle)
 	dlclose(mp_params.dlhandle);
     free_coastlines();
-    for(int i=0; i<var->super->nvars; i++)
-	free(plottables[i].coasts);
+    for(int i=0; i<n_plottables; i++)
+	free_plottable(plottables+i);
     mp_params = (struct Mp_params){0};
     SDL_DestroyTexture(base);
     SDL_DestroyRenderer(rend);
@@ -521,6 +535,7 @@ static void convert_coord(Arg _) {
     var = nctproj_open_converted_var(var, from, to, NULL);
     nct_load_stream(var, var->len);
     variable_changed();
+    plt.crs = strdup(to); // not before variable_changed()
 }
 #endif
 
@@ -835,7 +850,8 @@ void nctplot_(void* vobject, int isset) {
 	win_h = dm.h;
     }
 
-    plottables = calloc(var->super->nvars, sizeof(plottable));
+    n_plottables = var->super->nvars;
+    plottables = calloc(n_plottables, sizeof(plottable));
     pltind = nct_varid(var);
     plottables[pltind].var = var;
     set_dimids();

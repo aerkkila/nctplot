@@ -10,6 +10,10 @@ endif
 ifdef have_nctproj
 	CFLAGS += -DHAVE_NCTPROJ
 endif
+ifdef have_proj
+	CFLAGS += -DHAVE_PROJ
+	libraries += -lproj
+endif
 
 all: $(alltarget)
 
