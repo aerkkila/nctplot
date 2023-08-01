@@ -335,6 +335,21 @@ static void variable_changed() {
     call_redraw = 1;
 }
 
+static void ask_crs(Arg _) {
+    char crs[256];
+    int i = 0;
+    printf("coordinate system: ");
+    while (!i)
+	for (i=0; i<255; i++)
+	    if ((crs[i] = getchar()) == '\n')
+		break;
+    free(plt.crs);
+    plt.crs = strdup(crs);
+    free(plt.coasts);
+    plt.coasts = NULL;
+    call_redraw = 1;
+}
+
 static void cmap_ichange(Arg jump) {
     int len = ARRSIZE(colormaps) / 2;
     cmapnum = (cmapnum+len+jump.i) % len;
@@ -747,6 +762,7 @@ static Binding keydown_bindings[] = {
     { SDLK_s,		0,			set_sleep,				},
     { SDLK_RETURN,	0,			use_pending,				},
     { SDLK_KP_ENTER,	0,			use_pending,				},
+    { SDLK_t,		KMOD_SHIFT,		ask_crs,				},
 #ifdef HAVE_NCTPROJ
     { SDLK_t,		0,			convert_coord,				},
 #endif
