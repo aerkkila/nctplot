@@ -19,10 +19,9 @@ Features
 
 Things yet to do
 ----------------
-* Coastlines in differents coordinates.
-* Better performance.
 * Support for 4D-variables.
 * Support for variable groups.
+* Better performance.
 * Better suport for 1D-variables.
 
 Installation
@@ -39,6 +38,7 @@ Optional dependencies:
     * shapelib (for coastlines)
     * nctietue3::nctproj (requires proj) (for coordinate transformations)
         - nctproj is integrated into nctietue3 unless it was compiled without proj-library
+    * proj (for coastlines in different coordinate systems than longitude-latitude)
 
 See library/config.mk to disable optional dependencies.
 
@@ -53,7 +53,3 @@ Compile the code with -lnctplot
 Keybindings are easily found in the source code:
 Search keydown_bindings in library/nctplot.c.
 No other documentation exists for keybindings.
-
-Bugs:
------
-Yes.
