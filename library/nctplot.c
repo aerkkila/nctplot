@@ -36,7 +36,6 @@ static nct_var* var; // = plt.var
 static SDL_Renderer* rend;
 static SDL_Window* window;
 static SDL_Texture* base;
-static nct_anyd time0 = {.d=-1};
 static WINDOW *wnd;
 static const Uint32 default_sleep=8; // ms
 static Uint32 sleeptime;
@@ -170,9 +169,9 @@ static void my_echo(void* minmax) {
     }
     if (zvar) {
 	printf(", z: %s%s(%i/%zu ", A, zvar->name, plt.znum+1, zvar->len);
-	if (time0.d >= 0) {
+	if (plt.time0.d >= 0) {
 	    char help[128];
-	    strftime(help, 128, "%F %T", nct_localtime((long)nct_get_integer(zvar, plt.znum), time0));
+	    strftime(help, 128, "%F %T", nct_localtime((long)nct_get_integer(zvar, plt.znum), plt.time0));
 	    printf(" %s", help);
 	}
 	else
