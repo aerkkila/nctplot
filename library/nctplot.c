@@ -885,7 +885,8 @@ void nctplot_(void* vobject, int isset) {
 
     sleeptime = default_sleep;
     stop = has_echoed = play_on = play_inv = 0;
-    prev_pltind = -1;
+    update_minmax = 1;
+    prev_pltind = pending_varnum = -1;
     mp_params = (struct Mp_params){0};
 
     mainloop();

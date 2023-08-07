@@ -16,7 +16,7 @@ void no_conversion(float x, float y, double out[2]) {
 
 /* Tämän kuuluu palauttaa rantaviivat halutuissa koordinaateissa.
    Muuntaminen pikseleiksi tehdään vasta piirtohetkellä.
-   coordinates on proj-kirjastolle annettava tunniste, esim "+proj=laea, lat_0=90"
+   coordinates on proj-kirjastolle annettava tunniste, esim "+proj=laea lat_0=90"
    vaihtoehtoisesti voidaan antaa oma muunnosfunktio latlon2other.
    Molempia ei ole hyödyllistä antaa. */
 static double* make_coastlines(const char* coordinates, void (*conversion)(float,float,double[2])) {
@@ -27,32 +27,21 @@ static double* make_coastlines(const char* coordinates, void (*conversion)(float
     else if (!conversion)
 	conversion = no_conversion;
 
-    /*
-	if (init_default_conversion()) {
-	    nct_puterror("Failed initializing default conversion.\n");
-	    globs.coastlines = 0;
-	    return NULL;
-	}
-	latlon2other = default_conversion;
-    }
-    lat0 = lat0_;
-    lon0 = lon0_;
-    */
-
     SHPHandle shp = SHPOpen(shpname, "r");
     int nent, shptype;
     double padfmin[4], padfmax[4];
     SHPGetInfo(shp, &nent, &shptype, padfmin, padfmax);
 
-    if (!coastl_total) {
+    if (!coastl_total)
 	for(int i=0; i<nent; i++) {
 	    SHPObject* restrict obj = SHPReadObject(shp, i);
 	    coastl_nparts += obj->nParts;
 	    coastl_total += obj->nVertices;
 	    SHPDestroyObject(obj);
 	}
+    if (!coastl_lengths)
 	coastl_lengths = malloc(coastl_nparts*sizeof(int));
-    }
+
     double* points = malloc(coastl_total*sizeof(double)*2);
 
     int point_ind = 0;
@@ -68,13 +57,13 @@ static double* make_coastlines(const char* coordinates, void (*conversion)(float
 		float y = obj->padfY[v];
 		conversion(x, y, points+point_ind*2);
 		/* if (globs.invert_y)
-		    points[point_ind].y = draw_h - points[point_ind].y;*/
+		   points[point_ind].y = draw_h - points[point_ind].y;*/
 		point_ind++;
 	    }
 	}
 	obj = (SHPDestroyObject(obj), NULL);
     }
-    
+
     if (conversion == coastl_proj_convert)
 	coastl_proj_destroy();
     SHPClose(shp);
