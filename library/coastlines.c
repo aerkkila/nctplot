@@ -56,8 +56,6 @@ static double* make_coastlines(const char* coordinates, void (*conversion)(float
 		float x = obj->padfX[v];
 		float y = obj->padfY[v];
 		conversion(x, y, points+point_ind*2);
-		/* if (globs.invert_y)
-		   points[point_ind].y = draw_h - points[point_ind].y;*/
 		point_ind++;
 	    }
 	}
@@ -93,8 +91,9 @@ static void coord_to_point(double x, double y, SDL_Point* point) {
 static void draw_coastlines(plottable* plott) {
     SDL_SetRenderDrawColor(rend, globs.color_fg[0], globs.color_fg[1], globs.color_fg[2], 255);
     int ind = 0;
-    tmp_x0 = plott->x0 + offset_i;
-    tmp_y0 = plott->y0 + offset_j;
+    /* tmp_x0 is coordinate value, therefore offset is multiplied with coordinate interval, plott->xspace */
+    tmp_x0 = plott->x0 + offset_i * plott->xspace;
+    tmp_y0 = plott->y0 + offset_j * plott->yspace;
     tmp_xspace = 1 / plott->xspace / space;
     tmp_yspace = 1 / plott->yspace / space;
     double* points = plott->coasts;
