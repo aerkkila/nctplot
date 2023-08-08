@@ -29,6 +29,10 @@ Installation
     >>> ~$ make
     >>> ~# make install
 
+Compile time dependencies in addition to a C compiler:
+    * make
+    * which
+
 Dependencies:
     * nctietue3 (github.com/aerkkila/nctietue3)
     * SDL2
@@ -50,6 +54,7 @@ This can also be used from C-codes with:
     >>> nctplot(args);
 Compile the code with -lnctplot
 
-Keybindings are easily found in the source code:
-Search keydown_bindings in library/nctplot.c.
-No other documentation exists for keybindings.
+The keybindings are in a separate source file called bindings.h.
+This file is used as documentation for the keybindings.
+The only key you need to know is h (help), which will display the keybinding file.
+See pager in config.mk to select the program to display the file.

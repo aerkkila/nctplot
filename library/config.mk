@@ -1,3 +1,9 @@
+# Select the pager to use to display the keybindings when h (help) is pressed.
+# Multiple options can be given. The first existing one is selected at compile time.
+# One may want to use a text editor with syntax highlighting since the keybindings are in a regular C source file.
+# To pass an argument to the program, use a backslash and a space, e.g. nvim\ -R
+pager = nvim\ -R vim\ -R $(PAGER) less more
+
 # shapelib/shplib is used in drawing coastlines. Comment out the following if you don't have shapelib installed.
 have_shapelib = 1
 

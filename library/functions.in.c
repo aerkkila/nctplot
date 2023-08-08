@@ -48,7 +48,7 @@ static void draw2d_@nctype(const nct_var* var) {
     pixels_per_datum += data_per_step < 1;
     data_per_step = pixels_per_datum*space;
 
-    /* Draws a data row to the screen.
+    /* Draws a data row.
      * Data is scaled so that each datum becomes j1-j0 pixels high and wide.
      * j0, j1 and i are window coordinates, jj and (size_t)di are data coordinates */
     void draw_thick_i_line(int j0, int j1, size_t jj) {
@@ -89,18 +89,12 @@ static void draw2d_@nctype(const nct_var* var) {
     float fdataj = offset_j + 0.5*data_per_step;
     if (globs.invert_y)
 	for(j0=j1=draw_h-1; j0>=0; j0=j1) {
-	    //float f = 0;
-	    //while((--j1>=0) & ((f+=space)<1));
-	    //fdataj += f;
 	    j1 -= pixels_per_datum;
 	    draw_thick_i_line(j1, j0, round(fdataj));
 	    fdataj += data_per_step;
 	}
     else
 	for(j0=j1=0; j0<draw_h; j0=j1) {
-	    //float f = 0;
-	    //while((++j1<draw_h) & ((f+=space)<1));
-	    //fdataj += f;
 	    j1 += pixels_per_datum;
 	    draw_thick_i_line(j0, j1, round(fdataj));
 	    fdataj += data_per_step;
