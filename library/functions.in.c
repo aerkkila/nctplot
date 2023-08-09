@@ -14,6 +14,24 @@ void* nct_minmax_nan_@nctype(const nct_var*, long nanval, void* result); // glob
 			  (val) >= (minmax)[1] ? 255 :			\
 			  ((val)-(minmax)[0])*255 / ((minmax)[1]-(minmax)[0]) )
 
+/* These isnan functions can be used even with -ffinite-math-only optimization,
+   which is part of -Ofast optimization. */
+#if __nctype__ == NC_FLOAT
+static int my_isnan_float(float f) {
+    const unsigned exponent = ((1u<<31)-1) - ((1u<<(31-8))-1);
+    unsigned bits;
+    memcpy(&bits, &f, 4);
+    return (bits & exponent) == exponent;
+}
+#elif __nctype__ == NC_DOUBLE
+static int my_isnan_double(double f) {
+    const long unsigned exponent = ((1lu<<63)-1) - ((1lu<<(63-8))-1);
+    long unsigned bits;
+    memcpy(&bits, &f, 8);
+    return (bits & exponent) == exponent;
+}
+#endif
+
 static void draw2d_@nctype(const nct_var* var) {
     int usenan = globs.usenan;
     long long nanval = globs.nanval;
@@ -60,11 +78,17 @@ static void draw2d_@nctype(const nct_var* var) {
 	    if (ind >= dlen)
 		return;
 	    ctype val = ((ctype*)var->data)[ind];
-#if __nctype__==NC_DOUBLE || __nctype__==NC_FLOAT
-	    if (val != val) {
+#if __nctype__ == NC_DOUBLE || __nctype__ == NC_FLOAT
+#if __nctype__ == NC_DOUBLE
+	    if (my_isnan_double(val))
+#else
+	    if (my_isnan_float(val))
+#endif
+	    {
 		di += data_per_step;
 		i += pixels_per_datum;
-		continue; }
+		continue;
+	    }
 #endif
 	    if (usenan && val==nanval) {
 		di += data_per_step;

@@ -13,7 +13,7 @@ have_nctproj = 1
 # proj is used in coordinate transformations on coastlines. Comment this out if you don't have proj or coastlines are disabled.
 have_proj = 1
 
-CFLAGS = -Wall -g -fPIC -O3
+CFLAGS = -Wall -g -fPIC -Ofast
 CC = gcc
 libraries += -lnctietue3 -lncurses -lSDL2 -ldl
 
