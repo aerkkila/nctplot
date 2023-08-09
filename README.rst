@@ -57,4 +57,4 @@ Compile the code with -lnctplot
 The keybindings are in a separate source file called bindings.h.
 This file is used as documentation for the keybindings.
 The only key you need to know is h (help), which will display the keybinding file.
-See pager in config.mk to select the program to display the file.
+See pager in library/config.mk to select the program to display the file.
