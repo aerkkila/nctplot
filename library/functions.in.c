@@ -19,14 +19,14 @@ void* nct_minmax_nan_@nctype(const nct_var*, long nanval, void* result); // glob
 #if __nctype__ == NC_FLOAT
 static int my_isnan_float(float f) {
     const unsigned exponent = ((1u<<31)-1) - ((1u<<(31-8))-1);
-    unsigned bits;
+    uint32_t bits;
     memcpy(&bits, &f, 4);
     return (bits & exponent) == exponent;
 }
 #elif __nctype__ == NC_DOUBLE
 static int my_isnan_double(double f) {
     const long unsigned exponent = ((1lu<<63)-1) - ((1lu<<(63-11))-1);
-    long unsigned bits;
+    uint64_t bits;
     memcpy(&bits, &f, 8);
     return (bits & exponent) == exponent;
 }
