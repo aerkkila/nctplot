@@ -25,7 +25,7 @@ static int my_isnan_float(float f) {
 }
 #elif __nctype__ == NC_DOUBLE
 static int my_isnan_double(double f) {
-    const long unsigned exponent = ((1lu<<63)-1) - ((1lu<<(63-8))-1);
+    const long unsigned exponent = ((1lu<<63)-1) - ((1lu<<(63-11))-1);
     long unsigned bits;
     memcpy(&bits, &f, 8);
     return (bits & exponent) == exponent;
