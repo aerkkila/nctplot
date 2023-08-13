@@ -17,6 +17,7 @@ static struct nctplot_globals globs = {
     .color_fg = {255, 255, 255},
     .echo = 1,
     .invert_y = 1,
+    .cache_size = 1L<<31,
 };
 
 typedef struct {
@@ -177,7 +178,7 @@ static void my_echo(void* minmax) {
 	    strftime(help, 128, "%F %T", nct_localtime((long)nct_get_integer(zvar, plt.znum), plt.time0));
 	    printf(" %s", help);
 	}
-	else
+	else if (nct_iscoord(zvar))
 	    nct_print_datum(zvar->dtype, zvar->data+plt.znum*nctypelen(zvar->dtype));
 	printf(")%s", B);
     }
@@ -192,27 +193,71 @@ static void my_echo(void* minmax) {
 #undef B
 
 static long get_varpos_xy(int x, int y) {
-    int xlen = NCTVARDIM(var, xid)->len;
-    int ylen = NCTVARDIM(var, yid)->len;
+    int xlen = nct_get_vardim(var, xid)->len;
+    int ylen = yid < 0 ? 0 : nct_get_vardim(var, yid)->len;
     y = (int)(y*space) + offset_j;
     x = (int)(x*space) + offset_i;
-    if(x>=xlen || y>=ylen) return -1;
-    if(globs.invert_y && yid>=0)
-	y = NCTVARDIM(var, yid)->len - y - 1;
+    if (x>=xlen || (y>=ylen && yid >= 0))
+	return -1;
+    if (globs.invert_y && yid>=0)
+	y = nct_get_vardim(var, yid)->len - y - 1;
     return (zid>=0)*xlen*ylen*plt.znum + (yid>=0)*xlen*y + x;
 }
 
 static void mousemotion() {
     static int count;
-    if(prog_mode == variables_m || !globs.echo) return;
-    if(!count++) return;
+    if(prog_mode < n_cursesmodes || !globs.echo)
+	return;
+    if(!count++)
+	return;
     int x = event.motion.x;
     int y = event.motion.y;
     long pos = get_varpos_xy(x,y);
-    if(pos < 0) return;
+    if (pos < 0)
+	return;
     printf("\033[A\r");
     nct_print_datum(var->dtype, var->data + pos*nctypelen(var->dtype));
     printf("[%zu (%i,%i)]\033[K\n", pos,(int)(y*space),(int)(x*space));
+}
+
+struct {
+    long sum_of_variables, used_memory;
+} memory;
+
+static void manage_memory() {
+    long startpos = plt.znum * plt.stepsize_z;
+    if (var->startpos <= startpos && var->endpos >= startpos+plt.stepsize_z)
+	return;
+
+    if (memory.sum_of_variables == 0)
+	nct_foreach(var->super, v)
+	    memory.sum_of_variables += v->len * nctypelen(v->dtype);
+
+    long thisbytes = var->len * nctypelen(var->dtype);
+    double memory_fraction = (double)thisbytes / memory.sum_of_variables;
+    long allowed_bytes = globs.cache_size * memory_fraction;
+
+    if (thisbytes <= allowed_bytes) {
+	nct_load(var);
+	memory.used_memory += thisbytes;
+	return;
+    }
+
+    long thislen = allowed_bytes / nctypelen(var->dtype) / plt.stepsize_z * plt.stepsize_z;
+    if (thislen == 0)
+	thislen = plt.stepsize_z;
+    long endpos = startpos + thislen;
+    int frames_behind = thislen / plt.stepsize_z / 5;
+    startpos -= frames_behind * plt.stepsize_z;
+    endpos -= frames_behind * plt.stepsize_z;
+    if (startpos < 0) {
+	endpos += -startpos;
+	startpos = 0;
+    }
+    if (endpos > var->len)
+	endpos = var->len;
+    nct_load_partially(var, startpos, endpos);
+    memory.used_memory += (endpos - startpos) * nctypelen(var->dtype);
 }
 
 static void redraw(nct_var* var) {
@@ -225,13 +270,8 @@ static void redraw(nct_var* var) {
     call_redraw = 0;
     lasttime = thistime;
 
-    if (!var->data) {
-	if (!nct_loadable(var)) {
-	    nct_puterror("Cannot load the variable.\n");
-	    quit((Arg){});
-	}
-	nct_load(var);
-    }
+    manage_memory();
+
     if (update_minmax) {
 	update_minmax = 0;
 	if (globs.usenan)
@@ -303,8 +343,7 @@ static void set_draw_params() {
     draw_h = (ylen-offset_j) / space;
     draw_w = MIN(win_w, draw_w);
     draw_h = MIN(win_h-cmapspace-cmappix, draw_h);
-    if(zid>=0)
-	plt.stepsize_z = nct_get_len_from(var, zid+1);
+    plt.stepsize_z = nct_get_len_from(var, zid+1); // works even if zid == -1
 }
 
 static uint_fast64_t time_now_ms() {
@@ -324,9 +363,8 @@ static void variable_changed() {
     if (!plt.var) // using this variable for the first time
 	update_minmax = 1;
     plt.var = var;
-    if(!var->data)
-	nct_load(var);
     set_dimids();
+    manage_memory();
     set_draw_params();
     nct_att* att;
     if (var->dtype != NC_FLOAT && var->dtype != NC_DOUBLE &&
@@ -477,8 +515,8 @@ static void use_pending(Arg _) {
 }
 
 static void use_and_exit(Arg _) {
-    use_pending(_);
     end_curses(_);
+    use_pending(_);
 }
 
 static void var_ichange(Arg jump) {
@@ -631,7 +669,7 @@ static void mp_save_frame(Arg) {
     len *= out.dims[id++]->len;
 
     void* data = var->data;
-    data += (zid >= 0) * plt.znum * plt.stepsize_z * nctypelen(var->dtype);
+    data += ((zid >= 0) * plt.znum * plt.stepsize_z - var->startpos) * nctypelen(var->dtype);
     nct_ensure_unique_name(nct_add_var_alldims(&out, data, var->dtype, "data"))
 	-> not_freeable = 1;
 

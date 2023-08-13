@@ -11,7 +11,8 @@ Features
 * Works well with tiling window managers / compositors.
 * Mouse is not needed for basic use.
 * Zooming is possible.
-* Multiple files can be opened as one file.
+* Multiple files can be opened as if they were one file.
+* Files can be larger than RAM.
 * Coordinate transformations.
 * Files can be edited by drawing with mouse.
 * Shows just the image instead of some annoying control panel (compare to ncview).
@@ -19,13 +20,16 @@ Features
 
 Things yet to do
 ----------------
+* Loading data asynchronously.
+* To decide better which data to keep in memory, if everything doesn't fit.
 * Support for 4D-variables.
-* Support for variable groups.
+* Support for variable groups (needs changes in nctietue3 library).
 * Better performance.
 * Better suport for 1D-variables.
 
 Installation
 ------------
+    * If needed, edit configuration in library/config.mk and excecutable/Makefile, then:
     >>> ~$ make
     >>> ~# make install
 

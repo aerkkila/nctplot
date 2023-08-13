@@ -66,6 +66,8 @@ static void draw2d_@nctype(const nct_var* var) {
     pixels_per_datum += data_per_step < 1;
     data_per_step = pixels_per_datum*space;
 
+    ctype* dataptr = (ctype*)var->data - var->startpos;
+
     /* Draws a data row.
      * Data is scaled so that each datum becomes j1-j0 pixels high and wide.
      * j0, j1 and i are window coordinates, jj and (size_t)di are data coordinates */
@@ -77,7 +79,7 @@ static void draw2d_@nctype(const nct_var* var) {
 	    long ind = offset + start + (size_t)round(di);
 	    if (ind >= dlen)
 		return;
-	    ctype val = ((ctype*)var->data)[ind];
+	    ctype val = dataptr[ind];
 #if __nctype__ == NC_DOUBLE || __nctype__ == NC_FLOAT
 #if __nctype__ == NC_DOUBLE
 	    if (my_isnan_double(val))
@@ -143,8 +145,9 @@ static void draw1d_@nctype(const nct_var* var) {
     if (my_minmax[0] != my_minmax[0]) return;
     double di=0;
     SDL_SetRenderDrawColor(rend, globs.color_fg[0], globs.color_fg[1], globs.color_fg[2], 255);
+    ctype* dataptr = (ctype*)var->data - var->startpos;
     for(int i=0; i<win_w; i++, di+=space) {
-	int y = (((ctype*)var->data)[(int)di] - my_minmax[0]) * win_h / (my_minmax[1]-my_minmax[0]);
+	int y = (dataptr[(int)di] - my_minmax[0]) * win_h / (my_minmax[1]-my_minmax[0]);
 	SDL_RenderDrawPoint(rend, i, y);
     }
 }
