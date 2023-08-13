@@ -4,6 +4,6 @@ library/functions.c
 library/function_wrappers.c
 library/*.so
 library/*.o
-library/ne_10m_coastline
+library/ne_10m_coastline*
 library/shpname.h
 executable/nctplot
