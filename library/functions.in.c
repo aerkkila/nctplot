@@ -66,17 +66,15 @@ static void draw2d_@nctype(const nct_var* var) {
     pixels_per_datum += data_per_step < 1;
     data_per_step = pixels_per_datum*space;
 
+    SDL_RenderSetScale(rend, pixels_per_datum, pixels_per_datum);
+
     ctype* dataptr = (ctype*)var->data - var->startpos;
 
-    /* Draws a data row.
-     * Data is scaled so that each datum becomes j1-j0 pixels high and wide.
-     * j0, j1 and i are window coordinates, jj and (size_t)di are data coordinates */
-    void draw_thick_i_line(int j0, int j1, size_t jj) {
-	size_t start = jj*xlen;
-	int i=0;
-	float di = offset_i + 0.5*data_per_step;
-	while (i<draw_w) {
-	    long ind = offset + start + (size_t)round(di);
+    void draw_row(int jpixel, size_t jdata) {
+	size_t datastart = jdata*xlen;
+	float idata_f = offset_i + 0.5*data_per_step;
+	for(int ipixel=0; ipixel<draw_w; ipixel+=pixels_per_datum, idata_f+=data_per_step) {
+	    long ind = offset + datastart + (size_t)round(idata_f);
 	    if (ind >= dlen)
 		return;
 	    ctype val = dataptr[ind];
@@ -86,43 +84,27 @@ static void draw2d_@nctype(const nct_var* var) {
 #else
 	    if (my_isnan_float(val))
 #endif
-	    {
-		di += data_per_step;
-		i += pixels_per_datum;
 		continue;
-	    }
 #endif
-	    if (usenan && val==nanval) {
-		di += data_per_step;
-		i += pixels_per_datum;
-		continue; }
+	    if (usenan && val==nanval)
+		continue;
 	    int value = CVAL(val,my_minmax);
 	    if (invert_c) value = 0xff-value;
 	    char* c = COLORVALUE(cmapnum,value);
 	    SDL_SetRenderDrawColor(rend, c[0], c[1], c[2], 0xff);
-	    int i_ = i;
-	    for(int j=j0; j<j1; j++) {
-		i_ = i;
-		for(int _i=0; _i<pixels_per_datum; _i++)
-		    SDL_RenderDrawPoint(rend, i_++, j);
-	    }
-	    di += data_per_step;
-	    i = i_;
+	    SDL_RenderDrawPoint(rend, ipixel/pixels_per_datum, jpixel/pixels_per_datum);
 	}
     }
 
-    int j0,j1;
     float fdataj = offset_j + 0.5*data_per_step;
     if (globs.invert_y)
-	for(j0=j1=draw_h-1; j0>=0; j0=j1) {
-	    j1 -= pixels_per_datum;
-	    draw_thick_i_line(j1, j0, round(fdataj));
+	for(int j=draw_h-pixels_per_datum; j>=0; j-=pixels_per_datum) {
+	    draw_row(j, round(fdataj));
 	    fdataj += data_per_step;
 	}
     else
-	for(j0=j1=0; j0<draw_h; j0=j1) {
-	    j1 += pixels_per_datum;
-	    draw_thick_i_line(j0, j1, round(fdataj));
+	for(int j=0; j<draw_h; j+=pixels_per_datum) {
+	    draw_row(j, round(fdataj));
 	    fdataj += data_per_step;
 	}
     draw_colormap();
