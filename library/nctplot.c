@@ -578,7 +578,9 @@ static void quit(Arg _) {
     free_coastlines();
     for(int i=0; i<n_plottables; i++)
 	free_plottable(plottables+i);
+    plottables = (free(plottables), NULL);
     mp_params = (struct Mp_params){0};
+    memset(&memory, 0, sizeof(memory));
     SDL_DestroyTexture(base);
     SDL_DestroyRenderer(rend);
     SDL_DestroyWindow(window);
