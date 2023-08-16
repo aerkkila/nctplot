@@ -228,6 +228,8 @@ static void manage_memory() {
     long startpos = plt.znum * plt.stepsize_z;
     if (var->startpos <= startpos && var->endpos >= startpos+plt.stepsize_z)
 	return;
+    if (!nct_loadable(var))
+	return;
 
     if (memory.sum_of_variables == 0)
 	nct_foreach(var->super, v)
@@ -377,13 +379,17 @@ static void variable_changed() {
 
 static void export_projection() {
     int* ids0 = plt.var->dimids;
-    if (plt.var->ndims < 2)
+    int ndims0 = plt.var->ndims;
+    if (ndims0 < 2)
 	return;
-    for(int iplt=0; iplt<n_plottables; iplt++) {
-	if (plottables[iplt].var->ndims < 2 || iplt == pltind)
+    /* Variables don't have to be yet added to plottables. */
+    nct_foreach(plt.var->super, var1) {
+	int ndims1 = var1->ndims;
+	int iplt = nct_varid(var1);
+	if (ndims1 < 2 || iplt == pltind)
 	    continue;
-	int* ids1 = plottables[iplt].var->dimids;
-	if (ids0[0] == ids1[0] && ids0[1] == ids1[1]) {
+	int* ids1 = var1->dimids;
+	if (ids0[ndims0-1] == ids1[ndims1-1] && ids0[ndims0-2] == ids1[ndims1-2]) {
 	    free(plottables[iplt].crs);
 	    plottables[iplt].crs = strdup(plt.crs);
 	}
@@ -621,6 +627,7 @@ static void convert_coord(Arg _) {
 		    break;
 	from[i] = 0;
 	plt.crs = strdup(from);
+	export_projection();
     }
     printf("to: ");
     i = 0;
@@ -631,7 +638,7 @@ static void convert_coord(Arg _) {
     printf("\033[A\r\033[K");
     printf("\033[A\r\033[K");
     to[i] = 0;
-    var = nctproj_open_converted_var(var, from, to, NULL);
+    var = nctproj_open_converted_var(var, plt.crs, to, NULL);
     nct_load_stream(var, var->len);
     variable_changed();
     plt.crs = strdup(to); // not before variable_changed()
