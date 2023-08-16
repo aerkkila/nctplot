@@ -131,6 +131,7 @@ static void curses_write_vars() {
 static void draw_colormap() {
     float cspace = 255.0f/win_w;
     float di = 0;
+    SDL_RenderSetScale(rend, 1, 1);
     if(!invert_c)
 	for(int i=0; i<win_w; i++, di+=cspace) {
 	    char* c = COLORVALUE(cmapnum, (int)di);
