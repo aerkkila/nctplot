@@ -155,9 +155,8 @@ static void my_echo(void* minmax) {
 	return;
     nct_var *zvar = plt.zvar;
     int size1 = nctypelen(var->dtype);
-    if (!has_echoed)
-	for(int i=0; i<5; i++)
-	    putchar('\n');
+    for(int i=0; i<echo_h*!has_echoed; i++)
+	putchar('\n');
     has_echoed = 1;
     printf("\r\033[%iA", echo_h); // move cursor to start
     printf("%s%s%s: ", A, var->name, B);
@@ -376,6 +375,21 @@ static void variable_changed() {
     call_redraw = 1;
 }
 
+static void export_projection() {
+    int* ids0 = plt.var->dimids;
+    if (plt.var->ndims < 2)
+	return;
+    for(int iplt=0; iplt<n_plottables; iplt++) {
+	if (plottables[iplt].var->ndims < 2 || iplt == pltind)
+	    continue;
+	int* ids1 = plottables[iplt].var->dimids;
+	if (ids0[0] == ids1[0] && ids0[1] == ids1[1]) {
+	    free(plottables[iplt].crs);
+	    plottables[iplt].crs = strdup(plt.crs);
+	}
+    }
+}
+
 static void ask_crs(Arg _) {
     char crs[256];
     int i = 0;
@@ -386,6 +400,7 @@ static void ask_crs(Arg _) {
 		break;
     free(plt.crs);
     plt.crs = strdup(crs);
+    export_projection();
     free(plt.coasts);
     plt.coasts = NULL;
     call_redraw = 1;
@@ -474,6 +489,7 @@ static void print_var(Arg _) {
 	for(int i=0; i<echo_h; i++)
 	    printf("\033[A\033[2K");
     nct_print(var->super);
+    has_echoed = 0;
 }
 
 static void shift_max(Arg shift) {
@@ -596,17 +612,24 @@ static void convert_coord(Arg _) {
     char from[256], to[256];
     int i = 0;
     printf("from: ");
-    while (!i)
-	for (i=0; i<255; i++)
-	    if ((from[i] = getchar()) == '\n')
-		break;
-    from[i] = 0;
+    if (plt.crs)
+	printf("%s\n", plt.crs);
+    else {
+	while (!i)
+	    for (i=0; i<255; i++)
+		if ((from[i] = getchar()) == '\n')
+		    break;
+	from[i] = 0;
+	plt.crs = strdup(from);
+    }
     printf("to: ");
     i = 0;
     while (!i)
 	for (i=0; i<255; i++)
 	    if ((to[i] = getchar()) == '\n')
 		break;
+    printf("\033[A\r\033[K");
+    printf("\033[A\r\033[K");
     to[i] = 0;
     var = nctproj_open_converted_var(var, from, to, NULL);
     nct_load_stream(var, var->len);
@@ -701,23 +724,30 @@ static void mp_set_action(Arg arg) {
     mp_params.dlhandle = dlopen(str, RTLD_LAZY);
     if(!mp_params.dlhandle) {
 	printf("dlopen %s: %s\n", str, dlerror());
+	has_echoed = 0;
 	return; }
     if(!(mp_params.fun = dlsym(mp_params.dlhandle, "function"))) {
 	printf("dlsym(\"function\") failed %s\n", dlerror());
+	has_echoed = 0;
 	return; }
     mp_params.mode = function_mp;
 }
 
 static void mp_set_filename(Arg arg) {
     printf("set filename: ");
-    if(scanf("%255s", mp_params.filename) < 0)
+    if(scanf("%255s", mp_params.filename) < 0) {
 	warn("mp_set_filename, scanf");
+	has_echoed = 0;
+    }
+    else
+	printf("\033[A\r\033[K");
 }
 
 static int mp_set_fvalue(char str[256]) {
     printf("set floating point value or *.so with void* function(void* in, void* out): ");
     if(scanf("%255s", str) != 1)
 	warn("scanf");
+    printf("\033[A\r\033[K");
     if(sscanf(str, "%f", &mp_params.value.f) == 1) {
 	mp_params.mode = fixed_mp;
 	return 0; }
@@ -728,6 +758,7 @@ static int mp_set_lfvalue(char str[256]) {
     printf("set floating point value or *.so with void* function(void* in, void* out): ");
     if(scanf("%255s", str) != 1)
 	warn("scanf");
+    printf("\033[A\r\033[K");
     if(sscanf(str, "%lf", &mp_params.value.lf) == 1) {
 	mp_params.mode = fixed_mp;
 	return 0; }
@@ -738,6 +769,7 @@ static int mp_set_ivalue(char str[256]) {
     printf("set integer value or *.so with void* function(void* in, void* out): ");
     if(scanf("%255s", str) != 1)
 	warn("scanf");
+    printf("\033[A\r\033[K");
     if(sscanf(str, "%lli", &mp_params.value.lli) == 1) {
 	mp_params.mode = fixed_mp;
 	return 0; }
