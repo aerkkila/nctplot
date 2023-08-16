@@ -430,7 +430,10 @@ static void inc_offset_j(Arg arg) {
 }
 
 static void inc_znum(Arg intarg) {
-    size_t zlen = NCTVARDIM(var,zid)->len;
+    if (!plt.zvar)
+	return;
+    size_t zlen = plt.zvar->len;
+    /* below: znum + intarg.i, but goes around when zlen or a negative number is reached. */
     plt.znum = (plt.znum + zlen + intarg.i) % zlen;
     call_redraw = 1;
 }
