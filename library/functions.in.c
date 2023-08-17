@@ -10,9 +10,11 @@ void* nct_minmax_nan_@nctype(const nct_var*, long nanval, void* result); // glob
 #define echo_h 5
 #endif
 
+/* max-min can be larger than a signed number can handle.
+   Therefore we cast to the corresponding unsigned type. */
 #define CVAL(val,minmax) ((val) <  (minmax)[0] ? 0   :			\
 			  (val) >= (minmax)[1] ? 255 :			\
-			  ((val)-(minmax)[0])*255 / ((minmax)[1]-(minmax)[0]) )
+			  (@uctype)((val)-(minmax)[0])*255 / (@uctype)((minmax)[1]-(minmax)[0]) )
 
 /* These isnan functions can be used even with -ffinite-math-only optimization,
    which is part of -Ofast optimization. */
@@ -36,7 +38,7 @@ static void draw2d_@nctype(const nct_var* var) {
     int usenan = globs.usenan;
     long long nanval = globs.nanval;
     int xlen = nct_get_vardim(var, xid)->len;
-    ctype range;
+    @uctype range;
     long dlen = var->len;
     ctype my_minmax[2];
     memcpy(my_minmax, plt.minmax, 2*sizeof(ctype));
@@ -49,8 +51,8 @@ static void draw2d_@nctype(const nct_var* var) {
 	maxshift += maxshift_abs/range;
 	maxshift_abs = 0;
     }
-    my_minmax[0] += range*minshift;
-    my_minmax[1] += range*maxshift;
+    my_minmax[0] += (@uctype)(range*minshift);
+    my_minmax[1] += (@uctype)(range*maxshift);
     if (prog_mode == variables_m)
 	curses_write_vars();
 

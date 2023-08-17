@@ -1,10 +1,12 @@
 #!/bin/env perl
-$fname0  = 'functions.in.c';
-@nctypes = ('NC_BYTE', 'NC_UBYTE', 'NC_CHAR', 'NC_SHORT', 'NC_USHORT', 'NC_INT', 'NC_UINT',
-	    'NC_INT64', 'NC_UINT64', 'NC_FLOAT', 'NC_DOUBLE');
-@formats = ('hhi', 'hhu', 'c', 'hi', 'hu', 'i', 'u', 'lli', 'llu', 'f', 'lf');
-@ctypes  = ('char', 'unsigned char', 'char', 'short', 'unsigned short', 'int', 'unsigned',
-            'long long int', 'long long unsigned', 'float', 'double');
+$fname0   = 'functions.in.c';
+@nctypes  = ('NC_BYTE', 'NC_UBYTE', 'NC_CHAR', 'NC_SHORT', 'NC_USHORT', 'NC_INT', 'NC_UINT',
+	     'NC_INT64', 'NC_UINT64', 'NC_FLOAT', 'NC_DOUBLE');
+@formats  = ('hhi', 'hhu', 'c', 'hi', 'hu', 'i', 'u', 'lli', 'llu', 'f', 'lf');
+@ctypes   = ('char', 'unsigned char', 'char', 'short', 'unsigned short', 'int', 'unsigned',
+             'long long', 'long long unsigned', 'float', 'double');
+@uctypes  = ('unsigned char', 'unsigned char', 'unsigned char', 'unsigned short', 'unsigned short', 'unsigned', 'unsigned',
+             'long long unsigned', 'long long unsigned', 'float', 'double');
 
 $len1 = @nctypes;
 
@@ -25,6 +27,7 @@ for($j=0; $j<$len1; $j++) {
 	$_ =~ s/\@nctype/@nctypes[$j]/g;
 	$_ =~ s/\@form/@formats[$j]/g;
 	$_ =~ s/\@ctype/@ctypes[$j]/g;
+	$_ =~ s/\@uctype/@uctypes[$j]/g;
 	print out2 $_;
     }
     close out2;
