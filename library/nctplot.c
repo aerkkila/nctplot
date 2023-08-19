@@ -57,6 +57,7 @@ typedef struct Binding Binding;
 
 static void my_echo(void* minmax);
 static void redraw(nct_var* var);
+static void multiply_zoom_fixed_point(float multiple, float xfraction, float yfraction);
 static void draw_colormap();
 static void set_dimids();
 static void set_draw_params();
@@ -102,7 +103,7 @@ mp_params = {0};
 
 static int iround(float f) {
     int ifloor = f;
-    return ifloor + (f-ifloor >= 0.5);
+    return ifloor + (f-ifloor >= 0.5) - (f-ifloor <= -0.5);
 }
 
 static void curses_write_vars() {
@@ -223,6 +224,33 @@ static void mousemotion() {
     printf("\033[A\r");
     nct_print_datum(var->dtype, var->data + pos*nctypelen(var->dtype));
     printf("[%zu (%i,%i)]\033[K\n", pos,(int)(y*data_per_pixel),(int)(x*data_per_pixel));
+}
+
+static void mousewheel() {
+    int num = event.wheel.y;
+    if (!num)
+	return;
+    float x = event.wheel.mouseX;
+    float y = event.wheel.mouseY;
+    float multiple = 0.95;
+    if (num < 0) {
+	multiple = 1 / multiple;
+	num = -num;
+    }
+    while(num) {
+	multiple *= multiple;
+	num--;
+    }
+    multiply_zoom_fixed_point(multiple, x/draw_w, y/draw_h);
+}
+
+static void mousemove() {
+    float move_datax = event.motion.xrel * data_per_pixel;
+    float move_datay = event.motion.yrel * data_per_pixel;
+    offset_i -= iround(move_datax);
+    offset_j -= globs.invert_y ? -iround(move_datay) : iround(move_datay);
+    set_draw_params();
+    call_redraw = 1;
 }
 
 struct {
@@ -464,14 +492,20 @@ static void inc_znum(Arg intarg) {
     call_redraw = 1;
 }
 
-static void multiply_zoom(Arg arg) {
-    float center[] = {data_per_pixel*draw_w/2.0 + offset_i, data_per_pixel*draw_h/2.0 + offset_j};
-    zoom *= arg.f;
+static void multiply_zoom_fixed_point(float multiple, float xfraction, float yfraction) {
+    yfraction = (float[]){yfraction, 1-yfraction}[!!globs.invert_y];
+    float fixed_datax = draw_w*data_per_pixel * xfraction + offset_i;
+    float fixed_datay = draw_h*data_per_pixel * yfraction + offset_j;
+    zoom *= multiple;
     set_draw_params();
-    offset_i = iround(center[0] - data_per_pixel*draw_w/2); // To keep the center fixed.
-    offset_j = iround(center[1] - data_per_pixel*draw_h/2); // To keep the center fixed.
+    offset_i = iround(fixed_datax - draw_w*data_per_pixel * xfraction);
+    offset_j = iround(fixed_datay - draw_h*data_per_pixel * yfraction);
     set_draw_params();
     call_redraw = 1;
+}
+
+static void multiply_zoom(Arg arg) {
+    multiply_zoom_fixed_point(arg.f, 0.5, 0.5);
 }
 
 static void jump_to(Arg _) {
@@ -857,9 +891,12 @@ start:
 	case SDL_KEYDOWN:
 	    keydown_func(); break;
 	case SDL_MOUSEMOTION:
-	    if(mouse_pressed && prog_mode==mousepaint_m) {
-		mousepaint();
-		call_redraw = 1;
+	    if(mouse_pressed) {
+		if (prog_mode==mousepaint_m) {
+		    mousepaint();
+		    call_redraw = 1;
+		}
+		else mousemove();
 	    }
 	    else
 		mousemotion();
@@ -868,6 +905,8 @@ start:
 	    mouse_pressed=1; break;
 	case SDL_MOUSEBUTTONUP:
 	    mouse_pressed=0; break;
+	case SDL_MOUSEWHEEL:
+	    mousewheel();
 	}
 	if(stop) return;
     }
