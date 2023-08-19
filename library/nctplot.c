@@ -460,7 +460,11 @@ static void inc_znum(Arg intarg) {
 }
 
 static void inc_zoom(Arg arg) {
+    int center[] = {space*draw_w/2 + offset_i, space*draw_h/2 + offset_j};
     zoom += arg.f;
+    set_draw_params();
+    offset_i = center[0] - space*draw_w/2; // To keep the center fixed.
+    offset_j = center[1] - space*draw_h/2; // To keep the center fixed.
     set_draw_params();
     call_redraw = 1;
 }
