@@ -15,7 +15,6 @@ have_proj = 1
 
 CFLAGS = -Wall -g -fPIC -Ofast
 CC = gcc
-libraries += -lnctietue3 -lncurses -lSDL2 -ldl
 
 prefix = /usr/local
 includedir = $(prefix)/include

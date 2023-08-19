@@ -1,6 +1,7 @@
 include config.mk
 
 alltarget = libnctplot.so
+libraries = -lnctietue3 -lncurses -lSDL2 -ldl
 
 ifdef have_shapelib
 	CFLAGS += -DHAVE_SHPLIB
