@@ -63,10 +63,10 @@ static void draw2d_@nctype(const nct_var* var) {
     SDL_RenderClear(rend);
     if (my_minmax[0] != my_minmax[0]) return; // Return if all values are nan.
 
-    int pixels_per_datum = 1.0 / space;
-    float data_per_step = pixels_per_datum * space;
+    int pixels_per_datum = 1.0 / data_per_pixel;
+    float data_per_step = pixels_per_datum * data_per_pixel;
     pixels_per_datum += data_per_step < 1;
-    data_per_step = pixels_per_datum*space;
+    data_per_step = pixels_per_datum*data_per_pixel;
 
     SDL_RenderSetScale(rend, pixels_per_datum, pixels_per_datum);
 
@@ -130,7 +130,7 @@ static void draw1d_@nctype(const nct_var* var) {
     double di=0;
     SDL_SetRenderDrawColor(rend, globs.color_fg[0], globs.color_fg[1], globs.color_fg[2], 255);
     ctype* dataptr = (ctype*)var->data - var->startpos;
-    for(int i=0; i<win_w; i++, di+=space) {
+    for(int i=0; i<win_w; i++, di+=data_per_pixel) {
 	int y = (dataptr[(int)di] - my_minmax[0]) * win_h / (my_minmax[1]-my_minmax[0]);
 	SDL_RenderDrawPoint(rend, i, y);
     }

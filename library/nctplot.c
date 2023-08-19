@@ -47,7 +47,7 @@ static int win_w, win_h, xid, yid, zid, draw_w, draw_h, pending_varnum=-1;
 static char invert_c, stop, has_echoed, fill_on, play_on, play_inv, update_minmax=1;
 static int cmapnum=18, cmappix=30, cmapspace=10, call_resized, call_redraw, offset_i, offset_j;
 static float minshift, maxshift, minshift_abs, maxshift_abs, zoom=1;
-static float space; // (n(data) / n(pixels)) in one direction
+static float data_per_pixel; // (n(data) / n(pixels)) in one direction
 static const char* echo_highlight = "\033[1;93m";
 static void (*draw_funcptr)(const nct_var*);
 static enum {no_m, variables_m=-100, n_cursesmodes, mousepaint_m} prog_mode = no_m;
@@ -184,10 +184,10 @@ static void my_echo(void* minmax) {
     }
     printf("\033[K\n"
 	    "minshift %s%.4f%s, maxshift %s%.4f%s\033[K\n"
-	    "space = %s%.4f%s\033[K\n"
+	    "data/pixel = %s%.4f%s\033[K\n"
 	    "colormap = %s%s%s\033[K\n",
 	    A,minshift,B, A,maxshift,B,
-	    A,space,B, A,colormaps[cmapnum*2+1],B);
+	    A,data_per_pixel,B, A,colormaps[cmapnum*2+1],B);
 }
 #undef A
 #undef B
@@ -195,8 +195,8 @@ static void my_echo(void* minmax) {
 static long get_varpos_xy(int x, int y) {
     int xlen = nct_get_vardim(var, xid)->len;
     int ylen = yid < 0 ? 0 : nct_get_vardim(var, yid)->len;
-    y = (int)(y*space) + offset_j;
-    x = (int)(x*space) + offset_i;
+    y = (int)(y*data_per_pixel) + offset_j;
+    x = (int)(x*data_per_pixel) + offset_i;
     if (x>=xlen || (y>=ylen && yid >= 0))
 	return -1;
     if (globs.invert_y && yid>=0)
@@ -217,7 +217,7 @@ static void mousemotion() {
 	return;
     printf("\033[A\r");
     nct_print_datum(var->dtype, var->data + pos*nctypelen(var->dtype));
-    printf("[%zu (%i,%i)]\033[K\n", pos,(int)(y*space),(int)(x*space));
+    printf("[%zu (%i,%i)]\033[K\n", pos,(int)(y*data_per_pixel),(int)(x*data_per_pixel));
 }
 
 struct {
@@ -333,16 +333,16 @@ static void set_draw_params() {
     int xlen = nct_get_vardim(var, xid)->len, ylen;
     if(yid>=0) {
 	ylen  = nct_get_vardim(var, yid)->len;
-	space = GET_SPACE(xlen, win_w, ylen, win_h-cmapspace-cmappix);
+	data_per_pixel = GET_SPACE(xlen, win_w, ylen, win_h-cmapspace-cmappix);
     } else {
-	space = (float)(xlen)/(win_w);
-	ylen  = win_h * space;
+	data_per_pixel = (float)(xlen)/(win_w);
+	ylen  = win_h * data_per_pixel;
     }
-    space *= zoom;
+    data_per_pixel *= zoom;
     if (offset_i < 0) offset_i = 0;
     if (offset_j < 0) offset_j = 0;
-    draw_w = (xlen-offset_i) / space; // how many pixels data can reach
-    draw_h = (ylen-offset_j) / space;
+    draw_w = (xlen-offset_i) / data_per_pixel; // how many pixels data can reach
+    draw_h = (ylen-offset_j) / data_per_pixel;
     draw_w = MIN(win_w, draw_w);
     draw_h = MIN(win_h-cmapspace-cmappix, draw_h);
     plt.stepsize_z = nct_get_len_from(var, zid+1); // works even if zid == -1
@@ -460,11 +460,11 @@ static void inc_znum(Arg intarg) {
 }
 
 static void inc_zoom(Arg arg) {
-    int center[] = {space*draw_w/2 + offset_i, space*draw_h/2 + offset_j};
+    int center[] = {data_per_pixel*draw_w/2 + offset_i, data_per_pixel*draw_h/2 + offset_j};
     zoom += arg.f;
     set_draw_params();
-    offset_i = center[0] - space*draw_w/2; // To keep the center fixed.
-    offset_j = center[1] - space*draw_h/2; // To keep the center fixed.
+    offset_i = center[0] - data_per_pixel*draw_w/2; // To keep the center fixed.
+    offset_j = center[1] - data_per_pixel*draw_h/2; // To keep the center fixed.
     set_draw_params();
     call_redraw = 1;
 }

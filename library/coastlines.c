@@ -94,8 +94,8 @@ static void draw_coastlines(plottable* plott) {
     /* tmp_x0 is coordinate value, therefore offset is multiplied with coordinate interval, plott->xspace */
     tmp_x0 = plott->x0 + offset_i * plott->xspace;
     tmp_y0 = plott->y0 + offset_j * plott->yspace;
-    tmp_xspace = 1 / plott->xspace / space;
-    tmp_yspace = 1 / plott->yspace / space;
+    tmp_xspace = 1 / plott->xspace / data_per_pixel;
+    tmp_yspace = 1 / plott->yspace / data_per_pixel;
     double* points = plott->coasts;
     for(int e=0; e<coastl_nparts; e++) {
 	SDL_Point pnts[coastl_lengths[e]];
