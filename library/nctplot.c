@@ -100,6 +100,11 @@ struct Mp_params {
 }
 mp_params = {0};
 
+static int iround(float f) {
+    int ifloor = f;
+    return ifloor + (f-ifloor >= 0.5);
+}
+
 static void curses_write_vars() {
     int att = COLOR_PAIR(1);
     int xlen, ylen, x;
@@ -459,12 +464,12 @@ static void inc_znum(Arg intarg) {
     call_redraw = 1;
 }
 
-static void inc_zoom(Arg arg) {
-    int center[] = {data_per_pixel*draw_w/2 + offset_i, data_per_pixel*draw_h/2 + offset_j};
-    zoom += arg.f;
+static void multiply_zoom(Arg arg) {
+    float center[] = {data_per_pixel*draw_w/2.0 + offset_i, data_per_pixel*draw_h/2.0 + offset_j};
+    zoom *= arg.f;
     set_draw_params();
-    offset_i = center[0] - data_per_pixel*draw_w/2; // To keep the center fixed.
-    offset_j = center[1] - data_per_pixel*draw_h/2; // To keep the center fixed.
+    offset_i = iround(center[0] - data_per_pixel*draw_w/2); // To keep the center fixed.
+    offset_j = iround(center[1] - data_per_pixel*draw_h/2); // To keep the center fixed.
     set_draw_params();
     call_redraw = 1;
 }

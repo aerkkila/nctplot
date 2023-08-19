@@ -86,8 +86,8 @@ static Binding keydown_bindings[] = {
     /* Toggle whether the figure fills the whole window
        meaning that all data are not seen unless the aspect ratio is exactly right. */
     { SDLK_f,		0,			toggle_var,	{.v=&fill_on}		},
-    { SDLK_PLUS,	0,			inc_zoom,	{.f=-0.04}		}, // smaller number is more zoom
-    { SDLK_MINUS,	0,			inc_zoom,	{.f=+0.04}		}, // larger number is less zoom
+    { SDLK_PLUS,	0,			multiply_zoom,	{.f=0.8}		}, // smaller number is more zoom
+    { SDLK_MINUS,	0,			multiply_zoom,	{.f=1/0.8}		}, // larger number is less zoom
     { SDLK_RIGHT,	0,			inc_znum,	{.i=1}			},
     { SDLK_LEFT,	0,			inc_znum,	{.i=-1}			},
     /* Move the zoom/view rectangle 7 steps. */
