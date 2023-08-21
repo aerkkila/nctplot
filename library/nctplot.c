@@ -43,6 +43,7 @@ static SDL_Texture* base;
 static WINDOW *wnd;
 static const Uint32 default_sleep=8; // ms
 static Uint32 sleeptime;
+static int mousex, mousey;
 static int win_w, win_h, xid, yid, zid, draw_w, draw_h, pending_varnum=-1;
 static char invert_c, stop, has_echoed, fill_on, play_on, play_inv, update_minmax=1;
 static int cmapnum=18, cmappix=30, cmapspace=10, call_resized, call_redraw, offset_i, offset_j;
@@ -216,22 +217,20 @@ static void mousemotion() {
 	return;
     if(!count++)
 	return;
-    int x = event.motion.x;
-    int y = event.motion.y;
-    long pos = get_varpos_xy(x,y);
+    long pos = get_varpos_xy(mousex,mousey);
     if (pos < 0)
 	return;
     printf("\033[A\r");
     nct_print_datum(var->dtype, var->data + pos*nctypelen(var->dtype));
-    printf("[%zu (%i,%i)]\033[K\n", pos,(int)(y*data_per_pixel),(int)(x*data_per_pixel));
+    printf("[%zu (%i,%i)]\033[K\n", pos,(int)(mousey*data_per_pixel),(int)(mousex*data_per_pixel));
 }
 
 static void mousewheel() {
     int num = event.wheel.y;
     if (!num)
 	return;
-    float x = event.wheel.mouseX;
-    float y = event.wheel.mouseY;
+    float x = mousex;
+    float y = mousey;
     float multiple = 0.95;
     if (num < 0) {
 	multiple = 1 / multiple;
@@ -696,8 +695,8 @@ static int mp_set_ivalue(char str[256]);
 static void mp_replace_val(void* new_val) {
     for(int j=-TMP; j<=TMP; j++)
 	for(int i=-TMP; i<=TMP; i++) {
-	    int x = event.motion.x + i;
-	    int y = event.motion.y + j;
+	    int x = mousex + i;
+	    int y = mousey + j;
 	    if(x < 0 || y < 0) continue;
 	    long pos = get_varpos_xy(x,y)*nctypelen(var->dtype);
 	    if(pos < 0) continue;
@@ -708,8 +707,8 @@ static void mp_replace_val(void* new_val) {
 static void mp_replace_fun() {
     for(int j=-TMP; j<=TMP; j++)
 	for(int i=-TMP; i<=TMP; i++) {
-	    int x = event.motion.x + i;
-	    int y = event.motion.y + j;
+	    int x = mousex + i;
+	    int y = mousey + j;
 	    if(x < 0 || y < 0) continue;
 	    long pos = get_varpos_xy(x,y)*nctypelen(var->dtype);
 	    if(pos < 0) return;
@@ -891,6 +890,8 @@ start:
 	case SDL_KEYDOWN:
 	    keydown_func(); break;
 	case SDL_MOUSEMOTION:
+	    mousex = event.motion.x;
+	    mousey = event.motion.y;
 	    if(mouse_pressed) {
 		if (prog_mode==mousepaint_m) {
 		    mousepaint();
