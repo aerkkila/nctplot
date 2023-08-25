@@ -30,10 +30,12 @@ static Binding keydown_bindings_mousepaint_m[] = {
    In that mode, names of all variables are shown in the command line.
    The following keybindings are used to choose a variable to switch to. */
 static Binding keydown_bindings_variables_m[] = {
-    { SDLK_UP,       0,          pending_var_dec, },
-    { SDLK_DOWN,     0,          pending_var_inc, },
-    { SDLK_RETURN,   0,          use_and_exit,    },
-    { SDLK_KP_ENTER, 0,          use_and_exit,    },
+    { SDLK_UP,		0,			pending_var_dec, },
+    { SDLK_v,		KMOD_ALT|KMOD_SHIFT,	pending_var_dec, },
+    { SDLK_DOWN,	0,			pending_var_inc, },
+    { SDLK_v,		KMOD_ALT,		pending_var_inc, },
+    { SDLK_RETURN,	0,			use_and_exit,    },
+    { SDLK_KP_ENTER,	0,			use_and_exit,    },
 };
 
 static Binding keydown_bindings[] = {
