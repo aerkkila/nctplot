@@ -398,8 +398,8 @@ static void variable_changed() {
 	update_minmax = 1;
     plt.var = var;
     set_dimids();
+    set_draw_params(); // sets stepsize_z needed in manage_memory
     manage_memory();
-    set_draw_params();
     nct_att* att;
     if (var->dtype != NC_FLOAT && var->dtype != NC_DOUBLE &&
 	    ((att = nct_get_varatt(var, "_FillValue")) || (att = nct_get_varatt(var, "FillValue")))) {
