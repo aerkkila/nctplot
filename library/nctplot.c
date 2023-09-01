@@ -378,6 +378,7 @@ static void set_draw_params() {
     draw_w = MIN(win_w, draw_w);
     draw_h = MIN(win_h-cmapspace-cmappix, draw_h);
     plt.stepsize_z = nct_get_len_from(var, zid+1); // works even if zid == -1
+    plt.stepsize_z += plt.stepsize_z == 0; // length must be at least 1
 }
 
 static uint_fast64_t time_now_ms() {
