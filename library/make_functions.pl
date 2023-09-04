@@ -14,7 +14,7 @@ $len1 = @nctypes;
 $fname = $fname0;
 $fname =~ s/\.in\.c/.c/;
 open out1, ">$fname"; # functions.c
-print out1 "#include <string.h>\n#include <nctietue3.h>\n\n\n";
+print out1 "#include <string.h>\n#include <nctietue3.h>\n\n";
 
 open file_in, "<$fname0"; # functions.in.c
 

@@ -43,9 +43,9 @@ static Binding keydown_bindings_variables_m[] = {
    The following keybindings are used to choose a colormap to switch to. */
 static Binding keydown_bindings_colormaps_m[] = {
     { SDLK_UP,		0,			pending_map_dec,	},
-    { SDLK_v,		KMOD_ALT|KMOD_SHIFT,	pending_map_dec,	},
+    { SDLK_c,		KMOD_ALT|KMOD_SHIFT,	pending_map_dec,	},
     { SDLK_DOWN,	0,			pending_map_inc,	},
-    { SDLK_v,		KMOD_ALT,		pending_map_inc,	},
+    { SDLK_c,		KMOD_ALT,		pending_map_inc,	},
     { SDLK_RETURN,	0,			use_map_and_exit,	},
     { SDLK_KP_ENTER,	0,			use_map_and_exit,	},
 };
@@ -72,7 +72,7 @@ static Binding keydown_bindings[] = {
     { SDLK_c,		0,			cmap_ichange,	{.i=1}			}, // Next colormap.
     { SDLK_c,		KMOD_SHIFT,		cmap_ichange,	{.i=-1}			}, // Previous colormap.
     { SDLK_c,		KMOD_ALT,		toggle_var,	{.v=&invert_c}		}, // Invert/reverse the colormap.
-    { SDLK_c,		KMOD_SHIFT,KMOD_ALT,	set_prog_mode,	{.i=colormaps_m}	}, // see keydown_bindings_colormaps_m for info
+    { SDLK_c,		KMOD_SHIFT|KMOD_ALT,	set_prog_mode,	{.i=colormaps_m}	}, // see keydown_bindings_colormaps_m for info
     /* Swap foreground and background colors. */
     { SDLK_i,		KMOD_SHIFT,		invert_colors,				},
     /* Print information about the dataset which is being plotted. */

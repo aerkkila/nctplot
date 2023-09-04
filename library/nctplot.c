@@ -45,7 +45,7 @@ static WINDOW *wnd;
 static const Uint32 default_sleep=8; // ms
 static Uint32 sleeptime;
 static int mousex, mousey;
-static int win_w, win_h, xid, yid, zid, draw_w, draw_h, pending_varnum=-1;
+static int win_w, win_h, xid, yid, zid, draw_w, draw_h, pending_varnum=-1, pending_cmapnum;
 static char invert_c, stop, has_echoed, fill_on, play_on, play_inv, update_minmax=1;
 static int cmapnum=cmh_jet_e, cmappix=30, cmapspace=10, call_resized, call_redraw, offset_i, offset_j;
 static float minshift, maxshift, minshift_abs, maxshift_abs, zoom=1;
@@ -113,18 +113,46 @@ static void curses_write_vars() {
     int att = COLOR_PAIR(1);
     int xlen, ylen, x;
     getmaxyx(wnd, ylen, xlen);
-    int vars=0, row=0, col=0;
+    int objs=0, row=0, col=0;
     clear();
     int max_x = 0;
     nct_foreach(var->super, svar) {
-	vars++;
+	objs++;
 	move(row, col);
 	int att1 = (svar==var)*(A_UNDERLINE|A_BOLD);
 	int att2 = (nct_varid(svar)==pending_varnum)*(A_REVERSE);
 	attron(att|att1|att2);
-	printw("%i. ", vars);
+	printw("%i. ", objs);
 	attroff(att);
 	printw("%s", svar->name);
+	attroff(att1|att2);
+	getyx(wnd, row, x);
+	if(x > max_x)
+	    max_x = x;
+	if(++row >= ylen) {
+	    row = 0;
+	    if((col=max_x+4) >= xlen) break;
+	}
+    }
+    refresh();
+}
+
+static void curses_write_cmaps() {
+    int att = COLOR_PAIR(1);
+    int xlen, ylen, x;
+    getmaxyx(wnd, ylen, xlen);
+    int objs=0, row=0, col=0;
+    clear();
+    int max_x = 0;
+    for(int icmap=1; icmap<cmh_n; icmap++) {
+	objs++;
+	move(row, col);
+	int att1 = (icmap==cmapnum)*(A_UNDERLINE|A_BOLD);
+	int att2 = (icmap==pending_cmapnum)*(A_REVERSE);
+	attron(att|att1|att2);
+	printw("%i. ", objs);
+	attroff(att);
+	printw("%s", cmh_colormaps[icmap].name);
 	attroff(att1|att2);
 	getyx(wnd, row, x);
 	if(x > max_x)
@@ -543,6 +571,22 @@ static void pending_var_inc(Arg _) {
 	curses_write_vars();
 }
 
+static void pending_map_dec(Arg _) {
+    if (!pending_cmapnum) pending_cmapnum = cmapnum;
+    if (--pending_cmapnum <= 0)
+	pending_cmapnum += cmh_n-1;
+    if (prog_mode == colormaps_m)
+	curses_write_cmaps();
+}
+
+static void pending_map_inc(Arg _) {
+    if (!pending_cmapnum) pending_cmapnum = cmapnum;
+    if (++pending_cmapnum >= cmh_n)
+	pending_cmapnum -= cmh_n-1;
+    if (prog_mode == colormaps_m)
+	curses_write_cmaps();
+}
+
 static void print_var(Arg _) {
     if(has_echoed)
 	for(int i=0; i<echo_h; i++)
@@ -586,16 +630,31 @@ static void set_nan(Arg _) {
 
 static void use_pending(Arg _) {
     prev_pltind = pltind;
-    if(pending_varnum >= 0) {
+    if (pending_varnum >= 0) {
 	var = var->super->vars[pending_varnum];
 	pending_varnum = -1;
     }
     variable_changed();
 }
 
+static void use_pending_cmap(Arg _) {
+    if (pending_cmapnum <= 0)
+	return;
+    int help = cmapnum;
+    cmapnum = pending_cmapnum;
+    pending_cmapnum = help;
+    call_redraw = 1;
+}
+
+
 static void use_and_exit(Arg _) {
     end_curses(_);
     use_pending(_);
+}
+
+static void use_map_and_exit(Arg _) {
+    end_curses(_);
+    use_pending_cmap(_);
 }
 
 static void var_ichange(Arg jump) {
