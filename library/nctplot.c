@@ -1,4 +1,5 @@
 #include <nctietue3.h>
+#include <cmh_colormaps.h>
 #include <SDL2/SDL.h>
 #include <stdint.h>
 #include <curses.h>
@@ -46,12 +47,12 @@ static Uint32 sleeptime;
 static int mousex, mousey;
 static int win_w, win_h, xid, yid, zid, draw_w, draw_h, pending_varnum=-1;
 static char invert_c, stop, has_echoed, fill_on, play_on, play_inv, update_minmax=1;
-static int cmapnum=18, cmappix=30, cmapspace=10, call_resized, call_redraw, offset_i, offset_j;
+static int cmapnum=cmh_jet_e, cmappix=30, cmapspace=10, call_resized, call_redraw, offset_i, offset_j;
 static float minshift, maxshift, minshift_abs, maxshift_abs, zoom=1;
 static float data_per_pixel; // (n(data) / n(pixels)) in one direction
 static const char* echo_highlight = "\033[1;93m";
 static void (*draw_funcptr)(const nct_var*);
-static enum {no_m, variables_m=-100, n_cursesmodes, mousepaint_m} prog_mode = no_m;
+static enum {no_m, variables_m=-100, colormaps_m, n_cursesmodes, mousepaint_m} prog_mode = no_m;
 
 typedef union Arg Arg;
 typedef struct Binding Binding;
@@ -64,6 +65,7 @@ static void set_dimids();
 static void set_draw_params();
 static void end_curses(Arg);
 static void curses_write_vars();
+static void curses_write_cmaps();
 static uint_fast64_t time_now_ms();
 static void quit(Arg _);
 
@@ -141,14 +143,14 @@ static void draw_colormap() {
     SDL_RenderSetScale(rend, 1, 1);
     if(!invert_c)
 	for(int i=0; i<win_w; i++, di+=cspace) {
-	    char* c = COLORVALUE(cmapnum, (int)di);
+	    unsigned char* c = cmh_colorvalue(cmapnum, (int)di);
 	    SDL_SetRenderDrawColor(rend, c[0], c[1], c[2], 255);
 	    for(int j=draw_h+cmapspace; j<draw_h+cmapspace+cmappix; j++)
 		SDL_RenderDrawPoint(rend, i, j);
 	}
     else
 	for(int i=win_w-1; i>=0; i--, di+=cspace) {
-	    char* c = COLORVALUE(cmapnum, (int)di);
+	    unsigned char* c = cmh_colorvalue(cmapnum, (int)di);
 	    SDL_SetRenderDrawColor(rend, c[0], c[1], c[2], 255);
 	    for(int j=draw_h+cmapspace; j<draw_h+cmapspace+cmappix; j++)
 		SDL_RenderDrawPoint(rend, i, j);
@@ -192,9 +194,9 @@ static void my_echo(void* minmax) {
     printf("\033[K\n"
 	    "minshift %s%.4f%s, maxshift %s%.4f%s\033[K\n"
 	    "data/pixel = %s%.4f%s\033[K\n"
-	    "colormap = %s%s%s\033[K\n",
+	    "colormap = %s%s%s%s\033[K\n",
 	    A,minshift,B, A,maxshift,B,
-	    A,data_per_pixel,B, A,colormaps[cmapnum*2+1],B);
+	    A,data_per_pixel,B, A,cmh_colormaps[cmapnum].name,B, invert_c? " reversed": "");
 }
 #undef A
 #undef B
@@ -446,7 +448,7 @@ static void ask_crs(Arg _) {
 }
 
 static void cmap_ichange(Arg jump) {
-    int len = ARRSIZE(colormaps) / 2;
+    int len = cmh_n - 1;
     cmapnum = (cmapnum+len+jump.i) % len;
     call_redraw = 1;
 }
@@ -621,7 +623,10 @@ static void set_prog_mode(Arg mode) {
     cbreak();
     noecho();
     init_pair(1, COLOR_YELLOW, COLOR_BLACK);
-    curses_write_vars();
+    if (prog_mode == variables_m)
+	curses_write_vars();
+    else if (prog_mode == colormaps_m)
+	curses_write_cmaps();
 }
 
 static void set_sleep(Arg _) {
@@ -882,6 +887,7 @@ static void keydown_func() {
     if(0);
     else if (prog_mode == variables_m  && handle_keybindings(keydown_bindings_variables_m)) return;
     else if (prog_mode == mousepaint_m && handle_keybindings(keydown_bindings_mousepaint_m)) return;
+    else if (prog_mode == colormaps_m  && handle_keybindings(keydown_bindings_colormaps_m)) return;
     handle_keybindings(keydown_bindings);
 }
 

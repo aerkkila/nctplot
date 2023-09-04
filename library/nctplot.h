@@ -1,7 +1,7 @@
 #ifndef __NCTPLOT_H__
 #define __NCTPLOT_H__
 
-#include <nctietue3.h>
+#include <nctietue3.h> // Voiko tämän poistaa?
 #define nctplot(set_or_var) nctplot_(set_or_var, nct_isset(*(set_or_var)))
 
 struct nctplot_globals {
