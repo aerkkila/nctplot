@@ -451,6 +451,14 @@ static void cmap_ichange(Arg jump) {
     call_redraw = 1;
 }
 
+static void invert_colors(Arg _) {
+    typeof(globs.color_bg) mem;
+    memcpy(mem,			globs.color_fg,	sizeof(globs.color_fg));
+    memcpy(globs.color_fg,	globs.color_bg,	sizeof(globs.color_fg));
+    memcpy(globs.color_bg,	mem,		sizeof(globs.color_fg));
+    call_redraw = 1;
+}
+
 static void end_curses(Arg _) {
     endwin();
     prog_mode = no_m;

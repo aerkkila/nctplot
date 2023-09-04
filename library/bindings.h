@@ -60,6 +60,8 @@ static Binding keydown_bindings[] = {
     { SDLK_c,		0,			cmap_ichange,	{.i=1}			}, // Next colormap.
     { SDLK_c,		KMOD_SHIFT,		cmap_ichange,	{.i=-1}			}, // Previous colormap.
     { SDLK_c,		KMOD_ALT,		toggle_var,	{.v=&invert_c}		}, // Invert/reverse the colormap.
+    /* Swap foreground and background colors. */
+    { SDLK_i,		KMOD_SHIFT,		invert_colors,				},
     /* Print information about the dataset which is being plotted. */
     { SDLK_p,		0,			print_var,				},
     /* Toggle whether information such as the current variable is printed into the terminal. */
