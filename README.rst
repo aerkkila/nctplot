@@ -31,8 +31,8 @@ Things yet to do
 Installation
 ------------
     * If needed, edit configuration in library/config.mk and excecutable/Makefile, then:
-    >>> ~$ make
-    >>> ~# make install
+    >>> make
+    >>> make install
 
 Compile time dependencies in addition to a C compiler:
     * make
