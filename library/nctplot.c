@@ -370,6 +370,11 @@ static void resized() {
 	return;
     }
     call_resized = 0;
+    int w, h;
+    SDL_GetWindowSize(window, &w, &h);
+    if (w == win_w && h == win_h)
+	return;
+    win_w = w; win_h = h;
     call_redraw = 1;
     lasttime = thistime;
     SDL_DestroyTexture(base);
