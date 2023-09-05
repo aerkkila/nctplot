@@ -14,11 +14,11 @@ void no_conversion(float x, float y, double out[2]) {
     out[1] = y;
 }
 
-/* Tämän kuuluu palauttaa rantaviivat halutuissa koordinaateissa.
-   Muuntaminen pikseleiksi tehdään vasta piirtohetkellä.
-   coordinates on proj-kirjastolle annettava tunniste, esim "+proj=laea lat_0=90"
-   vaihtoehtoisesti voidaan antaa oma muunnosfunktio latlon2other.
-   Molempia ei ole hyödyllistä antaa. */
+/* This returns the coastlines in the desired coordinates.
+   Conversion to pixel indices will be done later, just-in-time when drawing.
+   Variable 'coordinates' is the string to pass to proj library, e.g. "+proj=laea lat_0=90".
+   Alternatively, a custom conversion function, latlon2other, can be passed as an argument.
+   It is not useful to give both arguments. */
 static double* make_coastlines(const char* coordinates, void (*conversion)(float,float,double[2])) {
     if (coordinates) {
 	coastl_init_proj(coordinates);
@@ -68,6 +68,10 @@ static double* make_coastlines(const char* coordinates, void (*conversion)(float
     return points;
 }
 
+static int valid_point(double point[2]) {
+    return (isnormal(point[0]) || point[0]==0) && (isnormal(point[1]) || point[1]==0);
+}
+
 static void init_coastlines(plottable* plott, void* funptr) {
     if (yid < 0)
 	return;
@@ -98,22 +102,38 @@ static void draw_coastlines(plottable* plott) {
     tmp_yspace = 1 / plott->yspace / data_per_pixel;
     double* points = plott->coasts;
     for(int e=0; e<coastl_nparts; e++) {
+	int ipoint_to = 0;
 	SDL_Point pnts[coastl_lengths[e]];
+	/* These two if-else loops are the same except for the few last lines. */
 	if (globs.invert_y)
-	    for(int i=0; i<coastl_lengths[e]; i++) {
+	    for(int ipoint_from=0; ipoint_from<coastl_lengths[e]; ipoint_from++) {
+		if (!valid_point(points + (ind+ipoint_from)*2)) {
+		    if (ipoint_to > 1)
+			SDL_RenderDrawLines(rend, pnts, ipoint_to);
+		    ipoint_to = 0;
+		    continue;
+		}
 		coord_to_point(
-			points[(ind+i)*2],
-			points[(ind+i)*2+1],
-			pnts+i);
-		pnts[i].y = draw_h - pnts[i].y;
+			points[(ind+ipoint_from)*2],
+			points[(ind+ipoint_from)*2+1],
+			pnts+ipoint_to);
+		pnts[ipoint_to].y = draw_h - pnts[ipoint_to].y;
+		ipoint_to++;
 	    }
 	else
-	    for(int i=0; i<coastl_lengths[e]; i++)
+	    for(int ipoint_from=0; ipoint_from<coastl_lengths[e]; ipoint_from++) {
+		if (!valid_point(points + (ind+ipoint_from)*2)) {
+		    if (ipoint_to > 1)
+			SDL_RenderDrawLines(rend, pnts, ipoint_to);
+		    ipoint_to = 0;
+		    continue;
+		}
 		coord_to_point(
-			points[(ind+i)*2],
-			points[(ind+i)*2+1],
-			pnts+i);
-	SDL_RenderDrawLines(rend, pnts, coastl_lengths[e]);
+			points[(ind+ipoint_from)*2],
+			points[(ind+ipoint_from)*2+1],
+			pnts+ipoint_to++);
+	    }
+	SDL_RenderDrawLines(rend, pnts, ipoint_to);
 	ind += coastl_lengths[e];
     }
 }
