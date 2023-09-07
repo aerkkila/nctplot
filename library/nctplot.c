@@ -46,7 +46,7 @@ static const Uint32 default_sleep=8; // ms
 static Uint32 sleeptime;
 static int mousex, mousey;
 static int win_w, win_h, xid, yid, zid, draw_w, draw_h, pending_varnum=-1, pending_cmapnum;
-static char invert_c, stop, fill_on, play_on, play_inv, update_minmax=1;
+static char invert_c, stop, fill_on, play_on, play_inv, update_minmax=1, update_minmax_cur;
 static int lines_echoed;
 static int cmapnum=cmh_jet_e, cmappix=30, cmapspace=10, call_resized, call_redraw, offset_i, offset_j;
 static float minshift, maxshift, minshift_abs, maxshift_abs, zoom=1;
@@ -332,6 +332,22 @@ static void manage_memory() {
     memory.used_memory += (endpos - startpos) * nctypelen(var->dtype);
 }
 
+static void update_minmax_fun() {
+    long start = 0;
+    long end = var->endpos - var->startpos;
+    if (update_minmax_cur) {
+	start = (zid>=0) * plt.stepsize_z * plt.znum;
+	end = start + plt.stepsize_z;
+	update_minmax_cur = 0;
+    }
+
+    update_minmax = 0;
+    if (globs.usenan)
+	nct_minmax_nan_at(var, globs.nanval, start, end, plt.minmax);
+    else
+	nct_minmax_at(var, start, end, plt.minmax);
+}
+
 static void redraw(nct_var* var) {
     static uint_fast64_t lasttime;
     uint_fast64_t thistime = time_now_ms();
@@ -344,13 +360,8 @@ static void redraw(nct_var* var) {
 
     manage_memory();
 
-    if (update_minmax) {
-	update_minmax = 0;
-	if (globs.usenan)
-	    nct_minmax_nan(var, globs.nanval, plt.minmax);
-	else
-	    nct_minmax(var, plt.minmax);
-    }
+    if (update_minmax | update_minmax_cur)
+	update_minmax_fun();
 
     SDL_SetRenderTarget(rend, base);
     draw_funcptr(var);

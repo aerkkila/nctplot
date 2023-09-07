@@ -63,6 +63,7 @@ static Binding keydown_bindings[] = {
     { SDLK_1,		KMOD_SHIFT,		shift_max,	{.f=-0.02}		}, // make the largest value smaller
     { SDLK_2,		0,			shift_min,	{.f=0.02}		}, // make the smallest value larger
     { SDLK_2,		KMOD_SHIFT,		shift_max,	{.f=0.02}		}, // make the largest value larger
+    { SDLK_0,		0,			toggle_var,	{.v=&update_minmax_cur}	}, // scale colors based on the current frame
     /* Shift the colorscale as above but different step size. */
     { SDLK_1,		KMOD_ALT,		shift_min_abs,	{.f=-0.02}		},
     { SDLK_1,		KMOD_SHIFT|KMOD_ALT,	shift_max_abs,	{.f=-0.02}		},
