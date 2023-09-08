@@ -18,6 +18,7 @@ static struct nctplot_globals globs = {
     .color_fg = {255, 255, 255},
     .echo = 1,
     .invert_y = 1,
+    .exact = 1,
     .cache_size = 1L<<31,
 };
 
@@ -235,16 +236,38 @@ static void my_echo(void* minmax) {
 #undef A
 #undef B
 
+static int varpos_xy_i, varpos_xy_j;
+
 static long get_varpos_xy(int x, int y) {
     int xlen = nct_get_vardim(var, xid)->len;
     int ylen = yid < 0 ? 0 : nct_get_vardim(var, yid)->len;
-    y = (int)(y*data_per_pixel) + offset_j;
+
+    int pixels_per_datum = globs.exact ? round(1.0 / data_per_pixel) : 1.0 / data_per_pixel;
+    pixels_per_datum += !pixels_per_datum;
+    float data_per_step = pixels_per_datum * data_per_pixel;
+    if (globs.invert_y)
+	y = draw_h / pixels_per_datum * pixels_per_datum - y;
+    int i = x / pixels_per_datum;
+    int j = y / pixels_per_datum;
+    float idata_f = offset_i + (i+0.5)*data_per_step;
+    float jdata_f = offset_j + (j+0.5)*data_per_step;
+    int idata = round(idata_f);
+    int jdata = round(jdata_f);
+
+    varpos_xy_i = idata;
+    varpos_xy_j = jdata;
+
+    if (idata>=xlen || (jdata>=ylen && yid >= 0))
+	return -1;
+    return (zid>=0)*xlen*ylen*plt.znum + (yid>=0)*xlen*jdata + idata;
+
+    /*y = (int)(y*data_per_pixel) + offset_j;
     x = (int)(x*data_per_pixel) + offset_i;
     if (x>=xlen || (y>=ylen && yid >= 0))
 	return -1;
     if (globs.invert_y && yid>=0)
 	y = nct_get_vardim(var, yid)->len - y - 1;
-    return (zid>=0)*xlen*ylen*plt.znum + (yid>=0)*xlen*y + x;
+    return (zid>=0)*xlen*ylen*plt.znum + (yid>=0)*xlen*y + x;*/
 }
 
 static void mousemotion() {
@@ -259,7 +282,7 @@ static void mousemotion() {
     if (lines_echoed)
 	printf("\033[%iB\r", lines_echoed-1); // overwrite the last echoed line
     nct_print_datum(var->dtype, var->data + pos*nctypelen(var->dtype));
-    printf("[%zu (%i,%i)]\033[K\n", pos,(int)(mousey*data_per_pixel),(int)(mousex*data_per_pixel));
+    printf("[%zu (%i,%i)]\033[K\n", pos, (int)(varpos_xy_j), (int)(varpos_xy_i));
     printf("\033[%iA\r", lines_echoed);
 }
 
@@ -425,6 +448,9 @@ static void set_draw_params() {
 	ylen  = win_h * data_per_pixel;
     }
     data_per_pixel *= zoom;
+    if (globs.exact)
+	data_per_pixel = data_per_pixel >= 1 ? ceil(data_per_pixel) :
+	    1.0 / floor(1.0/data_per_pixel);
     if (offset_i < 0) offset_i = 0;
     if (offset_j < 0) offset_j = 0;
     draw_w = (xlen-offset_i) / data_per_pixel; // how many pixels data can reach

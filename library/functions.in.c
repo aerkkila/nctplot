@@ -72,10 +72,9 @@ static void draw2d_@nctype(const nct_var* var) {
     SDL_RenderClear(rend);
     if (my_minmax[0] != my_minmax[0]) return; // Return if all values are nan.
 
-    int pixels_per_datum = 1.0 / data_per_pixel;
-    float data_per_step = pixels_per_datum * data_per_pixel;
-    pixels_per_datum += data_per_step < 1;
-    data_per_step = pixels_per_datum*data_per_pixel;
+    int pixels_per_datum = globs.exact ? round(1.0 / data_per_pixel) : 1.0 / data_per_pixel;
+    pixels_per_datum += !pixels_per_datum;
+    float data_per_step = pixels_per_datum * data_per_pixel; // step is a virtual pixel >= physical pixel
 
     SDL_RenderSetScale(rend, pixels_per_datum, pixels_per_datum);
 

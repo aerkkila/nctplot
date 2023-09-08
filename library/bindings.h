@@ -80,6 +80,8 @@ static Binding keydown_bindings[] = {
     { SDLK_p,		0,			print_var,				},
     /* Toggle whether information such as the current variable is printed into the terminal. */
     { SDLK_e,		0,			toggle_var,	{.v=&globs.echo}	},
+    /* If enabled, virtual pixels correspond exactly to data. This disables the chance for stepless zoom. */
+    { SDLK_e,		KMOD_SHIFT,		toggle_var,	{.v=&globs.exact}	},
     /* Toggle whether the largest y-coordinate is in the top or in the bottom. */
     { SDLK_i,		0,			toggle_var,	{.v=&globs.invert_y}	},
     /* Play a video, if the variable has third dimension. Use set_sleep to control the speed. */
