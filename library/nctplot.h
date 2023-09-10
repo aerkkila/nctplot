@@ -6,7 +6,8 @@
 
 struct nctplot_globals {
     long long nanval; // custom nan-value if usenan = 1
-    char usenan, coastlines, echo, invert_y, exact;
+    char usenan, coastlines, echo, invert_y, exact, invert_c;
+    int cmapnum;
     unsigned char color_fg[3], color_bg[3];
     size_t cache_size;
 };

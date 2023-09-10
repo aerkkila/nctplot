@@ -99,8 +99,8 @@ static void draw2d_@nctype(const nct_var* var) {
 	    if (usenan && val==nanval)
 		continue;
 	    int value = CVAL(val,my_minmax);
-	    if (invert_c) value = 0xff-value;
-	    unsigned char* c = cmh_colorvalue(cmapnum,value);
+	    if (globs.invert_c) value = 0xff-value;
+	    unsigned char* c = cmh_colorvalue(globs.cmapnum,value);
 	    SDL_SetRenderDrawColor(rend, c[0], c[1], c[2], 0xff);
 	    SDL_RenderDrawPoint(rend, ipixel/pixels_per_datum, jpixel/pixels_per_datum);
 	}

@@ -57,6 +57,8 @@ static Binding keydown_bindings[] = {
     { SDLK_v,		KMOD_SHIFT,		var_ichange,	{.i=-1}			}, // Previous variable.
     { SDLK_v,		KMOD_ALT,		set_prog_mode,	{.i=variables_m}	}, // see keydown_bindings_variables_m for info
     { SDLK_w,		0,			use_lastvar,				}, // switch to that variable which was shown previously
+    /* Whether globals such as colormap, invert_y, etc. are detached from other variables. */
+    { SDLK_d,		0,			toggle_detached,			},
     /* Colorscale adjustment.
        For example, if a few values are much higher than other, one may want to make the largest value smaller. */
     { SDLK_1,		0,			shift_min,	{.f=-0.02}		}, // make the smallest value smaller
@@ -72,8 +74,8 @@ static Binding keydown_bindings[] = {
     /* Choosing the colormap. */
     { SDLK_c,		0,			cmap_ichange,	{.i=1}			}, // Next colormap.
     { SDLK_c,		KMOD_SHIFT,		cmap_ichange,	{.i=-1}			}, // Previous colormap.
-    { SDLK_c,		KMOD_ALT,		toggle_var,	{.v=&invert_c}		}, // Invert/reverse the colormap.
-    { SDLK_c,		KMOD_SHIFT|KMOD_ALT,	set_prog_mode,	{.i=colormaps_m}	}, // see keydown_bindings_colormaps_m for info
+    { SDLK_c,		KMOD_ALT,		toggle_var,	{.v=&globs.invert_c}	}, // Invert (reverse) the colormap.
+    { SDLK_c,		KMOD_SHIFT|KMOD_ALT,	set_prog_mode,	{.i=colormaps_m}	}, // see keydown_bindings_colormaps_m
     /* Swap foreground and background colors. */
     { SDLK_i,		KMOD_SHIFT,		invert_colors,				},
     /* Print information about the dataset which is being plotted. */

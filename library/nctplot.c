@@ -14,13 +14,19 @@
 #include <nctproj.h>
 #endif
 
-static struct nctplot_globals globs = {
+static const struct nctplot_globals default_globals = {
     .color_fg = {255, 255, 255},
     .echo = 1,
     .invert_y = 1,
     .exact = 1,
     .cache_size = 1L<<31,
+    .cmapnum = cmh_jet_e,
 };
+
+static struct nctplot_globals globs;
+static struct nctplot_globals globs_mem;
+static struct nctplot_globals* globslist;
+int globslistlen;
 
 typedef struct {
     nct_var *var, *zvar;
@@ -32,6 +38,7 @@ typedef struct {
     double* coasts;
     char* crs;
     double x0, y0, xspace, yspace;
+    char globs_detached;
 } plottable;
 
 /* Static variables. Global in the context of this library. */
@@ -47,9 +54,9 @@ static const Uint32 default_sleep=8; // ms
 static Uint32 sleeptime;
 static int mousex, mousey;
 static int win_w, win_h, xid, yid, zid, draw_w, draw_h, pending_varnum=-1, pending_cmapnum;
-static char invert_c, stop, fill_on, play_on, play_inv, update_minmax=1, update_minmax_cur;
+static char stop, fill_on, play_on, play_inv, update_minmax=1, update_minmax_cur;
 static int lines_echoed;
-static int cmapnum=cmh_jet_e, cmappix=30, cmapspace=10, call_resized, call_redraw, offset_i, offset_j;
+static int cmappix=30, cmapspace=10, call_resized, call_redraw, offset_i, offset_j;
 static float minshift, maxshift, minshift_abs, maxshift_abs, zoom=1;
 static float data_per_pixel; // (n(data) / n(pixels)) in one direction
 static const char* echo_highlight = "\033[1;93m";
@@ -149,7 +156,7 @@ static void curses_write_cmaps() {
     for(int icmap=1; icmap<cmh_n; icmap++) {
 	objs++;
 	move(row, col);
-	int att1 = (icmap==cmapnum)*(A_UNDERLINE|A_BOLD);
+	int att1 = (icmap==globs.cmapnum)*(A_UNDERLINE|A_BOLD);
 	int att2 = (icmap==pending_cmapnum)*(A_REVERSE);
 	attron(att|att1|att2);
 	printw("%i. ", objs);
@@ -171,16 +178,16 @@ static void draw_colormap() {
     float cspace = 255.0f/win_w;
     float di = 0;
     SDL_RenderSetScale(rend, 1, 1);
-    if(!invert_c)
+    if(!globs.invert_c)
 	for(int i=0; i<win_w; i++, di+=cspace) {
-	    unsigned char* c = cmh_colorvalue(cmapnum, (int)di);
+	    unsigned char* c = cmh_colorvalue(globs.cmapnum, (int)di);
 	    SDL_SetRenderDrawColor(rend, c[0], c[1], c[2], 255);
 	    for(int j=draw_h+cmapspace; j<draw_h+cmapspace+cmappix; j++)
 		SDL_RenderDrawPoint(rend, i, j);
 	}
     else
 	for(int i=win_w-1; i>=0; i--, di+=cspace) {
-	    unsigned char* c = cmh_colorvalue(cmapnum, (int)di);
+	    unsigned char* c = cmh_colorvalue(globs.cmapnum, (int)di);
 	    SDL_SetRenderDrawColor(rend, c[0], c[1], c[2], 255);
 	    for(int j=draw_h+cmapspace; j<draw_h+cmapspace+cmappix; j++)
 		SDL_RenderDrawPoint(rend, i, j);
@@ -202,7 +209,7 @@ static void my_echo(void* minmax) {
     nct_var *zvar = plt.zvar;
     int size1 = nctypelen(var->dtype);
     lines_echoed = echo_h;
-    printf("%s%s%s: ", A, var->name, B);
+    printf("%s%s%s%s: ", A, var->name, B, plt.globs_detached ? " (detached)" : "");
     printf("min %s", A);   nct_print_datum(var->dtype, minmax);       printf("%s", B);
     printf(", max %s", A); nct_print_datum(var->dtype, minmax+size1); printf("%s", B);
     printf("\033[K\n");
@@ -230,7 +237,7 @@ static void my_echo(void* minmax) {
 	    "data/pixel = %s%.4f%s\033[K\n"
 	    "colormap = %s%s%s%s\033[K\n",
 	    A,minshift,B, A,maxshift,B,
-	    A,data_per_pixel,B, A,cmh_colormaps[cmapnum].name,B, invert_c? " reversed": "");
+	    A,data_per_pixel,B, A,cmh_colormaps[globs.cmapnum].name,B, globs.invert_c? " reversed": "");
     printf("\r\033[%iA", echo_h); // move cursor to start
 }
 #undef A
@@ -468,6 +475,15 @@ static uint_fast64_t time_now_ms() {
 }
 
 static void variable_changed() {
+    if (plt.globs_detached) {
+	if (pltind >= globslistlen) {
+	    globslist = realloc(globslist, MAX(n_plottables, pltind) * sizeof(struct nctplot_globals));
+	    globslistlen = n_plottables;
+	}
+	globslist[pltind] = globs;
+	globs = globs_mem;
+    }
+
     pltind = nct_varid(var);
     if (pltind >= n_plottables) { // possible if a new variable was created
 	int add = pltind + 1 - n_plottables;
@@ -475,6 +491,13 @@ static void variable_changed() {
 	plottables = realloc(plottables, n_plottables*sizeof(plottable));
 	memset(plottables+n_plottables-add, 0, add*sizeof(plottable));
     }
+    else if (plt.globs_detached) {
+	if (pltind >= globslistlen)
+	    return variable_changed(); // Shouldn't happen. To allocate globslist.
+	globs_mem = globs;
+	globs = globslist[pltind];
+    }
+
     if (!plt.var) // using this variable for the first time
 	update_minmax = 1;
     plt.var = var;
@@ -529,7 +552,13 @@ static void ask_crs(Arg _) {
 
 static void cmap_ichange(Arg jump) {
     int len = cmh_n - 1;
-    cmapnum = (cmapnum+len+jump.i) % len;
+    globs.cmapnum = (globs.cmapnum+len+jump.i) % len;
+    call_redraw = 1;
+}
+
+static void toggle_detached(Arg _) {
+    plt.globs_detached = !plt.globs_detached;
+    globs_mem = globs;
     call_redraw = 1;
 }
 
@@ -624,7 +653,7 @@ static void pending_var_inc(Arg _) {
 }
 
 static void pending_map_dec(Arg _) {
-    if (!pending_cmapnum) pending_cmapnum = cmapnum;
+    if (!pending_cmapnum) pending_cmapnum = globs.cmapnum;
     if (--pending_cmapnum <= 0)
 	pending_cmapnum += cmh_n-1;
     if (prog_mode == colormaps_m)
@@ -632,7 +661,7 @@ static void pending_map_dec(Arg _) {
 }
 
 static void pending_map_inc(Arg _) {
-    if (!pending_cmapnum) pending_cmapnum = cmapnum;
+    if (!pending_cmapnum) pending_cmapnum = globs.cmapnum;
     if (++pending_cmapnum >= cmh_n)
 	pending_cmapnum -= cmh_n-1;
     if (prog_mode == colormaps_m)
@@ -689,8 +718,8 @@ static void use_pending(Arg _) {
 static void use_pending_cmap(Arg _) {
     if (pending_cmapnum <= 0)
 	return;
-    int help = cmapnum;
-    cmapnum = pending_cmapnum;
+    int help = globs.cmapnum;
+    globs.cmapnum = pending_cmapnum;
     pending_cmapnum = help;
     call_redraw = 1;
 }
@@ -770,6 +799,7 @@ static void quit(Arg _) {
     free_coastlines();
     for(int i=0; i<n_plottables; i++)
 	free_plottable(plottables+i);
+    free(globslist); globslist = NULL; globslistlen = 0;
     plottables = (free(plottables), NULL);
     mp_params = (struct Mp_params){0};
     memset(&memory, 0, sizeof(memory));
@@ -1086,6 +1116,7 @@ void nctplot_(void* vobject, int isset) {
     base = SDL_CreateTexture(rend, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, win_w, win_h);
     variable_changed();
 
+    globs = default_globals;
     sleeptime = default_sleep;
     stop = lines_echoed = play_on = play_inv = 0;
     update_minmax = 1;
