@@ -66,7 +66,7 @@ static enum {no_m, variables_m=-100, colormaps_m, n_cursesmodes, mousepaint_m} p
 /* Used mainly in functions.in.c */
 static float g_data_per_step;
 static int g_pixels_per_datum, g_xlen, g_dlen;
-static char g_minmax[2*8]; // kopio vuorossa olevasta g_minmax_@nctype-muuttujasta functions.in.c:ssä
+static char g_minmax[2*8]; // tallennustila, jota käytetään sopivalla g_minmax_@nctype-osoittimella
 
 typedef union Arg Arg;
 typedef struct Binding Binding;

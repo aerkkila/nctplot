@@ -19,7 +19,7 @@ void* nct_minmax_nan_@nctype(const nct_var*, long nanval, void* result); // glob
 #define echo_h 5
 #endif
 
-static ctype g_minmax_@nctype[2];
+static ctype* g_minmax_@nctype = (ctype*)g_minmax;
 
 /* max-min can be larger than a signed number can handle.
    Therefore we cast to the corresponding unsigned type. */
@@ -35,13 +35,10 @@ static void draw_row_@nctype(int jpixel, size_t jdata, const void* vdataptr) {
 	if (ind >= g_dlen)
 	    return;
 	ctype val = ((const ctype*)vdataptr)[ind];
-#if __nctype__ == NC_DOUBLE || __nctype__ == NC_FLOAT
 #if __nctype__ == NC_DOUBLE
-	if (my_isnan_double(val))
+	if (my_isnan_double(val)) continue;
 #else
-	if (my_isnan_float(val))
-#endif
-	    continue;
+	if (my_isnan_float(val)) continue;
 #endif
 	if (globs.usenan && val==globs.nanval)
 	    continue;
@@ -69,18 +66,11 @@ static int make_minmax_@nctype() {
     g_minmax_@nctype[0] += (@uctype)(range*plt.minshift);
     g_minmax_@nctype[1] += (@uctype)(range*plt.maxshift);
 
-    memset(g_minmax, 0, sizeof(g_minmax));
-    memcpy(g_minmax, g_minmax_@nctype, sizeof(g_minmax_@nctype));
-
     return g_minmax_@nctype[0] == g_minmax_@nctype[1];
 }
 
 static void draw1d_@nctype(const nct_var* var) {
-    ctype range;
-    memcpy(g_minmax_@nctype, plt.minmax, 2*sizeof(ctype));
-    range = g_minmax_@nctype[1]-g_minmax_@nctype[0];
-    g_minmax_@nctype[0] += range*plt.minshift;
-    g_minmax_@nctype[1] += range*plt.maxshift;
+    make_minmax_@nctype();
     if (g_minmax_@nctype[1] == g_minmax_@nctype[0])
 	g_minmax_@nctype [1] += 1;
     if (prog_mode == variables_m)
@@ -88,7 +78,11 @@ static void draw1d_@nctype(const nct_var* var) {
     my_echo(g_minmax_@nctype);
     SDL_SetRenderDrawColor(rend, globs.color_bg[0], globs.color_bg[1], globs.color_bg[2], 255);
     SDL_RenderClear(rend);
-    if (g_minmax_@nctype[0] != g_minmax_@nctype[0]) return;
+#if __nctype__ == NC_DOUBLE
+	if (my_isnan_double(g_minmax_@nctype[0])) return;
+#else
+	if (my_isnan_float(g_minmax_@nctype[0])) return;
+#endif
     double di=0;
     SDL_SetRenderDrawColor(rend, globs.color_fg[0], globs.color_fg[1], globs.color_fg[2], 255);
     ctype* dataptr = (ctype*)var->data - var->startpos;
