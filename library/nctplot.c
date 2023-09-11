@@ -202,13 +202,7 @@ static void draw2d(const nct_var* var) {
     g_dlen = var->len;
 
     int only_nans = make_minmax(var->dtype);
-
-    if (prog_mode == variables_m)
-	curses_write_vars(); // Tarvitaanko tätä?
-
     my_echo(g_minmax);
-
-    if (only_nans) return;
 
     g_pixels_per_datum = globs.exact ? round(1.0 / data_per_pixel) : 1.0 / data_per_pixel;
     g_pixels_per_datum += !g_pixels_per_datum;
@@ -216,8 +210,8 @@ static void draw2d(const nct_var* var) {
 
     SDL_SetRenderDrawColor(rend, globs.color_bg[0], globs.color_bg[1], globs.color_bg[2], 255);
     SDL_RenderClear(rend);
-
     SDL_RenderSetScale(rend, g_pixels_per_datum, g_pixels_per_datum);
+    if (only_nans) return;
 
     void* dataptr = var->data + (plt.znum*plt.stepsize_z*(zid>=0) - var->startpos) * nctypelen(var->dtype);
 
@@ -310,15 +304,12 @@ static long get_varpos_xy(int x, int y) {
     int xlen = nct_get_vardim(var, xid)->len;
     int ylen = yid < 0 ? 0 : nct_get_vardim(var, yid)->len;
 
-    int pixels_per_datum = globs.exact ? round(1.0 / data_per_pixel) : 1.0 / data_per_pixel;
-    pixels_per_datum += !pixels_per_datum;
-    float data_per_step = pixels_per_datum * data_per_pixel;
     if (globs.invert_y)
-	y = draw_h / pixels_per_datum * pixels_per_datum - y;
-    int i = x / pixels_per_datum;
-    int j = y / pixels_per_datum;
-    float idata_f = offset_i + (i+0.5)*data_per_step;
-    float jdata_f = offset_j + (j+0.5)*data_per_step;
+	y = draw_h / g_pixels_per_datum * g_pixels_per_datum - y;
+    int i = x / g_pixels_per_datum;
+    int j = y / g_pixels_per_datum;
+    float idata_f = offset_i + (i+0.5)*g_data_per_step;
+    float jdata_f = offset_j + (j+0.5)*g_data_per_step;
     int idata = round(idata_f);
     int jdata = round(jdata_f);
 
@@ -328,14 +319,6 @@ static long get_varpos_xy(int x, int y) {
     if (idata>=xlen || (jdata>=ylen && yid >= 0))
 	return -1;
     return (zid>=0)*xlen*ylen*plt.znum + (yid>=0)*xlen*jdata + idata;
-
-    /*y = (int)(y*data_per_pixel) + offset_j;
-    x = (int)(x*data_per_pixel) + offset_i;
-    if (x>=xlen || (y>=ylen && yid >= 0))
-	return -1;
-    if (globs.invert_y && yid>=0)
-	y = nct_get_vardim(var, yid)->len - y - 1;
-    return (zid>=0)*xlen*ylen*plt.znum + (yid>=0)*xlen*y + x;*/
 }
 
 static void mousemotion() {
