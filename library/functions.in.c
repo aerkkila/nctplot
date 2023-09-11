@@ -43,15 +43,38 @@ static int my_isnan_double(double f) {
 }
 #endif
 
-static void draw2d_@nctype(const nct_var* var) {
-    int usenan = globs.usenan;
-    long long nanval = globs.nanval;
-    int xlen = nct_get_vardim(var, xid)->len;
+static ctype g_minmax_@nctype[2]; // Could this be long double with all types? Effect on performance?
+
+static void draw_row_@nctype(int jpixel, size_t jdata, const ctype* dataptr) {
+    size_t datastart = jdata*g_xlen;
+    float idata_f = offset_i + 0.5*g_data_per_step;
+    for(int ipixel=0; ipixel<draw_w; ipixel+=g_pixels_per_datum, idata_f+=g_data_per_step) {
+	long ind = datastart + (size_t)round(idata_f);
+	if (ind >= g_dlen)
+	    return;
+	ctype val = dataptr[ind];
+#if __nctype__ == NC_DOUBLE || __nctype__ == NC_FLOAT
+#if __nctype__ == NC_DOUBLE
+	if (my_isnan_double(val))
+#else
+	    if (my_isnan_float(val))
+#endif
+		continue;
+#endif
+	if (globs.usenan && val==globs.nanval)
+	    continue;
+	int value = CVAL(val, g_minmax_@nctype);
+	if (globs.invert_c) value = 0xff-value;
+	unsigned char* c = cmh_colorvalue(globs.cmapnum,value);
+	SDL_SetRenderDrawColor(rend, c[0], c[1], c[2], 0xff);
+	SDL_RenderDrawPoint(rend, ipixel/g_pixels_per_datum, jpixel/g_pixels_per_datum);
+    }
+}
+
+static int make_minmax_@nctype() {
     @uctype range;
-    long dlen = var->len;
-    ctype my_minmax[2];
-    memcpy(my_minmax, plt.minmax, 2*sizeof(ctype));
-    range = my_minmax[1] - my_minmax[0];
+    memcpy(g_minmax_@nctype, plt.minmax, 2*sizeof(ctype));
+    range = g_minmax_@nctype[1] - g_minmax_@nctype[0];
     if (minshift_abs != 0) {
 	plt.minshift += minshift_abs/range;
 	minshift_abs = 0;
@@ -60,86 +83,69 @@ static void draw2d_@nctype(const nct_var* var) {
 	plt.maxshift += maxshift_abs/range;
 	maxshift_abs = 0;
     }
-    my_minmax[0] += (@uctype)(range*plt.minshift);
-    my_minmax[1] += (@uctype)(range*plt.maxshift);
+    g_minmax_@nctype[0] += (@uctype)(range*plt.minshift);
+    g_minmax_@nctype[1] += (@uctype)(range*plt.maxshift);
+    return g_minmax_@nctype[0] == g_minmax_@nctype[1];
+}
+
+static void draw2d_@nctype(const nct_var* var) {
+    g_xlen = nct_get_vardim(var, xid)->len;
+    g_dlen = var->len;
+
+    int only_nans = make_minmax_@nctype();
+
     if (prog_mode == variables_m)
-	curses_write_vars();
+	curses_write_vars(); // Tarvitaanko tätä?
 
-    my_echo(my_minmax);
+    my_echo(g_minmax_@nctype);
 
-    size_t offset = plt.znum*plt.stepsize_z*(zid>=0);
+    if (only_nans) return;
+
+    g_pixels_per_datum = globs.exact ? round(1.0 / data_per_pixel) : 1.0 / data_per_pixel;
+    g_pixels_per_datum += !g_pixels_per_datum;
+    g_data_per_step = g_pixels_per_datum * data_per_pixel; // step is a virtual pixel >= physical pixel
+
     SDL_SetRenderDrawColor(rend, globs.color_bg[0], globs.color_bg[1], globs.color_bg[2], 255);
     SDL_RenderClear(rend);
-    if (my_minmax[0] != my_minmax[0]) return; // Return if all values are nan.
 
-    int pixels_per_datum = globs.exact ? round(1.0 / data_per_pixel) : 1.0 / data_per_pixel;
-    pixels_per_datum += !pixels_per_datum;
-    float data_per_step = pixels_per_datum * data_per_pixel; // step is a virtual pixel >= physical pixel
+    SDL_RenderSetScale(rend, g_pixels_per_datum, g_pixels_per_datum);
 
-    SDL_RenderSetScale(rend, pixels_per_datum, pixels_per_datum);
+    void* dataptr = var->data + (plt.znum*plt.stepsize_z*(zid>=0) - var->startpos) * nctypelen(var->dtype);
 
-    ctype* dataptr = (ctype*)var->data - var->startpos;
-
-    void draw_row(int jpixel, size_t jdata) {
-	size_t datastart = jdata*xlen;
-	float idata_f = offset_i + 0.5*data_per_step;
-	for(int ipixel=0; ipixel<draw_w; ipixel+=pixels_per_datum, idata_f+=data_per_step) {
-	    long ind = offset + datastart + (size_t)round(idata_f);
-	    if (ind >= dlen)
-		return;
-	    ctype val = dataptr[ind];
-#if __nctype__ == NC_DOUBLE || __nctype__ == NC_FLOAT
-#if __nctype__ == NC_DOUBLE
-	    if (my_isnan_double(val))
-#else
-	    if (my_isnan_float(val))
-#endif
-		continue;
-#endif
-	    if (usenan && val==nanval)
-		continue;
-	    int value = CVAL(val,my_minmax);
-	    if (globs.invert_c) value = 0xff-value;
-	    unsigned char* c = cmh_colorvalue(globs.cmapnum,value);
-	    SDL_SetRenderDrawColor(rend, c[0], c[1], c[2], 0xff);
-	    SDL_RenderDrawPoint(rend, ipixel/pixels_per_datum, jpixel/pixels_per_datum);
-	}
-    }
-
-    float fdataj = offset_j + 0.5*data_per_step;
+    float fdataj = offset_j + 0.5*g_data_per_step;
     if (globs.invert_y)
-	for(int j=draw_h-pixels_per_datum; j>=0; j-=pixels_per_datum) {
-	    draw_row(j, round(fdataj));
-	    fdataj += data_per_step;
+	for(int j=draw_h-g_pixels_per_datum; j>=0; j-=g_pixels_per_datum) {
+	    draw_row_@nctype(j, round(fdataj), dataptr);
+	    fdataj += g_data_per_step;
 	}
     else
-	for(int j=0; j<draw_h; j+=pixels_per_datum) {
-	    draw_row(j, round(fdataj));
-	    fdataj += data_per_step;
+	for(int j=0; j<draw_h; j+=g_pixels_per_datum) {
+	    draw_row_@nctype(j, round(fdataj), dataptr);
+	    fdataj += g_data_per_step;
 	}
     draw_colormap();
 }
 #undef CVAL
 
 static void draw1d_@nctype(const nct_var* var) {
-    ctype my_minmax[2], range;
-    memcpy(my_minmax, plt.minmax, 2*sizeof(ctype));
-    range = my_minmax[1]-my_minmax[0];
-    my_minmax[0] += range*plt.minshift;
-    my_minmax[1] += range*plt.maxshift;
-    if (my_minmax[1] == my_minmax[0])
-	my_minmax [1] += 1;
+    ctype range;
+    memcpy(g_minmax_@nctype, plt.minmax, 2*sizeof(ctype));
+    range = g_minmax_@nctype[1]-g_minmax_@nctype[0];
+    g_minmax_@nctype[0] += range*plt.minshift;
+    g_minmax_@nctype[1] += range*plt.maxshift;
+    if (g_minmax_@nctype[1] == g_minmax_@nctype[0])
+	g_minmax_@nctype [1] += 1;
     if (prog_mode == variables_m)
 	curses_write_vars();
-    my_echo(my_minmax);
+    my_echo(g_minmax_@nctype);
     SDL_SetRenderDrawColor(rend, globs.color_bg[0], globs.color_bg[1], globs.color_bg[2], 255);
     SDL_RenderClear(rend);
-    if (my_minmax[0] != my_minmax[0]) return;
+    if (g_minmax_@nctype[0] != g_minmax_@nctype[0]) return;
     double di=0;
     SDL_SetRenderDrawColor(rend, globs.color_fg[0], globs.color_fg[1], globs.color_fg[2], 255);
     ctype* dataptr = (ctype*)var->data - var->startpos;
     for(int i=0; i<win_w; i++, di+=data_per_pixel) {
-	int y = (dataptr[(int)di] - my_minmax[0]) * win_h / (my_minmax[1]-my_minmax[0]);
+	int y = (dataptr[(int)di] - g_minmax_@nctype[0]) * win_h / (g_minmax_@nctype[1]-g_minmax_@nctype[0]);
 	SDL_RenderDrawPoint(rend, i, y);
     }
 }

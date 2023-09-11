@@ -63,6 +63,9 @@ static float data_per_pixel; // (n(data) / n(pixels)) in one direction
 static const char* echo_highlight = "\033[1;93m";
 static void (*draw_funcptr)(const nct_var*);
 static enum {no_m, variables_m=-100, colormaps_m, n_cursesmodes, mousepaint_m} prog_mode = no_m;
+/* Used mainly in functions.in.c */
+static float g_data_per_step;
+static int g_pixels_per_datum, g_xlen, g_dlen;
 
 typedef union Arg Arg;
 typedef struct Binding Binding;
