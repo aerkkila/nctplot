@@ -34,6 +34,7 @@ typedef struct {
     char minmax[8*2];
     int znum;
     size_t stepsize_z;
+    float minshift, maxshift;
     /* for coastlines */
     double* coasts;
     char* crs;
@@ -57,7 +58,7 @@ static int win_w, win_h, xid, yid, zid, draw_w, draw_h, pending_varnum=-1, pendi
 static char stop, fill_on, play_on, play_inv, update_minmax=1, update_minmax_cur;
 static int lines_echoed;
 static int cmappix=30, cmapspace=10, call_resized, call_redraw, offset_i, offset_j;
-static float minshift, maxshift, minshift_abs, maxshift_abs, zoom=1;
+static float minshift_abs, maxshift_abs, zoom=1;
 static float data_per_pixel; // (n(data) / n(pixels)) in one direction
 static const char* echo_highlight = "\033[1;93m";
 static void (*draw_funcptr)(const nct_var*);
@@ -236,7 +237,7 @@ static void my_echo(void* minmax) {
 	    "minshift %s%.4f%s, maxshift %s%.4f%s\033[K\n"
 	    "data/pixel = %s%.4f%s\033[K\n"
 	    "colormap = %s%s%s%s\033[K\n",
-	    A,minshift,B, A,maxshift,B,
+	    A,plt.minshift,B, A,plt.maxshift,B,
 	    A,data_per_pixel,B, A,cmh_colormaps[globs.cmapnum].name,B, globs.invert_c? " reversed": "");
     printf("\r\033[%iA", echo_h); // move cursor to start
 }
@@ -674,7 +675,7 @@ static void print_var(Arg _) {
 }
 
 static void shift_max(Arg shift) {
-    maxshift += shift.f;
+    plt.maxshift += shift.f;
     call_redraw = 1;
 }
 
@@ -684,7 +685,7 @@ static void shift_max_abs(Arg shift) {
 }
 
 static void shift_min(Arg shift) {
-    minshift += shift.f;
+    plt.minshift += shift.f;
     call_redraw = 1;
 }
 

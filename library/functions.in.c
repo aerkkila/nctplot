@@ -53,15 +53,15 @@ static void draw2d_@nctype(const nct_var* var) {
     memcpy(my_minmax, plt.minmax, 2*sizeof(ctype));
     range = my_minmax[1] - my_minmax[0];
     if (minshift_abs != 0) {
-	minshift += minshift_abs/range;
+	plt.minshift += minshift_abs/range;
 	minshift_abs = 0;
     }
     if (maxshift_abs != 0) {
-	maxshift += maxshift_abs/range;
+	plt.maxshift += maxshift_abs/range;
 	maxshift_abs = 0;
     }
-    my_minmax[0] += (@uctype)(range*minshift);
-    my_minmax[1] += (@uctype)(range*maxshift);
+    my_minmax[0] += (@uctype)(range*plt.minshift);
+    my_minmax[1] += (@uctype)(range*plt.maxshift);
     if (prog_mode == variables_m)
 	curses_write_vars();
 
@@ -125,8 +125,8 @@ static void draw1d_@nctype(const nct_var* var) {
     ctype my_minmax[2], range;
     memcpy(my_minmax, plt.minmax, 2*sizeof(ctype));
     range = my_minmax[1]-my_minmax[0];
-    my_minmax[0] += range*minshift;
-    my_minmax[1] += range*maxshift;
+    my_minmax[0] += range*plt.minshift;
+    my_minmax[1] += range*plt.maxshift;
     if (my_minmax[1] == my_minmax[0])
 	my_minmax [1] += 1;
     if (prog_mode == variables_m)
