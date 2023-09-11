@@ -66,10 +66,13 @@ static enum {no_m, variables_m=-100, colormaps_m, n_cursesmodes, mousepaint_m} p
 /* Used mainly in functions.in.c */
 static float g_data_per_step;
 static int g_pixels_per_datum, g_xlen, g_dlen;
+static char g_minmax[2*8]; // kopio vuorossa olevasta g_minmax_@nctype-muuttujasta functions.in.c:ssä
 
 typedef union Arg Arg;
 typedef struct Binding Binding;
 
+static int my_isnan_float(float f);
+static int my_isnan_double(double f);
 static void my_echo(void* minmax);
 static void redraw(nct_var* var);
 static void multiply_zoom_fixed_point(float multiple, float xfraction, float yfraction);
@@ -86,7 +89,7 @@ static void quit(Arg _);
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 
-#include "functions.c" // draw1d, draw2d; automatically generated from functions.in.c
+#include "functions.c" // draw1d, draw_row, make_minmax; automatically generated from functions.in.c
 #ifdef HAVE_SHPLIB
 #include "coastlines.c"
 #endif
@@ -120,6 +123,22 @@ mp_params = {0};
 static int iround(float f) {
     int ifloor = f;
     return ifloor + (f-ifloor >= 0.5) - (f-ifloor <= -0.5);
+}
+
+/* These isnan functions can be used even with -ffinite-math-only optimization,
+   which is part of -Ofast optimization. */
+static int my_isnan_float(float f) {
+    const unsigned exponent = ((1u<<31)-1) - ((1u<<(31-8))-1);
+    uint32_t bits;
+    memcpy(&bits, &f, 4);
+    return (bits & exponent) == exponent;
+}
+
+static int my_isnan_double(double f) {
+    const long unsigned exponent = ((1lu<<63)-1) - ((1lu<<(63-11))-1);
+    uint64_t bits;
+    memcpy(&bits, &f, 8);
+    return (bits & exponent) == exponent;
 }
 
 static void curses_write_vars() {
@@ -176,6 +195,44 @@ static void curses_write_cmaps() {
 	}
     }
     refresh();
+}
+
+static void draw2d(const nct_var* var) {
+    g_xlen = nct_get_vardim(var, xid)->len;
+    g_dlen = var->len;
+
+    int only_nans = make_minmax(var->dtype);
+
+    if (prog_mode == variables_m)
+	curses_write_vars(); // Tarvitaanko tätä?
+
+    my_echo(g_minmax);
+
+    if (only_nans) return;
+
+    g_pixels_per_datum = globs.exact ? round(1.0 / data_per_pixel) : 1.0 / data_per_pixel;
+    g_pixels_per_datum += !g_pixels_per_datum;
+    g_data_per_step = g_pixels_per_datum * data_per_pixel; // step is a virtual pixel >= physical pixel
+
+    SDL_SetRenderDrawColor(rend, globs.color_bg[0], globs.color_bg[1], globs.color_bg[2], 255);
+    SDL_RenderClear(rend);
+
+    SDL_RenderSetScale(rend, g_pixels_per_datum, g_pixels_per_datum);
+
+    void* dataptr = var->data + (plt.znum*plt.stepsize_z*(zid>=0) - var->startpos) * nctypelen(var->dtype);
+
+    float fdataj = offset_j + 0.5*g_data_per_step;
+    if (globs.invert_y)
+	for(int j=draw_h-g_pixels_per_datum; j>=0; j-=g_pixels_per_datum) {
+	    draw_row(var->dtype, j, round(fdataj), dataptr);
+	    fdataj += g_data_per_step;
+	}
+    else
+	for(int j=0; j<draw_h; j+=g_pixels_per_datum) {
+	    draw_row(var->dtype, j, round(fdataj), dataptr);
+	    fdataj += g_data_per_step;
+	}
+    draw_colormap();
 }
 
 static void draw_colormap() {

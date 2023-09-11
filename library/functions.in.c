@@ -19,47 +19,29 @@ void* nct_minmax_nan_@nctype(const nct_var*, long nanval, void* result); // glob
 #define echo_h 5
 #endif
 
+static ctype g_minmax_@nctype[2];
+
 /* max-min can be larger than a signed number can handle.
    Therefore we cast to the corresponding unsigned type. */
 #define CVAL(val,minmax) ((val) <  (minmax)[0] ? 0   :			\
 			  (val) >= (minmax)[1] ? 255 :			\
 			  (@uctype)((val)-(minmax)[0])*255 / (@uctype)((minmax)[1]-(minmax)[0]) )
 
-/* These isnan functions can be used even with -ffinite-math-only optimization,
-   which is part of -Ofast optimization. */
-#if __nctype__ == NC_FLOAT
-static int my_isnan_float(float f) {
-    const unsigned exponent = ((1u<<31)-1) - ((1u<<(31-8))-1);
-    uint32_t bits;
-    memcpy(&bits, &f, 4);
-    return (bits & exponent) == exponent;
-}
-#elif __nctype__ == NC_DOUBLE
-static int my_isnan_double(double f) {
-    const long unsigned exponent = ((1lu<<63)-1) - ((1lu<<(63-11))-1);
-    uint64_t bits;
-    memcpy(&bits, &f, 8);
-    return (bits & exponent) == exponent;
-}
-#endif
-
-static ctype g_minmax_@nctype[2]; // Could this be long double with all types? Effect on performance?
-
-static void draw_row_@nctype(int jpixel, size_t jdata, const ctype* dataptr) {
+static void draw_row_@nctype(int jpixel, size_t jdata, const void* vdataptr) {
     size_t datastart = jdata*g_xlen;
     float idata_f = offset_i + 0.5*g_data_per_step;
     for(int ipixel=0; ipixel<draw_w; ipixel+=g_pixels_per_datum, idata_f+=g_data_per_step) {
 	long ind = datastart + (size_t)round(idata_f);
 	if (ind >= g_dlen)
 	    return;
-	ctype val = dataptr[ind];
+	ctype val = ((const ctype*)vdataptr)[ind];
 #if __nctype__ == NC_DOUBLE || __nctype__ == NC_FLOAT
 #if __nctype__ == NC_DOUBLE
 	if (my_isnan_double(val))
 #else
-	    if (my_isnan_float(val))
+	if (my_isnan_float(val))
 #endif
-		continue;
+	    continue;
 #endif
 	if (globs.usenan && val==globs.nanval)
 	    continue;
@@ -70,6 +52,7 @@ static void draw_row_@nctype(int jpixel, size_t jdata, const ctype* dataptr) {
 	SDL_RenderDrawPoint(rend, ipixel/g_pixels_per_datum, jpixel/g_pixels_per_datum);
     }
 }
+#undef CVAL
 
 static int make_minmax_@nctype() {
     @uctype range;
@@ -85,47 +68,12 @@ static int make_minmax_@nctype() {
     }
     g_minmax_@nctype[0] += (@uctype)(range*plt.minshift);
     g_minmax_@nctype[1] += (@uctype)(range*plt.maxshift);
+
+    memset(g_minmax, 0, sizeof(g_minmax));
+    memcpy(g_minmax, g_minmax_@nctype, sizeof(g_minmax_@nctype));
+
     return g_minmax_@nctype[0] == g_minmax_@nctype[1];
 }
-
-static void draw2d_@nctype(const nct_var* var) {
-    g_xlen = nct_get_vardim(var, xid)->len;
-    g_dlen = var->len;
-
-    int only_nans = make_minmax_@nctype();
-
-    if (prog_mode == variables_m)
-	curses_write_vars(); // Tarvitaanko tätä?
-
-    my_echo(g_minmax_@nctype);
-
-    if (only_nans) return;
-
-    g_pixels_per_datum = globs.exact ? round(1.0 / data_per_pixel) : 1.0 / data_per_pixel;
-    g_pixels_per_datum += !g_pixels_per_datum;
-    g_data_per_step = g_pixels_per_datum * data_per_pixel; // step is a virtual pixel >= physical pixel
-
-    SDL_SetRenderDrawColor(rend, globs.color_bg[0], globs.color_bg[1], globs.color_bg[2], 255);
-    SDL_RenderClear(rend);
-
-    SDL_RenderSetScale(rend, g_pixels_per_datum, g_pixels_per_datum);
-
-    void* dataptr = var->data + (plt.znum*plt.stepsize_z*(zid>=0) - var->startpos) * nctypelen(var->dtype);
-
-    float fdataj = offset_j + 0.5*g_data_per_step;
-    if (globs.invert_y)
-	for(int j=draw_h-g_pixels_per_datum; j>=0; j-=g_pixels_per_datum) {
-	    draw_row_@nctype(j, round(fdataj), dataptr);
-	    fdataj += g_data_per_step;
-	}
-    else
-	for(int j=0; j<draw_h; j+=g_pixels_per_datum) {
-	    draw_row_@nctype(j, round(fdataj), dataptr);
-	    fdataj += g_data_per_step;
-	}
-    draw_colormap();
-}
-#undef CVAL
 
 static void draw1d_@nctype(const nct_var* var) {
     ctype range;
