@@ -1099,6 +1099,7 @@ void nctplot_(void* vobject, int isset) {
 	win_h = dm.h;
     }
 
+    globs = default_globals; // must be early because globals may be modified or needed by functions
     n_plottables = var->super->nvars;
     plottables = calloc(n_plottables, sizeof(plottable));
     pltind = nct_varid(var);
@@ -1117,7 +1118,6 @@ void nctplot_(void* vobject, int isset) {
     base = SDL_CreateTexture(rend, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, win_w, win_h);
     variable_changed();
 
-    globs = default_globals;
     sleeptime = default_sleep;
     stop = lines_echoed = play_on = play_inv = 0;
     update_minmax = 1;
