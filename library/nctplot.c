@@ -63,10 +63,11 @@ static float data_per_pixel; // (n(data) / n(pixels)) in one direction
 static const char* echo_highlight = "\033[1;93m";
 static void (*draw_funcptr)(const nct_var*);
 static enum {no_m, variables_m=-100, colormaps_m, n_cursesmodes, mousepaint_m} prog_mode = no_m;
-/* Used mainly in functions.in.c */
+/* Used mainly in functions.in.c and draw2d */
 static float g_data_per_step;
 static int g_pixels_per_datum, g_xlen, g_dlen;
 static char g_minmax[2*8]; // tallennustila, jota käytetään sopivalla g_minmax_@nctype-osoittimella
+static void* g_dataptr;
 
 typedef union Arg Arg;
 typedef struct Binding Binding;
@@ -197,33 +198,36 @@ static void curses_write_cmaps() {
     refresh();
 }
 
-static void draw2d(const nct_var* var) {
+static int draw2d_make_globals(const nct_var* var) {
     g_xlen = nct_get_vardim(var, xid)->len;
     g_dlen = var->len;
-
-    int only_nans = make_minmax(var->dtype);
-    my_echo(g_minmax);
+    g_dataptr = var->data + (plt.znum*plt.stepsize_z*(zid>=0) - var->startpos) * nctypelen(var->dtype);
 
     g_pixels_per_datum = globs.exact ? round(1.0 / data_per_pixel) : 1.0 / data_per_pixel;
     g_pixels_per_datum += !g_pixels_per_datum;
     g_data_per_step = g_pixels_per_datum * data_per_pixel; // step is a virtual pixel >= physical pixel
+
+    return make_minmax(var->dtype);
+}
+
+static void draw2d(const nct_var* var) {
+    int only_nans = draw2d_make_globals(var);
+    my_echo(g_minmax);
 
     SDL_SetRenderDrawColor(rend, globs.color_bg[0], globs.color_bg[1], globs.color_bg[2], 255);
     SDL_RenderClear(rend);
     SDL_RenderSetScale(rend, g_pixels_per_datum, g_pixels_per_datum);
     if (only_nans) return;
 
-    void* dataptr = var->data + (plt.znum*plt.stepsize_z*(zid>=0) - var->startpos) * nctypelen(var->dtype);
-
     float fdataj = offset_j + 0.5*g_data_per_step;
     if (globs.invert_y)
 	for(int j=draw_h-g_pixels_per_datum; j>=0; j-=g_pixels_per_datum) {
-	    draw_row(var->dtype, j, round(fdataj), dataptr);
+	    draw_row(var->dtype, j, round(fdataj), g_dataptr);
 	    fdataj += g_data_per_step;
 	}
     else
 	for(int j=0; j<draw_h; j+=g_pixels_per_datum) {
-	    draw_row(var->dtype, j, round(fdataj), dataptr);
+	    draw_row(var->dtype, j, round(fdataj), g_dataptr);
 	    fdataj += g_data_per_step;
 	}
     draw_colormap();
