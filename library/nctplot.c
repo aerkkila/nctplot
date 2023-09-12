@@ -65,7 +65,7 @@ static void (*draw_funcptr)(const nct_var*);
 static enum {no_m, variables_m=-100, colormaps_m, n_cursesmodes, mousepaint_m} prog_mode = no_m;
 /* Used mainly in functions.in.c and draw2d */
 static float g_data_per_step;
-static int g_pixels_per_datum, g_xlen, g_dlen;
+static int g_pixels_per_datum, g_xlen;
 static char g_minmax[2*8]; // tallennustila, jota käytetään sopivalla g_minmax_@nctype-osoittimella
 static void* g_dataptr;
 
@@ -200,7 +200,6 @@ static void curses_write_cmaps() {
 
 static int draw2d_make_globals(const nct_var* var) {
     g_xlen = nct_get_vardim(var, xid)->len;
-    g_dlen = var->len;
     g_dataptr = var->data + (plt.znum*plt.stepsize_z*(zid>=0) - var->startpos) * nctypelen(var->dtype);
 
     g_pixels_per_datum = globs.exact ? round(1.0 / data_per_pixel) : 1.0 / data_per_pixel;
@@ -219,15 +218,18 @@ static void draw2d(const nct_var* var) {
     SDL_RenderSetScale(rend, g_pixels_per_datum, g_pixels_per_datum);
     if (only_nans) return;
 
+    int size1 = nctypelen(var->dtype);
     float fdataj = offset_j + 0.5*g_data_per_step;
     if (globs.invert_y)
 	for(int j=draw_h-g_pixels_per_datum; j>=0; j-=g_pixels_per_datum) {
-	    draw_row(var->dtype, j, round(fdataj), g_dataptr);
+	    draw_row(var->dtype, j,
+		    g_dataptr + (long)(size1 * round(fdataj)*g_xlen));
 	    fdataj += g_data_per_step;
 	}
     else
 	for(int j=0; j<draw_h; j+=g_pixels_per_datum) {
-	    draw_row(var->dtype, j, round(fdataj), g_dataptr);
+	    draw_row(var->dtype, j,
+		    g_dataptr + (long)(size1 * round(fdataj)*g_xlen));
 	    fdataj += g_data_per_step;
 	}
     draw_colormap();
