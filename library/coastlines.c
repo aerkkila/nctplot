@@ -80,9 +80,11 @@ static void init_coastlines(plottable* plott, void* funptr) {
     var = nct_get_vardim(plott->var, xid);
     plott->x0 = nct_getg_floating(var, 0);
     plott->xspace = nct_getg_floating(var, 1) - plott->x0;
+    plott->x0 -= 0.5*plott->xspace;
     var = nct_get_vardim(plott->var, yid);
     plott->y0 = nct_getg_floating(var, 0);
     plott->yspace = nct_getg_floating(var, 1) - plott->y0;
+    plott->y0 -= 0.5*plott->yspace;
 }
 
 static double tmp_x0, tmp_y0, tmp_xspace, tmp_yspace;
@@ -90,6 +92,11 @@ static double tmp_x0, tmp_y0, tmp_xspace, tmp_yspace;
 static void coord_to_point(double x, double y, SDL_Point* point) {
     point->x = round((x - tmp_x0) * tmp_xspace);
     point->y = round((y - tmp_y0) * tmp_yspace);
+}
+
+static void coord_to_point_inv_y(double x, double y, SDL_Point* point) {
+    point->x = round((x - tmp_x0) * tmp_xspace);
+    point->y = draw_h - round((y - tmp_y0) * tmp_yspace);
 }
 
 static void draw_coastlines(plottable* plott) {
@@ -113,12 +120,10 @@ static void draw_coastlines(plottable* plott) {
 		    ipoint_to = 0;
 		    continue;
 		}
-		coord_to_point(
+		coord_to_point_inv_y(
 			points[(ind+ipoint_from)*2],
 			points[(ind+ipoint_from)*2+1],
-			pnts+ipoint_to);
-		pnts[ipoint_to].y = draw_h - pnts[ipoint_to].y;
-		ipoint_to++;
+			pnts+ipoint_to++);
 	    }
 	else
 	    for(int ipoint_from=0; ipoint_from<coastl_lengths[e]; ipoint_from++) {

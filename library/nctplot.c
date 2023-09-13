@@ -65,7 +65,7 @@ static void (*draw_funcptr)(const nct_var*);
 static enum {no_m, variables_m=-100, colormaps_m, n_cursesmodes, mousepaint_m} prog_mode = no_m;
 /* Used mainly in functions.in.c and draw2d */
 static float g_data_per_step;
-static int g_pixels_per_datum, g_xlen;
+static int g_pixels_per_datum, g_xlen, g_ylen;
 static char g_minmax[2*8]; // tallennustila, jota käytetään sopivalla g_minmax_@nctype-osoittimella
 static void* g_dataptr;
 
@@ -200,6 +200,7 @@ static void curses_write_cmaps() {
 
 static int draw2d_make_globals(const nct_var* var) {
     g_xlen = nct_get_vardim(var, xid)->len;
+    g_ylen = nct_get_vardim(var, yid)->len;
     g_dataptr = var->data + (plt.znum*plt.stepsize_z*(zid>=0) - var->startpos) * nctypelen(var->dtype);
 
     g_pixels_per_datum = globs.exact ? round(1.0 / data_per_pixel) : 1.0 / data_per_pixel;
@@ -218,19 +219,21 @@ static void draw2d(const nct_var* var) {
     SDL_RenderSetScale(rend, g_pixels_per_datum, g_pixels_per_datum);
     if (only_nans) return;
 
-    int size1 = nctypelen(var->dtype);
-    float fdataj = offset_j + 0.5*g_data_per_step;
-    if (globs.invert_y)
-	for(int j=draw_h-g_pixels_per_datum; j>=0; j-=g_pixels_per_datum) {
+    float fdataj = offset_j;
+    int size1 = nctypelen(var->dtype),
+	idataj = round(fdataj);
+    if (globs.invert_y) {
+	for(int j=draw_h-g_pixels_per_datum; idataj<g_ylen; j-=g_pixels_per_datum) {
 	    draw_row(var->dtype, j,
-		    g_dataptr + (long)(size1 * round(fdataj)*g_xlen));
-	    fdataj += g_data_per_step;
+		    g_dataptr + (long)(size1 * idataj*g_xlen));
+	    idataj = round(fdataj += g_data_per_step);
 	}
+    }
     else
-	for(int j=0; j<draw_h; j+=g_pixels_per_datum) {
+	for(int j=0; idataj<g_ylen; j+=g_pixels_per_datum) {
 	    draw_row(var->dtype, j,
-		    g_dataptr + (long)(size1 * round(fdataj)*g_xlen));
-	    fdataj += g_data_per_step;
+		    g_dataptr + (long)(size1 * idataj)*g_xlen);
+	    idataj = round(fdataj += g_data_per_step);
 	}
     draw_colormap();
 }
@@ -314,8 +317,8 @@ static long get_varpos_xy(int x, int y) {
 	y = draw_h / g_pixels_per_datum * g_pixels_per_datum - y;
     int i = x / g_pixels_per_datum;
     int j = y / g_pixels_per_datum;
-    float idata_f = offset_i + (i+0.5)*g_data_per_step;
-    float jdata_f = offset_j + (j+0.5)*g_data_per_step;
+    float idata_f = offset_i + i*g_data_per_step;
+    float jdata_f = offset_j + j*g_data_per_step;
     int idata = round(idata_f);
     int jdata = round(jdata_f);
 
@@ -362,10 +365,14 @@ static void mousewheel() {
 }
 
 static void mousemove() {
-    float move_datax = event.motion.xrel * data_per_pixel;
-    float move_datay = event.motion.yrel * data_per_pixel;
-    offset_i -= iround(move_datax);
-    offset_j -= globs.invert_y ? -iround(move_datay) : iround(move_datay);
+    static float move_datax, move_datay;
+    move_datax += event.motion.xrel * data_per_pixel;
+    move_datay += event.motion.yrel * data_per_pixel;
+    int xmove, ymove;
+    move_datax -= (xmove = iround(move_datax));
+    move_datay -= (ymove = iround(move_datay));
+    offset_i -= xmove;
+    offset_j -= globs.invert_y ? -ymove : ymove;
     set_draw_params();
     call_redraw = 1;
 }
