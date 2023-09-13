@@ -83,6 +83,8 @@ static void end_curses(Arg);
 static void curses_write_vars();
 static void curses_write_cmaps();
 static uint_fast64_t time_now_ms();
+static void inc_offset_j(Arg);
+static void inc_offset_i(Arg);
 static void quit(Arg _);
 
 #define ARRSIZE(a) (sizeof(a) / sizeof(*(a)))
@@ -360,8 +362,8 @@ static void mousemove() {
     int xmove, ymove;
     move_datax -= (xmove = iround(move_datax));
     move_datay -= (ymove = iround(move_datay));
-    offset_i -= xmove;
-    offset_j -= globs.invert_y ? -ymove : ymove;
+    inc_offset_i((Arg){.i=-xmove});
+    inc_offset_j((Arg){.i=-ymove});
     set_draw_params();
     call_redraw = 1;
 }
@@ -493,6 +495,7 @@ static void set_dimids() {
 
 static void set_draw_params() {
     offset_j += plt.j_off_by_one;
+    plt.j_off_by_one = 0;
 
     g_xlen = nct_get_vardim(var, xid)->len;
     if(yid>=0) {
@@ -531,10 +534,8 @@ static void set_draw_params() {
 	offset_j -= if_add_1;
 	plt.j_off_by_one = if_add_1;
     }
-    else {
+    else
 	if_add_1 = draw_h / g_pixels_per_datum < g_ylen - offset_j && draw_h < win_h;
-	plt.j_off_by_one = 0;
-    }
     draw_h += if_add_1 * g_pixels_per_datum; // may be larger than win_h which is not a problem
     g_extended_y = if_add_1;
 
@@ -664,14 +665,31 @@ static void show_bindings(Arg _) {
 }
 
 static void inc_offset_i(Arg arg) {
+    if (draw_w <= win_w - g_pixels_per_datum && arg.i > 0)
+	return;
     offset_i += arg.i;
     set_draw_params();
+    int too_much = floor((win_w - draw_w) * data_per_pixel + 1e-10);
+    if (too_much > 0) {
+	offset_i -= too_much;
+	set_draw_params();
+    }
     call_redraw = 1;
 }
 
 static void inc_offset_j(Arg arg) {
-    offset_j += globs.invert_y ? -arg.i : arg.i;
+    if (globs.invert_y)
+	arg.i = -arg.i;
+    int winh = win_h - cmappix - cmapspace;
+    if (draw_h <= winh - g_pixels_per_datum && arg.i > 0)
+	return;
+    offset_j += arg.i;
     set_draw_params();
+    int too_much = floor((winh - draw_h) * data_per_pixel + 1e-10);
+    if (too_much > 0) {
+	offset_j -= too_much;
+	set_draw_params();
+    }
     call_redraw = 1;
 }
 
