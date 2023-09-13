@@ -46,6 +46,36 @@ static void draw_row_@nctype(int jpixel, const void* vrowptr) {
 	SDL_RenderDrawPoint(rend, ipixel/g_pixels_per_datum, jpixel/g_pixels_per_datum);
     }
 }
+
+static void draw_row_buffer_@nctype(const void* vrowptr, void* buff) {
+    float idata_f = offset_i;
+    void* ptr = buff;
+    for (int ipixel=0; ipixel<draw_w;
+	    ipixel	+= g_pixels_per_datum,
+	    idata_f	+= g_data_per_step,
+	    ptr		+= 3*g_pixels_per_datum)
+    {
+	long ind = (size_t)round(idata_f);
+	if (ind >= g_xlen)
+	    return;
+	ctype val = ((const ctype*)vrowptr)[ind];
+#if __nctype__ == NC_DOUBLE
+	if (my_isnan_double(val)) continue;
+#else
+	if (my_isnan_float(val)) continue;
+#endif
+	if (globs.usenan && val==globs.nanval)
+	    continue;
+	int value = CVAL(val, g_minmax_@nctype);
+	if (globs.invert_c) value = 0xff-value;
+	unsigned char* c = cmh_colorvalue(globs.cmapnum, value);
+	/* put value */
+	for(int i=0; i<g_pixels_per_datum; i++)
+	    memcpy(ptr+i*3, c, 3);
+    }
+    for (int j=1; j<g_pixels_per_datum; j++, ptr+=draw_w*3)
+	memcpy(ptr, buff, draw_w*3);
+}
 #undef CVAL
 
 static int make_minmax_@nctype() {

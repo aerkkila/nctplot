@@ -1,3 +1,4 @@
+#ifdef HAVE_SHPLIB // wraps the whole file
 #include <shapefil.h>
 #include <math.h>
 #include "shpname.h"
@@ -146,3 +147,4 @@ static void draw_coastlines(plottable* plott) {
 static void free_coastlines() {
     coastl_lengths = (free(coastl_lengths), NULL);
 }
+#endif // HAVE_SHPLIB

@@ -135,6 +135,9 @@ static Binding keydown_bindings[] = {
        If proj-library is available, this will affect how the coastlines are drawn.
        Otherwise this is useless. */
     { SDLK_t,		KMOD_SHIFT,		ask_crs,				},
+#ifdef HAVE_PNG
+    { SDLK_s,		KMOD_CTRL,		save_png,				},
+#endif
 #ifdef HAVE_NCTPROJ
     /* Convert this variable into different coordinates.
        The original and target coordinate systems will be asked in terminal.

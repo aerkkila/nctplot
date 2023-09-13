@@ -13,6 +13,9 @@ have_nctproj = 1
 # proj is used in coordinate transformations on coastlines. Comment this out if you don't have proj or coastlines are disabled.
 have_proj = 1
 
+# png library is used to generate figures. Comment this out if necessary.
+have_png = 1
+
 CFLAGS = -Wall -g -fPIC -Ofast
 CC = gcc
 

@@ -65,7 +65,7 @@ static void (*draw_funcptr)(const nct_var*);
 static enum {no_m, variables_m=-100, colormaps_m, n_cursesmodes, mousepaint_m} prog_mode = no_m;
 /* drawing parameters */
 static float g_data_per_step;
-static int g_pixels_per_datum, g_xlen, g_ylen, g_only_nans, g_extended_y;
+static int g_pixels_per_datum, g_xlen, g_ylen, g_size1, g_only_nans, g_extended_y;
 static char g_minmax[2*8]; // a buffer, which is used with a g_minmax_@nctype pointer
 
 typedef union Arg Arg;
@@ -87,22 +87,21 @@ static void inc_offset_j(Arg);
 static void inc_offset_i(Arg);
 static void quit(Arg _);
 
-#define ARRSIZE(a) (sizeof(a) / sizeof(*(a)))
-#define MIN(a, b) ((a) < (b) ? (a) : (b))
-#define MAX(a, b) ((a) > (b) ? (a) : (b))
-
-#include "functions.c" // draw1d, draw_row, make_minmax; automatically generated from functions.in.c
-#ifdef HAVE_SHPLIB
-#include "coastlines.c"
-#endif
-
-static SDL_Event event;
-
 union Arg {
     void* v;
     float f;
     int   i;
 };
+
+#define ARRSIZE(a) (sizeof(a) / sizeof(*(a)))
+#define MIN(a, b) ((a) < (b) ? (a) : (b))
+#define MAX(a, b) ((a) > (b) ? (a) : (b))
+
+#include "functions.c" // draw1d, draw_row, make_minmax; automatically generated from functions.in.c
+#include "coastlines.c"
+#include "png.c"
+
+static SDL_Event event;
 
 struct Binding {
     int key;
@@ -207,22 +206,20 @@ static void draw2d(const nct_var* var) {
     SDL_RenderSetScale(rend, g_pixels_per_datum, g_pixels_per_datum);
     if (g_only_nans) return;
 
-    void* dataptr = var->data + (plt.znum*plt.stepsize_z*(zid>=0) - var->startpos) * nctypelen(var->dtype);
+    void* dataptr = var->data + (plt.znum*plt.stepsize_z*(zid>=0) - var->startpos) * g_size1;
 
     float fdataj = offset_j;
-    int size1 = nctypelen(var->dtype),
-	idataj = round(fdataj);
-    int j;
+    int idataj = round(fdataj), j;
     if (globs.invert_y)
 	for(j=draw_h-g_pixels_per_datum; j>=0; j-=g_pixels_per_datum) {
 	    draw_row(var->dtype, j,
-		    dataptr + (long)(size1 * idataj*g_xlen));
+		    dataptr + g_size1*idataj*g_xlen);
 	    idataj = round(fdataj += g_data_per_step);
 	}
     else
 	for(j=0; j<draw_h; j+=g_pixels_per_datum) {
 	    draw_row(var->dtype, j,
-		    dataptr + (long)(size1 * idataj)*g_xlen);
+		    dataptr + g_size1*idataj*g_xlen);
 	    idataj = round(fdataj += g_data_per_step);
 	}
     draw_colormap();
@@ -497,6 +494,7 @@ static void set_draw_params() {
     offset_j += plt.j_off_by_one;
     plt.j_off_by_one = 0;
 
+    g_size1 = nctypelen(var->dtype);
     g_xlen = nct_get_vardim(var, xid)->len;
     if(yid>=0) {
 	g_ylen  = nct_get_vardim(var, yid)->len;
