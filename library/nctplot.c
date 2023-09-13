@@ -35,11 +35,11 @@ typedef struct {
     int znum;
     size_t stepsize_z;
     float minshift, maxshift;
+    char globs_detached, j_off_by_one;
     /* for coastlines */
     double* coasts;
     char* crs;
     double x0, y0, xspace, yspace;
-    char globs_detached;
 } plottable;
 
 /* Static variables. Global in the context of this library. */
@@ -63,11 +63,10 @@ static float data_per_pixel; // (n(data) / n(pixels)) in one direction
 static const char* echo_highlight = "\033[1;93m";
 static void (*draw_funcptr)(const nct_var*);
 static enum {no_m, variables_m=-100, colormaps_m, n_cursesmodes, mousepaint_m} prog_mode = no_m;
-/* Used mainly in functions.in.c and draw2d */
+/* drawing parameters */
 static float g_data_per_step;
-static int g_pixels_per_datum, g_xlen, g_ylen;
-static char g_minmax[2*8]; // tallennustila, jota käytetään sopivalla g_minmax_@nctype-osoittimella
-static void* g_dataptr;
+static int g_pixels_per_datum, g_xlen, g_ylen, g_only_nans, g_extended_y;
+static char g_minmax[2*8]; // a buffer, which is used with a g_minmax_@nctype pointer
 
 typedef union Arg Arg;
 typedef struct Binding Binding;
@@ -198,41 +197,30 @@ static void curses_write_cmaps() {
     refresh();
 }
 
-static int draw2d_make_globals(const nct_var* var) {
-    g_xlen = nct_get_vardim(var, xid)->len;
-    g_ylen = nct_get_vardim(var, yid)->len;
-    g_dataptr = var->data + (plt.znum*plt.stepsize_z*(zid>=0) - var->startpos) * nctypelen(var->dtype);
-
-    g_pixels_per_datum = globs.exact ? round(1.0 / data_per_pixel) : 1.0 / data_per_pixel;
-    g_pixels_per_datum += !g_pixels_per_datum;
-    g_data_per_step = g_pixels_per_datum * data_per_pixel; // step is a virtual pixel >= physical pixel
-
-    return make_minmax(var->dtype);
-}
-
 static void draw2d(const nct_var* var) {
-    int only_nans = draw2d_make_globals(var);
     my_echo(g_minmax);
 
     SDL_SetRenderDrawColor(rend, globs.color_bg[0], globs.color_bg[1], globs.color_bg[2], 255);
     SDL_RenderClear(rend);
     SDL_RenderSetScale(rend, g_pixels_per_datum, g_pixels_per_datum);
-    if (only_nans) return;
+    if (g_only_nans) return;
+
+    void* dataptr = var->data + (plt.znum*plt.stepsize_z*(zid>=0) - var->startpos) * nctypelen(var->dtype);
 
     float fdataj = offset_j;
     int size1 = nctypelen(var->dtype),
 	idataj = round(fdataj);
-    if (globs.invert_y) {
-	for(int j=draw_h-g_pixels_per_datum; idataj<g_ylen; j-=g_pixels_per_datum) {
+    int j;
+    if (globs.invert_y)
+	for(j=draw_h-g_pixels_per_datum; j>=0; j-=g_pixels_per_datum) {
 	    draw_row(var->dtype, j,
-		    g_dataptr + (long)(size1 * idataj*g_xlen));
+		    dataptr + (long)(size1 * idataj*g_xlen));
 	    idataj = round(fdataj += g_data_per_step);
 	}
-    }
     else
-	for(int j=0; idataj<g_ylen; j+=g_pixels_per_datum) {
+	for(j=0; j<draw_h; j+=g_pixels_per_datum) {
 	    draw_row(var->dtype, j,
-		    g_dataptr + (long)(size1 * idataj)*g_xlen);
+		    dataptr + (long)(size1 * idataj)*g_xlen);
 	    idataj = round(fdataj += g_data_per_step);
 	}
     draw_colormap();
@@ -242,18 +230,19 @@ static void draw_colormap() {
     float cspace = 255.0f/win_w;
     float di = 0;
     SDL_RenderSetScale(rend, 1, 1);
+    int j0 = draw_h + cmapspace - g_extended_y*g_pixels_per_datum;
     if(!globs.invert_c)
 	for(int i=0; i<win_w; i++, di+=cspace) {
 	    unsigned char* c = cmh_colorvalue(globs.cmapnum, (int)di);
 	    SDL_SetRenderDrawColor(rend, c[0], c[1], c[2], 255);
-	    for(int j=draw_h+cmapspace; j<draw_h+cmapspace+cmappix; j++)
+	    for(int j=j0; j<draw_h+cmapspace+cmappix; j++)
 		SDL_RenderDrawPoint(rend, i, j);
 	}
     else
 	for(int i=win_w-1; i>=0; i--, di+=cspace) {
 	    unsigned char* c = cmh_colorvalue(globs.cmapnum, (int)di);
 	    SDL_SetRenderDrawColor(rend, c[0], c[1], c[2], 255);
-	    for(int j=draw_h+cmapspace; j<draw_h+cmapspace+cmappix; j++)
+	    for(int j=j0; j<draw_h+cmapspace+cmappix; j++)
 		SDL_RenderDrawPoint(rend, i, j);
 	}	
 }
@@ -503,13 +492,15 @@ static void set_dimids() {
 #define GET_SPACE(a,b,c,d) (fill_on? GET_SPACE_FILL(a,b,c,d): GET_SPACE_NONFILL(a,b,c,d))
 
 static void set_draw_params() {
-    int xlen = nct_get_vardim(var, xid)->len, ylen;
+    offset_j += plt.j_off_by_one;
+
+    g_xlen = nct_get_vardim(var, xid)->len;
     if(yid>=0) {
-	ylen  = nct_get_vardim(var, yid)->len;
-	data_per_pixel = GET_SPACE(xlen, win_w, ylen, win_h-cmapspace-cmappix);
+	g_ylen  = nct_get_vardim(var, yid)->len;
+	data_per_pixel = GET_SPACE(g_xlen, win_w, g_ylen, win_h-cmapspace-cmappix);
     } else {
-	data_per_pixel = (float)(xlen)/(win_w);
-	ylen  = win_h * data_per_pixel;
+	data_per_pixel = (float)(g_xlen)/(win_w);
+	g_ylen  = win_h * data_per_pixel;
     }
     data_per_pixel *= zoom;
     if (globs.exact)
@@ -517,12 +508,37 @@ static void set_draw_params() {
 	    1.0 / floor(1.0/data_per_pixel);
     if (offset_i < 0) offset_i = 0;
     if (offset_j < 0) offset_j = 0;
-    draw_w = (xlen-offset_i) / data_per_pixel; // how many pixels data can reach
-    draw_h = (ylen-offset_j) / data_per_pixel;
+
+    draw_w = round((g_xlen-offset_i) / data_per_pixel); // how many pixels data can reach
+    draw_h = round((g_ylen-offset_j) / data_per_pixel);
     draw_w = MIN(win_w, draw_w);
     draw_h = MIN(win_h-cmapspace-cmappix, draw_h);
     plt.stepsize_z = nct_get_len_from(var, zid+1); // works even if zid == -1
     plt.stepsize_z += plt.stepsize_z == 0; // length must be at least 1
+
+    g_pixels_per_datum = globs.exact ? round(1.0 / data_per_pixel) : 1.0 / data_per_pixel;
+    g_pixels_per_datum += !g_pixels_per_datum;
+    g_data_per_step = g_pixels_per_datum * data_per_pixel; // step is a virtual pixel >= physical pixel
+
+    int if_add_1;
+    draw_w = draw_w / g_pixels_per_datum * g_pixels_per_datum;
+    if_add_1 = draw_w / g_pixels_per_datum < g_xlen - offset_i && draw_w < win_w;
+    draw_w += if_add_1 * g_pixels_per_datum; // may be larger than win_w which is not a problem
+
+    draw_h = draw_h / g_pixels_per_datum * g_pixels_per_datum;
+    if (globs.invert_y) {
+	if_add_1 = draw_h / g_pixels_per_datum < g_ylen - offset_j && draw_h < win_h && offset_j;
+	offset_j -= if_add_1;
+	plt.j_off_by_one = if_add_1;
+    }
+    else {
+	if_add_1 = draw_h / g_pixels_per_datum < g_ylen - offset_j && draw_h < win_h;
+	plt.j_off_by_one = 0;
+    }
+    draw_h += if_add_1 * g_pixels_per_datum; // may be larger than win_h which is not a problem
+    g_extended_y = if_add_1;
+
+    g_only_nans = make_minmax(var->dtype);
 }
 
 static uint_fast64_t time_now_ms() {
