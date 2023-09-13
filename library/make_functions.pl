@@ -11,8 +11,6 @@ $fname0   = 'functions.in.c';
 
 sub make_wrapper_function {
     ($type, $name, $args) = @_;
-    # split the prototype into type, name, args
-    #$_[0] =~ /(.+[^ ]) +(.+)_\@nctype\((.*)\);/;
 
     # create a function array
     print my_out_wrappers "static $type (*__$name"."[])($args) = {\n";
@@ -25,7 +23,7 @@ sub make_wrapper_function {
     my @arg = split(/,/, $args);
     my $nargs = @arg;
     my $nargs1 = $nargs - 1;
-    $hasvar = $nargs && ($arg[0] =~ /(const\s+)nct_var\*/);
+    $hasvar = $nargs && ($arg[0] =~ /^(const\s+)nct_var\*/);
     if ($hasvar) {
         for(my $i=0; $i<$nargs-1; $i++) {
             print my_out_wrappers "$arg[$i] _$i, "; }
