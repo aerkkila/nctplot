@@ -96,7 +96,7 @@ static void coord_to_point(double x, double y, SDL_Point* point) {
 
 static void coord_to_point_inv_y(double x, double y, SDL_Point* point) {
     point->x = round((x - tmp_x0) * tmp_xspace);
-    point->y = draw_h - g_pixels_per_datum - round((y - tmp_y0) * tmp_yspace);
+    point->y = draw_h - round((y - tmp_y0) * tmp_yspace);
 }
 
 static void draw_coastlines(plottable* plott) {
