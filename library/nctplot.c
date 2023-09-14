@@ -422,6 +422,7 @@ static void manage_memory() {
 static void update_minmax_fun() {
     long start = 0;
     long end = var->endpos - var->startpos;
+
     if (update_minmax_cur) {
 	start = (zid>=0) * plt.stepsize_z * plt.znum;
 	end = start + plt.stepsize_z;
@@ -447,8 +448,10 @@ static void redraw(nct_var* var) {
 
     manage_memory();
 
-    if (update_minmax | update_minmax_cur)
+    if (update_minmax | update_minmax_cur) {
 	update_minmax_fun();
+	g_only_nans = make_minmax(var->dtype);
+    }
 
     SDL_SetRenderTarget(rend, base);
     draw_funcptr(var);
