@@ -37,7 +37,9 @@ typedef struct {
     float minshift, maxshift;
     char globs_detached, j_off_by_one;
     /* for coastlines */
-    double* coasts;
+    double* coasts;	// coordinates of coastlines
+    void* points;	// pixelcoordinates of coastlines
+    int *breaks, nbreaks; // indices where to lift pen from the paper
     char* crs;
     double x0, y0, xspace, yspace;
 } plottable;
@@ -884,6 +886,8 @@ static void use_lastvar(Arg _) {
 
 static void free_plottable(plottable* plott) {
     free(plott->coasts);
+    free(plott->points);
+    free(plott->breaks);
     free(plott->crs);
 }
 

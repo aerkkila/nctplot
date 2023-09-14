@@ -43,7 +43,7 @@ static double* make_coastlines(const char* coordinates, void (*conversion)(float
     if (!coastl_lengths)
 	coastl_lengths = malloc(coastl_nparts*sizeof(int));
 
-    double* points = malloc(coastl_total*sizeof(double)*2);
+    double* coords = malloc(coastl_total*sizeof(double)*2);
 
     int point_ind = 0;
     int length_ind = 0;
@@ -56,7 +56,7 @@ static double* make_coastlines(const char* coordinates, void (*conversion)(float
 	    for(int v=obj->panPartStart[p], p=0; v<end; v++, p++) {
 		float x = obj->padfX[v];
 		float y = obj->padfY[v];
-		conversion(x, y, points+point_ind*2);
+		conversion(x, y, coords+point_ind*2);
 		point_ind++;
 	    }
 	}
@@ -66,7 +66,7 @@ static double* make_coastlines(const char* coordinates, void (*conversion)(float
     if (conversion == coastl_proj_convert)
 	coastl_proj_destroy();
     SHPClose(shp);
-    return points;
+    return coords;
 }
 
 static int valid_point(double point[2]) {
@@ -100,49 +100,88 @@ static void coord_to_point_inv_y(double x, double y, SDL_Point* point) {
     point->y = draw_h - round((y - tmp_y0) * tmp_yspace);
 }
 
-static void draw_coastlines(plottable* plott) {
-    SDL_SetRenderDrawColor(rend, globs.color_fg[0], globs.color_fg[1], globs.color_fg[2], 255);
-    int ind = 0;
+static void make_coastlinepoints(plottable* plott) {
     /* tmp_x0 is coordinate value, therefore offset is multiplied with coordinate interval, plott->xspace */
     tmp_x0 = plott->x0 + offset_i * plott->xspace;
     tmp_y0 = plott->y0 + offset_j * plott->yspace;
     tmp_xspace = 1 / plott->xspace / data_per_pixel;
     tmp_yspace = 1 / plott->yspace / data_per_pixel;
-    double* points = plott->coasts;
+    double* coords = plott->coasts;
+    SDL_Point* points = plott->points;
+    int* breaks = plott->breaks;
+
+    int ibreak = 0, ipoint = 0, ind_from = 0;
+
+    void (*coord_to_point_fun)(double, double, SDL_Point*) = 
+	globs.invert_y ? coord_to_point_inv_y : coord_to_point;
+
     for(int e=0; e<coastl_nparts; e++) {
-	int ipoint_to = 0;
-	SDL_Point pnts[coastl_lengths[e]];
-	/* These two if-else loops are the same except for the few last lines. */
-	if (globs.invert_y)
-	    for(int ipoint_from=0; ipoint_from<coastl_lengths[e]; ipoint_from++) {
-		if (!valid_point(points + (ind+ipoint_from)*2)) {
-		    if (ipoint_to > 1)
-			SDL_RenderDrawLines(rend, pnts, ipoint_to);
-		    ipoint_to = 0;
-		    continue;
-		}
-		coord_to_point_inv_y(
-			points[(ind+ipoint_from)*2],
-			points[(ind+ipoint_from)*2+1],
-			pnts+ipoint_to++);
+	for(int ipoint_from=0; ipoint_from<coastl_lengths[e]; ipoint_from++) {
+	    if (!valid_point(coords + (ind_from+ipoint_from)*2)) {
+		if (ipoint-breaks[ibreak-1] >= 2)
+		    breaks[ibreak++] = ipoint;
+		else
+		    ipoint = breaks[ibreak-1]; // single point is omitted
+		continue;
 	    }
-	else
-	    for(int ipoint_from=0; ipoint_from<coastl_lengths[e]; ipoint_from++) {
-		if (!valid_point(points + (ind+ipoint_from)*2)) {
-		    if (ipoint_to > 1)
-			SDL_RenderDrawLines(rend, pnts, ipoint_to);
-		    ipoint_to = 0;
-		    continue;
-		}
-		coord_to_point(
-			points[(ind+ipoint_from)*2],
-			points[(ind+ipoint_from)*2+1],
-			pnts+ipoint_to++);
-	    }
-	SDL_RenderDrawLines(rend, pnts, ipoint_to);
-	ind += coastl_lengths[e];
+	    coord_to_point_fun(
+		    coords[(ind_from+ipoint_from)*2],
+		    coords[(ind_from+ipoint_from)*2+1],
+		    points+ipoint++);
+	}
+	breaks[ibreak++] = ipoint;
+	ind_from += coastl_lengths[e];
+    }
+
+    if (ipoint-breaks[ibreak-1] >= 2)
+	breaks[ibreak++] = ipoint;
+    plott->nbreaks = ibreak;
+}
+
+#define putval(buff, val) (buff += (memcpy(buff, &(val), sizeof(val)), sizeof(val)))
+static void save_state(char* buff) {
+    putval(buff, offset_j);
+    putval(buff, offset_i);
+    putval(buff, data_per_pixel);
+    putval(buff, pltind);
+    putval(buff, globs.invert_y);
+}
+#undef putval
+
+#define size_params (sizeof(offset_j)*2 + sizeof(data_per_pixel) + sizeof(pltind) + sizeof(globs.invert_y))
+
+static void check_coastlines(plottable* plott) {
+    static char old_params[size_params];
+    if (!plott->points) {
+	plott->points = malloc(coastl_total * sizeof(SDL_Point));
+	plott->breaks = malloc(coastl_total * sizeof(int));
+	make_coastlinepoints(plott);
+	save_state(old_params);
+    }
+    else {
+	char new_params[size_params];
+	save_state(new_params);
+	if (memcmp(old_params, new_params, size_params)) {
+	    memcpy(old_params, new_params, size_params);
+	    make_coastlinepoints(plott);
+	}
     }
 }
+
+static void draw_coastlines(plottable* plott) {
+    check_coastlines(plott);
+    SDL_SetRenderDrawColor(rend, globs.color_fg[0], globs.color_fg[1], globs.color_fg[2], 255);
+    int nib = plott->nbreaks;
+    SDL_Point* points = plott->points;
+    int* breaks = plott->breaks;
+    int istart = 0;
+    for (int ib=0; ib<nib; ib++) {
+	SDL_RenderDrawLines(rend, points+istart, breaks[ib]-istart);
+	istart = breaks[ib];
+    }
+}
+
+#undef size_params
 
 static void free_coastlines() {
     coastl_lengths = (free(coastl_lengths), NULL);
