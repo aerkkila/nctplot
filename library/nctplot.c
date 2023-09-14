@@ -330,7 +330,17 @@ static void mousemotion() {
     if (lines_echoed)
 	printf("\033[%iB\r", lines_echoed-1); // overwrite the last echoed line
     nct_print_datum(var->dtype, var->data + pos*nctypelen(var->dtype));
-    printf("[%zu (%i,%i)]\033[K\n", pos, (int)(varpos_xy_j), (int)(varpos_xy_i));
+    printf(" [%zu pos=(%i,%i) coords=(", pos, varpos_xy_j, varpos_xy_i);
+    if (yid >= 0) {
+	nct_var* coord = nct_get_vardim(var, yid);
+	void* val = coord->data + varpos_xy_j*nctypelen(coord->dtype);
+	nct_print_datum(coord->dtype, val);
+	putchar(',');
+    }
+    nct_var* coord = nct_get_vardim(var, xid);
+    void* val = coord->data + varpos_xy_i*nctypelen(coord->dtype);
+    nct_print_datum(coord->dtype, val);
+    printf(")]\033[K\n");
     printf("\033[%iA\r", lines_echoed);
 }
 
