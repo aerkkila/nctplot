@@ -320,6 +320,16 @@ static long get_varpos_xy(int x, int y) {
     return (zid>=0)*xlen*ylen*plt.znum + (yid>=0)*xlen*jdata + idata;
 }
 
+static void _maybe_print_mousecoordinate(int vardimid, int at) {
+    nct_var* coord = nct_get_vardim(var, vardimid);
+    if (coord->data) {
+	void* val = coord->data + at*nctypelen(coord->dtype);
+	nct_print_datum(coord->dtype, val);
+    }
+    else
+	printf("Ø");
+}
+
 static void mousemotion() {
     static int count;
     if(prog_mode < n_cursesmodes || !globs.echo)
@@ -334,14 +344,10 @@ static void mousemotion() {
     nct_print_datum(var->dtype, var->data + pos*nctypelen(var->dtype));
     printf(" [%zu pos=(%i,%i) coords=(", pos, varpos_xy_j, varpos_xy_i);
     if (yid >= 0) {
-	nct_var* coord = nct_get_vardim(var, yid);
-	void* val = coord->data + varpos_xy_j*nctypelen(coord->dtype);
-	nct_print_datum(coord->dtype, val);
+	_maybe_print_mousecoordinate(yid, varpos_xy_j);
 	putchar(',');
     }
-    nct_var* coord = nct_get_vardim(var, xid);
-    void* val = coord->data + varpos_xy_i*nctypelen(coord->dtype);
-    nct_print_datum(coord->dtype, val);
+    _maybe_print_mousecoordinate(xid, varpos_xy_i);
     printf(")]\033[K\n");
     printf("\033[%iA\r", lines_echoed);
 }
