@@ -785,21 +785,25 @@ static void print_var(Arg _) {
 
 static void shift_max(Arg shift) {
     plt.maxshift += shift.f;
+    g_only_nans = make_minmax(var->dtype);
     call_redraw = 1;
 }
 
 static void shift_max_abs(Arg shift) {
     maxshift_abs += shift.f;
+    g_only_nans = make_minmax(var->dtype);
     call_redraw = 1;
 }
 
 static void shift_min(Arg shift) {
     plt.minshift += shift.f;
+    g_only_nans = make_minmax(var->dtype);
     call_redraw = 1;
 }
 
 static void shift_min_abs(Arg shift) {
     minshift_abs += shift.f;
+    g_only_nans = make_minmax(var->dtype);
     call_redraw = 1;
 }
 
