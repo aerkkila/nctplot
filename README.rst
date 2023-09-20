@@ -18,16 +18,6 @@ Features
 * Shows just the image instead of some annoying control panel (compare to ncview).
 * Coastlines if user wants them.
 
-Things yet to do
-----------------
-* Loading data asynchronously.
-* To decide better which data to keep in memory, if everything doesn't fit.
-* Averaging data in the drawn pixel. Now we just pick one datum in that area.
-* Support for 4D-variables.
-* Support for variable groups (needs changes in nctietue3 library).
-* To try, if Vulkan would increase performance while drawing high-resolution data.
-* Better suport for 1D-variables.
-
 Installation
 ------------
     * If needed, edit configuration in library/config.mk and excecutable/Makefile, then:
