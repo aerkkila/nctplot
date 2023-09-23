@@ -1,4 +1,6 @@
 _nctplot() {
+    was_extglob=`shopt -p extglob`
+    shopt -s extglob
     local last=' '
     local binary=
     compgenstr='!*.nc?(.lz4)' # Default is to exclude the pattern. '!' negates this.
@@ -20,5 +22,7 @@ _nctplot() {
 	[ -d "$COMPREPLY" ] && last=/
 	COMPREPLY=$(printf %s%s "$COMPREPLY" "$last")
     fi
+
+    eval $was_extglob
 }
 complete -o nospace -F _nctplot nctplot
