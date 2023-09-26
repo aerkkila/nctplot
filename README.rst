@@ -29,7 +29,7 @@ Compile time dependencies in addition to a C compiler:
     * which
 
 Dependencies:
-    * nctietue3 (github.com/aerkkila/nctietue3)
+    * nctietue3 (https://codeberg.org/aerkkila/nctietue3)
     * colormap-headers (codeberg.org/aerkkila/colormap-headers)
     * SDL2
     * ncurses
