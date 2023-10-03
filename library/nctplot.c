@@ -495,6 +495,8 @@ static void set_dimids() {
     yid = var->ndims-2;
     zid = var->ndims-3;
     draw_funcptr = yid<0? draw1d: draw2d;
+    if (zid < 0)
+	zid = -1;
     if(zid>=0) {
 	plt.zvar = var->super->dims[var->dimids[zid]];
 	plt.time0 = nct_mktime0_nofail(plt.zvar, NULL);
@@ -535,6 +537,7 @@ static void set_draw_params() {
     draw_h = round((g_ylen-offset_j) / data_per_pixel);
     draw_w = MIN(win_w, draw_w);
     draw_h = MIN(win_h-cmapspace-cmappix, draw_h);
+    if (zid < 0) zid = -1;
     plt.stepsize_z = nct_get_len_from(var, zid+1); // works even if zid == -1
     plt.stepsize_z += plt.stepsize_z == 0; // length must be at least 1
 
