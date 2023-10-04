@@ -953,7 +953,6 @@ static void convert_coord(Arg _) {
     lines_echoed -= 2;
     to[i] = 0;
     var = nctproj_open_converted_var(var, plt.crs, to, NULL);
-    nct_load_stream(var, var->len);
     variable_changed();
     plt.crs = strdup(to); // not before variable_changed()
 }
