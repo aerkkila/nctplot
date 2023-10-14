@@ -648,7 +648,7 @@ static void ask_crs(Arg _) {
 
 static void cmap_ichange(Arg jump) {
     int len = cmh_n - 1;
-    globs.cmapnum = (globs.cmapnum+len+jump.i) % len;
+    globs.cmapnum = (globs.cmapnum-1+len+jump.i) % len + 1;
     call_redraw = 1;
 }
 
