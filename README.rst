@@ -20,7 +20,8 @@ Features
 
 Installation
 ------------
-* If needed, edit configuration in library/config.mk and excecutable/Makefile, then:
+If needed, edit configuration in library/config.mk and excecutable/Makefile, then:
+
     | make
     | make install
 
@@ -36,8 +37,7 @@ Dependencies:
 
 Optional dependencies:
     * shapelib (for coastlines)
-    * nctietue3::nctproj (requires proj) (for coordinate transformations)
-        - nctproj is integrated into nctietue3 unless it was compiled without proj-library
+    * nctietue3 compiled with proj-library (for coordinate transformations)
     * proj (for coastlines in different coordinate systems than longitude-latitude)
 
 See library/config.mk to disable optional dependencies.
@@ -46,8 +46,10 @@ Usage
 -----
 The executable is called nctplot.
 This can also be used from C-codes with:
+
     | #include <nctplot.h>
-    | nctplot(args);
+    | nctplot(args); // args is either nct_var* or nct_set*
+
 Compile the code with -lnctplot
 
 The keybindings are in a separate source file called bindings.h.
