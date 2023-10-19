@@ -20,9 +20,9 @@ Features
 
 Installation
 ------------
-    * If needed, edit configuration in library/config.mk and excecutable/Makefile, then:
-    >>> make
-    >>> make install
+* If needed, edit configuration in library/config.mk and excecutable/Makefile, then:
+    | make
+    | make install
 
 Compile time dependencies in addition to a C compiler:
     * make
@@ -30,7 +30,7 @@ Compile time dependencies in addition to a C compiler:
 
 Dependencies:
     * nctietue3 (https://codeberg.org/aerkkila/nctietue3)
-    * colormap-headers (codeberg.org/aerkkila/colormap-headers)
+    * colormap-headers (https://codeberg.org/aerkkila/colormap-headers)
     * SDL2
     * ncurses
 
@@ -46,8 +46,8 @@ Usage
 -----
 The executable is called nctplot.
 This can also be used from C-codes with:
-    >>> #include <nctplot.h>
-    >>> nctplot(args);
+    | #include <nctplot.h>
+    | nctplot(args);
 Compile the code with -lnctplot
 
 The keybindings are in a separate source file called bindings.h.
