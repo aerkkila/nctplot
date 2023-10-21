@@ -1,6 +1,6 @@
-====================
-Viewing netcdf files
-====================
+===============================
+Viewing netcdf and binary files
+===============================
 
 This program shows netcdf files as color images.
 The window contains only the plot and a colorbar
@@ -38,21 +38,25 @@ Dependencies:
 Optional dependencies:
     * shapelib (for coastlines)
     * nctietue3 compiled with proj-library (for coordinate transformations)
-    * proj (for coastlines in different coordinate systems than longitude-latitude)
+    * proj (for coordinate transformations and coastlines)
+    * png (for saving the plotted figure, for now the coastlines can't be saved)
 
 See library/config.mk to disable optional dependencies.
 
 Usage
 -----
 The executable is called nctplot.
+There is no man page but running 'nctplot --help' will help.
+
 This can also be used from C-codes with:
 
     | #include <nctplot.h>
     | nctplot(args); // args is either nct_var* or nct_set*
 
-Compile the code with -lnctplot
+Compile the code with -lnctplot. Nct_var and nct_set are structs from
+the nctietue3 library (see dependencies).
 
 The keybindings are in a separate source file called bindings.h.
 This file is used as documentation for the keybindings.
-The only key you need to know is h (help), which will display the keybinding file.
+The only key you need to know during the runtime is h (help), which will display the keybinding file.
 See pager in library/config.mk to select the program to display the file.
