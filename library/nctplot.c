@@ -75,6 +75,8 @@ static enum {no_m, variables_m=-100, colormaps_m, n_cursesmodes, mousepaint_m} p
 static float g_data_per_step;
 static int g_pixels_per_datum, g_xlen, g_ylen, g_size1, g_only_nans, g_extended_y;
 static char g_minmax[2*8]; // a buffer, which is used with a g_minmax_@nctype pointer
+/* When coming backwards to a 0-dimensional variable, we want to jump to previous and not to next. */
+static char _variable_changed_direction = 1;
 
 typedef union Arg Arg;
 typedef struct Binding Binding;
@@ -94,6 +96,7 @@ static uint_fast64_t time_now_ms();
 static void inc_offset_j(Arg);
 static void inc_offset_i(Arg);
 static void quit(Arg _);
+static void var_ichange(Arg jump);
 
 union Arg {
     void* v;
@@ -613,6 +616,8 @@ static struct shown_area* get_ref_shown_area(int pltind) {
 }
 
 static void variable_changed() {
+    if (var->ndims < 1)
+	return var_ichange((Arg){.i=_variable_changed_direction}); // 0-dimensional variables are not supported.
     if (plt.globs_detached) {
 	long wants = MAX(n_plottables, pltind);
 	recalloc_list(&globslist, &globslistlen, wants, sizeof(struct nctplot_globals));
@@ -895,6 +900,7 @@ static void use_pending(Arg _) {
 	var = var->super->vars[pending_varnum];
 	pending_varnum = -1;
     }
+    _variable_changed_direction = 1;
     variable_changed();
 }
 
@@ -921,9 +927,11 @@ static void use_map_and_exit(Arg _) {
 static void var_ichange(Arg jump) {
     nct_var* v;
     if(jump.i > 0) {
+	_variable_changed_direction = 1;
 	if(!(v = nct_nextvar(var)))
 	    v = nct_firstvar(var->super);
     } else {
+	_variable_changed_direction = -1;
 	if(!(v = nct_prevvar(var)))
 	    v = nct_lastvar(var->super);
     }
@@ -1263,11 +1271,21 @@ start:
 /* Only following functions should be called from programs. */
 
 void nctplot_(void* vobject, int isset) {
-    var = isset ? nct_firstvar((nct_set*)(vobject)) : vobject;
-    if (!var) {
+    if (isset) {
+	nct_foreach(vobject, varnow)
+	    if (varnow->ndims >= 1) {
+		var = varnow;
+		goto variable_found;
+	    }
+	nct_puterror("Only 0-dimensional variables\n");
+	return;
+    }
+    else if (!(var = vobject)) {
 	nct_puterror("No variable to plot\n");
-	return; }
-    
+	return;
+    }
+
+variable_found:
     if (SDL_Init(SDL_INIT_VIDEO)) {
 	nct_puterror("sdl_init: %s\n", SDL_GetError());
 	return; }
