@@ -73,19 +73,19 @@ static int valid_point(double point[2]) {
     return (isnormal(point[0]) || point[0]==0) && (isnormal(point[1]) || point[1]==0);
 }
 
-static void init_coastlines(plottable* plott, void* funptr) {
+static void init_coastlines(struct shown_area* area, void* funptr) {
     if (yid < 0)
 	return;
-    plott->coasts = make_coastlines(plott->crs, funptr);
-    nct_var* var;
-    var = nct_get_vardim(plott->var, xid);
-    plott->x0 = nct_getg_floating(var, 0);
-    plott->xspace = nct_getg_floating(var, 1) - plott->x0;
-    plott->x0 -= 0.5*plott->xspace;
-    var = nct_get_vardim(plott->var, yid);
-    plott->y0 = nct_getg_floating(var, 0);
-    plott->yspace = nct_getg_floating(var, 1) - plott->y0;
-    plott->y0 -= 0.5*plott->yspace;
+    area->coasts = make_coastlines(area->crs, funptr);
+    nct_var* var1;
+    var1 = nct_get_vardim(plt.var, xid);
+    area->x0 = nct_getg_floating(var1, 0);
+    area->xspace = nct_getg_floating(var1, 1) - area->x0;
+    area->x0 -= 0.5*area->xspace;
+    var1 = nct_get_vardim(plt.var, yid);
+    area->y0 = nct_getg_floating(var1, 0);
+    area->yspace = nct_getg_floating(var1, 1) - area->y0;
+    area->y0 -= 0.5*area->yspace;
 }
 
 static double tmp_x0, tmp_y0, tmp_xspace, tmp_yspace;
@@ -100,15 +100,15 @@ static void coord_to_point_inv_y(double x, double y, SDL_Point* point) {
     point->y = draw_h - round((y - tmp_y0) * tmp_yspace);
 }
 
-static void make_coastlinepoints(plottable* plott) {
-    /* tmp_x0 is coordinate value, therefore offset is multiplied with coordinate interval, plott->xspace */
-    tmp_x0 = plott->x0 + offset_i * plott->xspace;
-    tmp_y0 = plott->y0 + offset_j * plott->yspace;
-    tmp_xspace = 1 / plott->xspace / data_per_pixel;
-    tmp_yspace = 1 / plott->yspace / data_per_pixel;
-    double* coords = plott->coasts;
-    SDL_Point* points = plott->points;
-    int* breaks = plott->breaks;
+static void make_coastlinepoints(struct shown_area *area) {
+    /* tmp_x0 is coordinate value, therefore offset is multiplied with coordinate interval, area->xspace */
+    tmp_x0 = area->x0 + area->offset_i * area->xspace;
+    tmp_y0 = area->y0 + area->offset_j * area->yspace;
+    tmp_xspace = 1 / area->xspace / data_per_pixel;
+    tmp_yspace = 1 / area->yspace / data_per_pixel;
+    double* coords = area->coasts;
+    SDL_Point* points = area->points;
+    int* breaks = area->breaks;
 
     int ibreak = 0, ipoint = 0, ind_from = 0;
 
@@ -135,45 +135,42 @@ static void make_coastlinepoints(plottable* plott) {
 
     if (ipoint-breaks[ibreak-1] >= 2)
 	breaks[ibreak++] = ipoint;
-    plott->nbreaks = ibreak;
+    area->nbreaks = ibreak;
 }
 
 #define putval(buff, val) (buff += (memcpy(buff, &(val), sizeof(val)), sizeof(val)))
-static void save_state(char* buff) {
-    putval(buff, offset_j);
-    putval(buff, offset_i);
+static void save_state(char* buff, const struct shown_area *area) {
+    putval(buff, area->offset_j);
+    putval(buff, area->offset_i);
     putval(buff, data_per_pixel);
-    putval(buff, pltind);
-    putval(buff, globs.invert_y);
+    putval(buff, globs.invert_y); // huomio: onko tämä aina globaali?
 }
 #undef putval
 
-#define size_params (sizeof(offset_j)*2 + sizeof(data_per_pixel) + sizeof(pltind) + sizeof(globs.invert_y))
-
-static void check_coastlines(plottable* plott) {
-    static char old_params[size_params];
-    if (!plott->points) {
-	plott->points = malloc(coastl_total * sizeof(SDL_Point));
-	plott->breaks = malloc(coastl_total * sizeof(int));
-	make_coastlinepoints(plott);
-	save_state(old_params);
+static void check_coastlines(struct shown_area *area) {
+    if (!area->points) {
+	area->points = malloc(coastl_total * sizeof(SDL_Point));
+	area->breaks = malloc(coastl_total * sizeof(int));
+	make_coastlinepoints(area);
+	save_state(area->coastl_params, area);
     }
     else {
-	char new_params[size_params];
-	save_state(new_params);
-	if (memcmp(old_params, new_params, size_params)) {
-	    memcpy(old_params, new_params, size_params);
-	    make_coastlinepoints(plott);
+	char new_params[size_coastl_params];
+	save_state(new_params, area);
+	/* If current state differs from previous, save the new one and remake the coastlines. */
+	if (memcmp(area->coastl_params, new_params, size_coastl_params)) {
+	    memcpy(area->coastl_params, new_params, size_coastl_params);
+	    make_coastlinepoints(area);
 	}
     }
 }
 
-static void draw_coastlines(plottable* plott) {
-    check_coastlines(plott);
+static void draw_coastlines(struct shown_area *area) {
+    check_coastlines(area);
     SDL_SetRenderDrawColor(rend, globs.color_fg[0], globs.color_fg[1], globs.color_fg[2], 255);
-    int nib = plott->nbreaks;
-    SDL_Point* points = plott->points;
-    int* breaks = plott->breaks;
+    int nib = area->nbreaks;
+    SDL_Point* points = area->points;
+    int* breaks = area->breaks;
     int istart = 0;
     for (int ib=0; ib<nib; ib++) {
 	SDL_RenderDrawLines(rend, points+istart, breaks[ib]-istart);

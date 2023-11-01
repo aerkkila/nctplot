@@ -47,12 +47,12 @@ static int write_png(unsigned char* rgb, const char* name) {
     return 0;
 }
 
-static void draw2d_buffer(void* buff) {
+static void draw2d_buffer(void* buff, int offset_j) {
     for (int i=0; i<draw_w*draw_h; i++)
 	memcpy(buff+i*3, globs.color_bg, 3);
     if (g_only_nans) return;
 
-    void* dataptr = var->data + (plt.znum*plt.stepsize_z*(zid>=0) - var->startpos) * g_size1;
+    void* dataptr = var->data + (plt.area->znum*plt.stepsize_z*(zid>=0) - var->startpos) * g_size1;
 
     float fdataj = offset_j;
     int idataj = round(fdataj), j;
@@ -74,7 +74,7 @@ static void draw2d_buffer(void* buff) {
 
 static void save_png(Arg _) {
     void* buffer = malloc(draw_w*draw_h*3);
-    draw2d_buffer(buffer);
+    draw2d_buffer(buffer, plt.area->offset_j);
     char name[100];
     sprintf(name, "nctplot_%li.png", (long)time(NULL));
     write_png(buffer, name);
