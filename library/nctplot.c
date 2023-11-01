@@ -28,12 +28,17 @@ static struct nctplot_globals globs_mem;
 static struct nctplot_globals* globslist;
 int globslistlen;
 
+/* huomio alusta tämä tietueisiin. */
+struct shown_area {
+    int offset_i, offset_j, znum, nusers;
+};
+
 typedef struct {
     nct_var *var, *zvar;
     nct_anyd time0;
     char minmax[8*2];
     int znum;
-    size_t stepsize_z;
+    //size_t stepsize_z;
     float minshift, maxshift;
     char globs_detached, j_off_by_one;
     /* for coastlines */
@@ -42,6 +47,7 @@ typedef struct {
     int *breaks, nbreaks; // indices where to lift pen from the paper
     char* crs;
     double x0, y0, xspace, yspace;
+    struct shown_area *area;
 } plottable;
 
 /* Static variables. Global in the context of this library. */
@@ -59,7 +65,7 @@ static int mousex, mousey;
 static int win_w, win_h, xid, yid, zid, draw_w, draw_h, pending_varnum=-1, pending_cmapnum;
 static char stop, fill_on, play_on, play_inv, update_minmax=1, update_minmax_cur;
 static int lines_echoed;
-static int cmappix=30, cmapspace=10, call_resized, call_redraw, offset_i, offset_j;
+static int cmappix=30, cmapspace=10, call_resized, call_redraw;
 static float minshift_abs, maxshift_abs, zoom=1;
 static float data_per_pixel; // (n(data) / n(pixels)) in one direction
 static const char* echo_highlight = "\033[1;93m";
@@ -144,6 +150,20 @@ static int my_isnan_double(double f) {
     return (bits & exponent) == exponent;
 }
 
+static int recalloc_list(void** arr, long *has, long wants, int size1) {
+    if (*has >= wants)
+	return 0;
+    void *tmp = realloc(*arr, wants*size1);
+    if (!tmp) {
+	warn("realloc %zu in %s: %i", wants*size1, __FILE__, __LINE__);
+	return -1;
+    }
+    memset(*arr+has*size1, 0, (wants-has)*size1);
+    *arr = tmp;
+    *has = wants;
+    return 1;
+}
+
 static void curses_write_vars() {
     int att = COLOR_PAIR(1);
     int xlen, ylen, x;
@@ -210,7 +230,7 @@ static void draw2d(const nct_var* var) {
 
     void* dataptr = var->data + (plt.znum*plt.stepsize_z*(zid>=0) - var->startpos) * g_size1;
 
-    float fdataj = offset_j;
+    float fdataj = plt.area->offset_j;
     int idataj = round(fdataj), j;
     if (globs.invert_y)
 	for(j=draw_h-g_pixels_per_datum; j>=0; j-=g_pixels_per_datum) {
@@ -307,8 +327,8 @@ static long get_varpos_xy(int x, int y) {
 	y = draw_h / g_pixels_per_datum * g_pixels_per_datum - y;
     int i = x / g_pixels_per_datum;
     int j = y / g_pixels_per_datum;
-    float idata_f = offset_i + i*g_data_per_step;
-    float jdata_f = offset_j + j*g_data_per_step;
+    float idata_f = plt.area->offset_i + i*g_data_per_step;
+    float jdata_f = plt.area->offset_j + j*g_data_per_step;
     int idata = round(idata_f);
     int jdata = round(jdata_f);
 
@@ -514,8 +534,9 @@ static void set_dimids() {
 #define GET_SPACE(a,b,c,d) (fill_on? GET_SPACE_FILL(a,b,c,d): GET_SPACE_NONFILL(a,b,c,d))
 
 static void set_draw_params() {
-    offset_j += plt.j_off_by_one;
-    plt.j_off_by_one = 0;
+    int offset_j = plt.area->offset_j + plt.area->j_off_by_one;
+    plt.area->j_off_by_one = 0;
+    int offset_i = plt.area->offset_i;
 
     g_size1 = nctypelen(var->dtype);
     g_xlen = nct_get_vardim(var, xid)->len;
@@ -530,8 +551,8 @@ static void set_draw_params() {
     if (globs.exact)
 	data_per_pixel = data_per_pixel >= 1 ? ceil(data_per_pixel) :
 	    1.0 / floor(1.0/data_per_pixel);
-    if (offset_i < 0) offset_i = 0;
-    if (offset_j < 0) offset_j = 0;
+    if (offset_i < 0) offset_i = plt.area->offset_i = 0;
+    if (offset_j < 0) offset_j = plt.area->offset_j = 0;
 
     draw_w = round((g_xlen-offset_i) / data_per_pixel); // how many pixels data can reach
     draw_h = round((g_ylen-offset_j) / data_per_pixel);
@@ -554,6 +575,7 @@ static void set_draw_params() {
     if (globs.invert_y) {
 	if_add_1 = draw_h / g_pixels_per_datum < g_ylen - offset_j && draw_h < win_h && offset_j;
 	offset_j -= if_add_1;
+	plt.area->offset_j = offset_j;
 	plt.j_off_by_one = if_add_1;
     }
     else
@@ -570,24 +592,36 @@ static uint_fast64_t time_now_ms() {
     return t.tv_sec*1000 + t.tv_usec/1000;
 }
 
+static struct shown_area* get_ref_shown_area(int pltind) {
+    nct_var* xvar = nct_get_vardim(plt.var, xid);
+    nct_var* yvar = nct_get_vardim(plt.var, yid);
+    if (plt.var->ndims < 2)
+	return calloc(1, sizeof(struct shown_area));
+    for (int ip=0; ip<n_plottables; ip++) {
+	nct_var* var1 = plottables[ip].var;
+	struct shown_area *a = plottables[ip].area;
+	if (!var1 || !a || var1->ndims < 2)
+	    continue;
+	if (nct_get_vardim(var1, xid) == xvar &&
+	    nct_get_vardim(var1, yid) == yvar)
+	    if (plt.var->ndims > 2 && var1->ndims > 2 && nct_get_vardim(plt.var, zid) != nct_get_vardim(var1, zid))
+		continue;
+	    a->nusers++;
+	    return a;
+    }
+    return calloc(1, sizeof(struct shown_area));
+}
+
 static void variable_changed() {
     if (plt.globs_detached) {
-	if (pltind >= globslistlen) {
-	    globslist = realloc(globslist, MAX(n_plottables, pltind) * sizeof(struct nctplot_globals));
-	    globslistlen = n_plottables;
-	}
+	long wants = MAX(n_plottables, pltind);
+	recalloc_list(&globslist, &globslistlen, wants, sizeof(struct nctplot_globals));
 	globslist[pltind] = globs;
 	globs = globs_mem;
     }
 
     pltind = nct_varid(var);
-    if (pltind >= n_plottables) { // possible if a new variable was created
-	int add = pltind + 1 - n_plottables;
-	n_plottables = pltind + 1;
-	plottables = realloc(plottables, n_plottables*sizeof(plottable));
-	memset(plottables+n_plottables-add, 0, add*sizeof(plottable));
-    }
-    else if (plt.globs_detached) {
+    if (!recalloc_list(&plottables, &n_plottables, pltind+1, sizeof(plottable)) && plt.globs_detached) {
 	if (pltind >= globslistlen)
 	    return variable_changed(); // Shouldn't happen. To allocate globslist.
 	globs_mem = globs;
@@ -605,6 +639,11 @@ static void variable_changed() {
 	    ((att = nct_get_varatt(var, "_FillValue")) || (att = nct_get_varatt(var, "FillValue")))) {
 	globs.usenan = 1;
 	globs.nanval = nct_getatt_integer(att, 0);
+    }
+
+    if (!plt.area) {
+	plt.area = get_ref_shown_area(pltind);
+	// huomio
     }
     call_redraw = 1;
 }
@@ -689,11 +728,11 @@ static void show_bindings(Arg _) {
 static void inc_offset_i(Arg arg) {
     if (draw_w <= win_w - g_pixels_per_datum && arg.i > 0)
 	return;
-    offset_i += arg.i;
+    plt.area->offset_i += arg.i;
     set_draw_params();
     int too_much = floor((win_w - draw_w) * data_per_pixel + 1e-10);
     if (too_much > 0) {
-	offset_i -= too_much;
+	plt.area->offset_i -= too_much;
 	set_draw_params();
     }
     call_redraw = 1;
@@ -705,11 +744,11 @@ static void inc_offset_j(Arg arg) {
     int winh = win_h - cmappix - cmapspace;
     if (draw_h <= winh - g_pixels_per_datum && arg.i > 0)
 	return;
-    offset_j += arg.i;
+    plt.area->offset_j += arg.i;
     set_draw_params();
     int too_much = floor((winh - draw_h) * data_per_pixel + 1e-10);
     if (too_much > 0) {
-	offset_j -= too_much;
+	plt.area->offset_j -= too_much;
 	set_draw_params();
     }
     call_redraw = 1;
@@ -726,12 +765,12 @@ static void inc_znum(Arg intarg) {
 
 static void multiply_zoom_fixed_point(float multiple, float xfraction, float yfraction) {
     yfraction = (float[]){yfraction, 1-yfraction}[!!globs.invert_y];
-    float fixed_datax = draw_w*data_per_pixel * xfraction + offset_i;
-    float fixed_datay = draw_h*data_per_pixel * yfraction + offset_j;
+    float fixed_datax = draw_w*data_per_pixel * xfraction + plt.area->offset_i;
+    float fixed_datay = draw_h*data_per_pixel * yfraction + plt.area->offset_j;
     zoom *= multiple;
     set_draw_params();
-    offset_i = iround(fixed_datax - draw_w*data_per_pixel * xfraction);
-    offset_j = iround(fixed_datay - draw_h*data_per_pixel * yfraction);
+    plt.area->offset_i = iround(fixed_datax - draw_w*data_per_pixel * xfraction);
+    plt.area->offset_j = iround(fixed_datay - draw_h*data_per_pixel * yfraction);
     set_draw_params();
     call_redraw = 1;
 }

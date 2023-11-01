@@ -30,7 +30,7 @@ static ctype* g_minmax_@nctype = (ctype*)g_minmax;
 			  (@uctype)((val)-(minmax)[0])*255 / (@uctype)((minmax)[1]-(minmax)[0]) )
 
 static void draw_row_@nctype(int jpixel, const void* vrowptr) {
-    float idata_f = offset_i;
+    float idata_f = plt.area->offset_i;
     for(int ipixel=0; ipixel<draw_w; ipixel+=g_pixels_per_datum, idata_f+=g_data_per_step) {
 	long ind = (size_t)round(idata_f);
 	if (ind >= g_xlen)
@@ -52,7 +52,7 @@ static void draw_row_@nctype(int jpixel, const void* vrowptr) {
 }
 
 static void draw_row_buffer_@nctype(const void* vrowptr, void* buff) {
-    float idata_f = offset_i;
+    float idata_f = plt.area->offset_i;
     void* ptr = buff;
     for (int ipixel=0; ipixel<draw_w;
 	    ipixel	+= g_pixels_per_datum,
