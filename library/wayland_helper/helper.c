@@ -7,12 +7,10 @@
 #include <string.h>
 #include <err.h>
 
-struct imagecontent {
+struct wayland_helper {
     unsigned char* data;
     int xresmin, yresmin, stop, redraw, can_redraw,
-	win_w, win_h, // only mutable in xdg:topconfigure
-	xres, yres; // buffer size: win_w / xscale
-    float xscale, yscale; // only mutable in set_scale
+	xres, yres; // only mutable in xdg:topconfigure
 };
 
 /* things to create */
@@ -24,9 +22,9 @@ struct wl_buffer*     buffer;
 struct wl_display*    display;
 struct wl_registry*   registry;
 struct wl_compositor* compositor;
+struct wl_seat*       seat;
 #include "xdg.c" // xdg_base
 #include "shm.c" // shared_memory
-struct wl_seat*       seat;
 
 #include "keyboard.c"
 
@@ -73,7 +71,7 @@ static int require(void* a, ...) {
     return has_error;
 }
 
-int init_wayland(struct imagecontent *image) {
+int init_wayland(struct wayland_helper *image) {
     assert((display = wl_display_connect(NULL)));
     assert((registry = wl_display_get_registry(display)));
     wl_registry_add_listener(registry, &registry_listener, NULL);
@@ -95,7 +93,7 @@ int init_wayland(struct imagecontent *image) {
     return 0;
 }
 
-void destroy_wayland(struct imagecontent *image) {
+void destroy_wayland(struct wayland_helper *image) {
     destroy_imagebuffer(image);
     if (buffer) {
 	wl_buffer_destroy(buffer);
@@ -127,7 +125,7 @@ void wayland_nofullscreen() {
     xdg_toplevel_unset_fullscreen(xdgtop);
 }
 
-void wayland_render(struct imagecontent *image) {
+void wayland_render(struct wayland_helper *image) {
     wl_surface_damage_buffer(surface, 0, 0, image->xres, image->yres);
     wl_surface_attach(surface, buffer, 0, 0); // This is always released automatically.
     wl_surface_commit(surface);
@@ -135,6 +133,8 @@ void wayland_render(struct imagecontent *image) {
 }
 
 #ifdef wayland_test
+static int pause_drawing = 0;
+
 static void kb_key_callback(void* data, struct wl_keyboard* wlkb, uint32_t serial,
 			    uint32_t time, uint32_t key, uint32_t state) {
     key += 8;
@@ -145,40 +145,65 @@ static void kb_key_callback(void* data, struct wl_keyboard* wlkb, uint32_t seria
     static const xkb_keysym_t* syms;
     int ival = xkb_state_key_get_syms(xkbstate, key, &syms);
     for (int i=0; i<ival; i++) {
-	if (syms[i] == XKB_KEY_q)
-	    ((struct imagecontent*)data)->stop = 1;
+	switch (syms[i]) {
+	case XKB_KEY_q:
+	    ((struct wayland_helper*)data)->stop = 1; break;
+	case XKB_KEY_space:
+	    pause_drawing = !pause_drawing; break;
+	default:
+	    break;
+	}
     }
 }
 
 int main() {
-    struct imagecontent imag = {
-	.yscale = 2,
-	.xscale = 2,
-    };
+    struct wayland_helper imag = {0};
     if (init_wayland(&imag))
 	errx(1, "init_wayland");
     init_keyboard(kb_key_callback, &imag);
     xdg_toplevel_set_title(xdgtop, "wltest");
     int number = 0;
     putchar('\n');
+    int scale = 1;
     while (!imag.stop && wl_display_roundtrip(display) > 0) {
+#ifndef benchmark
 	if (!imag.can_redraw) {
 	    usleep(10000);
 	    continue;
 	}
-	for (int j=0; j<imag.yres; j++) {
-	    for (int i=0; i<imag.xres; i++) {
-		unsigned char* ptr = imag.data + (j*imag.xres + i) * 4;
-		ptr[0] = number*2;
-		ptr[1] = j/2*(i/2) + number;
-		ptr[2] = j/5*(i/5) + number*5;
-		ptr[3] = 0xff;
+#endif
+	if (pause_drawing) {
+	    usleep(10000);
+	    continue;
+	}
+	int maxx = imag.xres/scale;
+	int maxy = imag.yres/scale;
+	int stride = imag.xres * 4;
+	for (int j=0; j<maxy; j++) {
+	    for (int i=0; i<maxx; i++) {
+		unsigned char* ptr = imag.data + (j*scale*imag.xres + i*scale) * 4;
+		uint32_t color =
+		    (number*2 & 0xff) |				// red
+		    ((j/2*(i/2) + number) & 0xff) << 8 |	// green
+		    ((j/5*(i/5) + number*5) & 0xff) << 16 |	// blue
+		    0xff << 24;					// alpha
+		memcpy(ptr, &color, 4);
+		for (int sx=1; sx<scale; sx++)
+		    memcpy(ptr+4*sx, ptr, 4);
 	    }
+	    unsigned char* ptr = imag.data + j*scale*stride;
+	    for (int sy=1; sy<scale; sy++)
+		memcpy(ptr+stride*sy, ptr, stride);
 	}
 	number++;
 	printf("\033[A\r%i\n", number);
 	wayland_render(&imag);
+#ifndef benchmark
 	usleep(10000);
+#else
+	if (number >= 1000)
+	    break;
+#endif
     }
     destroy_wayland(&imag);
 }

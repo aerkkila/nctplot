@@ -1,7 +1,7 @@
 include ../config.mk
 include xdg-shell.mk
 
-helper.o: helper.c xdg-shell.c xdg-shell.h *
+helper.o: helper.c xdg-shell.c xdg-shell.h *.c *.h
 	$(CC) $(CFLAGS) -c $<
 
 xdg-shell.mk:
@@ -13,6 +13,8 @@ xdg-shell.h: $(xdgshell)
 xdg-shell.c: $(xdgshell)
 	wayland-scanner private-code $< $@
 
-wltest.out: helper.c xdg-shell.c xdg-shell.h * 
+wltest.out: helper.c xdg-shell.c xdg-shell.h *.c *.h
 	$(CC) $(CFLAGS) -o $@ $< -Dwayland_test -lwayland-client -lxkbcommon
 
+wltest_benchmark.out: helper.c xdg-shell.c xdg-shell.h *.c *.h
+	$(CC) $(CFLAGS) -o $@ $< -Dwayland_test -Dbenchmark -lwayland-client -lxkbcommon

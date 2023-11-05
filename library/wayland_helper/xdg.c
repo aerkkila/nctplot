@@ -13,7 +13,7 @@ static struct xdg_wm_base_listener xdg_base_listener = {
 };
 
 /*******************************/
-static struct wl_buffer* attach_imagebuffer(struct imagecontent*); // from shm.c
+static struct wl_buffer* attach_imagebuffer(struct wayland_helper*); // from shm.c
 
 static char xdg_surface_changed = 0;
 
@@ -39,17 +39,17 @@ static struct xdg_surface_listener xdgsurflistener = {
 /*******************************/
 
 static void topconfigure(void* data, struct xdg_toplevel* top, int32_t w, int32_t h, struct wl_array* states) {
-    struct imagecontent *im = data;
+    struct wayland_helper *im = data;
     int x0 = im->xres, y0 = im->yres;
-    w /= im->xscale;
-    h /= im->yscale;
     im->xres = w<im->xresmin? im->xresmin: w;
     im->yres = h<im->yresmin? im->yresmin: h;
     xdg_surface_changed = im->xres != x0 || im->yres != y0;
 }
+
 static void xdgclose(void* data, struct xdg_toplevel* top) {
-    ((struct imagecontent*)data)->stop = 1;
+    ((struct wayland_helper*)data)->stop = 1;
 }
+
 static struct xdg_toplevel_listener xdgtoplistener = {
     .configure = topconfigure,
     .close = xdgclose,
@@ -57,7 +57,7 @@ static struct xdg_toplevel_listener xdgtoplistener = {
 
 /*******************************/
 
-static void init_xdg(struct imagecontent *image) {
+static void init_xdg(struct wayland_helper *image) {
     assert((xdgsurf = xdg_wm_base_get_xdg_surface(xdg_base, surface)));
     xdg_surface_add_listener(xdgsurf, &xdgsurflistener, image);
 

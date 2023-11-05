@@ -51,7 +51,7 @@ void init_keyboard(
     void (*callback_function)(
 	void*, struct wl_keyboard*, uint32_t serial,
 	uint32_t time, uint32_t key, uint32_t state
-    ), struct imagecontent *imdata) {
+    ), struct wayland_helper *imdata) {
     xkbcontext = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
     keyboard = wl_seat_get_keyboard(seat);
     keyboardlistener.key = callback_function ? callback_function : nop;

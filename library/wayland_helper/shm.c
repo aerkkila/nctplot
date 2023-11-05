@@ -22,10 +22,10 @@ static int _init_shm_file(int koko) {
     return fd;
 }
 
-static void destroy_imagebuffer(struct imagecontent*);
+static void destroy_imagebuffer(struct wayland_helper*);
 
 /* Called from xdgconfigure */
-static struct wl_buffer* attach_imagebuffer(struct imagecontent *image) {
+static struct wl_buffer* attach_imagebuffer(struct wayland_helper *image) {
     destroy_imagebuffer(image);
     imagebuffer_size = image->xres*image->yres*4;
     int fd = _init_shm_file(imagebuffer_size);
@@ -42,7 +42,7 @@ static struct wl_buffer* attach_imagebuffer(struct imagecontent *image) {
     return buffer;
 }
 
-static void destroy_imagebuffer(struct imagecontent *image) {
+static void destroy_imagebuffer(struct wayland_helper *image) {
     if (image->data) {
 	munmap(image->data, imagebuffer_size);
 	image->data = NULL;

@@ -10,5 +10,5 @@ static void framecallback(void* data, struct wl_callback* callback, uint32_t tim
     wl_callback_destroy(framecaller);
     framecaller = wl_surface_frame(surface);
     wl_callback_add_listener(framecaller, &frame_listener, data);
-    ((struct imagecontent*)data)->can_redraw = 1;
+    ((struct wayland_helper*)data)->can_redraw = 1;
 }
