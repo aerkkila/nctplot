@@ -18,17 +18,17 @@ struct imagecontent {
 /* things to create */
 struct wl_surface*    surface;
 struct wl_buffer*     buffer;
-#include "wayland/framecallback.c" // framecaller
+#include "framecallback.c" // framecaller
 
 /* things to recieve */
 struct wl_display*    display;
 struct wl_registry*   registry;
 struct wl_compositor* compositor;
-#include "wayland/xdg.c" // xdg_base
-#include "wayland/shm.c" // shared_memory
+#include "xdg.c" // xdg_base
+#include "shm.c" // shared_memory
 struct wl_seat*       seat;
 
-#include "wayland/keyboard.c"
+#include "keyboard.c"
 
 #define do_binding if(0)
 #define option(a,b,c) } else if(!strcmp(interface, a##_interface.name)) { b = wl_registry_bind(reg, id, &a##_interface, c)
@@ -123,6 +123,10 @@ void wayland_fullscreen() {
     xdg_toplevel_set_fullscreen(xdgtop, NULL);
 }
 
+void wayland_nofullscreen() {
+    xdg_toplevel_unset_fullscreen(xdgtop);
+}
+
 void wayland_render(struct imagecontent *image) {
     wl_surface_damage_buffer(surface, 0, 0, image->xres, image->yres);
     wl_surface_attach(surface, buffer, 0, 0); // This is always released automatically.
@@ -147,10 +151,14 @@ static void kb_key_callback(void* data, struct wl_keyboard* wlkb, uint32_t seria
 }
 
 int main() {
-    struct imagecontent imag = {0};
+    struct imagecontent imag = {
+	.yscale = 2,
+	.xscale = 2,
+    };
     if (init_wayland(&imag))
 	errx(1, "init_wayland");
     init_keyboard(kb_key_callback, &imag);
+    xdg_toplevel_set_title(xdgtop, "wltest");
     int number = 0;
     putchar('\n');
     while (!imag.stop && wl_display_roundtrip(display) > 0) {

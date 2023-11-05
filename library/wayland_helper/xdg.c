@@ -41,6 +41,8 @@ static struct xdg_surface_listener xdgsurflistener = {
 static void topconfigure(void* data, struct xdg_toplevel* top, int32_t w, int32_t h, struct wl_array* states) {
     struct imagecontent *im = data;
     int x0 = im->xres, y0 = im->yres;
+    w /= im->xscale;
+    h /= im->yscale;
     im->xres = w<im->xresmin? im->xresmin: w;
     im->yres = h<im->yresmin? im->yresmin: h;
     xdg_surface_changed = im->xres != x0 || im->yres != y0;
