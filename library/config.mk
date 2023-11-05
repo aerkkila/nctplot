@@ -16,6 +16,12 @@ have_proj = 1
 # png library is used to generate figures. Comment this out if necessary.
 have_png = 1
 
+# Graphics works directly on wayland. Alternatively, SDL2 library can be used.
+# Comment this out, if you don't have wayland or don't want direct wayland support.
+# With this, also the keybindings are different because SDL2 is not used for events.
+# This is good, if your keyboard layout has e.g. arrow keys on 3rd or 4th level, because SDL2 wouldn't recognize that.
+have_wayland = 1
+
 CFLAGS = -Wall -g -fPIC -Ofast
 CC = gcc
 

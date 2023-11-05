@@ -6,4 +6,6 @@ library/*.so
 library/*.o
 library/ne_10m_coastline*
 library/shpname.h
+library/xdg-shell*
 executable/nctplot
+*.out
