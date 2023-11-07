@@ -1,11 +1,11 @@
 #include <xkbcommon/xkbcommon.h>
 #include <string.h>
-#include "wayland_helper/helper.h"
+#include "wayland_helper/wayland_helper.h"
 
 #define bindings_file "bindings_xkb.h"
 
 static struct wayland_helper wlh;
-uint32_t wlh_color = 0;
+static uint32_t wlh_color = 0;
 int wlh_scalex = 1,
     wlh_scaley = 1;
 
@@ -35,13 +35,16 @@ static void graphics_draw_point(int i, int j) {
     wlh.data[j*wlh.xres + i] = wlh_color;
 }
 
-static unsigned get_modstate() {
-    return wlh_get_modstate(&wlh);
+static void key_callback(struct wayland_helper *wlh) {
+    const xkb_keysym_t* syms;
+    int nsyms = wlh_get_keysyms(wlh, &syms);
+    for (int isym=0; isym<nsyms; isym++)
+	keydown_func(syms[isym], wlh->last_keymods);
 }
 
 static void init_graphics() {
-    wlh_init_wayland(&wlh);
-    wlh_init_keyboard(&wlh, NULL);
+    wlh.key_callback = key_callback;
+    wlh_init(&wlh);
 }
 
 static void mainloop() {
@@ -54,6 +57,8 @@ static void mainloop() {
 	if (play_inv)	{inc_znum((Arg){.i=-1}); play_on=0;}
 	if (play_on)	inc_znum((Arg){.i=1});
 	usleep(sleeptime*1000);
+	if (wlh_key_should_repeat(&wlh))
+	    key_callback(&wlh);
     }
     quit((Arg){0});
 }

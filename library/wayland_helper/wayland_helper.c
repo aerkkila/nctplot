@@ -7,7 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <err.h>
-#include "helper.h"
+#include "wayland_helper.h"
 
 /* things to create */
 static struct wl_surface*    surface;
@@ -66,7 +66,7 @@ static int require(void* a, ...) {
     return has_error;
 }
 
-int wlh_init_wayland(struct wayland_helper *wlh) {
+int wlh_init(struct wayland_helper *wlh) {
     assert((wlh->display = wl_display_connect(NULL)));
     assert((registry = wl_display_get_registry(wlh->display)));
     wl_registry_add_listener(registry, &registry_listener, NULL);
@@ -85,6 +85,8 @@ int wlh_init_wayland(struct wayland_helper *wlh) {
     if (wlh->yresmin <= 0)
 	wlh->yresmin = 1;
     init_xdg(wlh);
+
+    init_keyboard(wlh);
     return 0;
 }
 
@@ -137,36 +139,56 @@ unsigned wlh_get_modstate(const struct wayland_helper *wlh) {
 }
 #undef isactive
 
+long long wlh_timenow_µs() {
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    return (long long)tv.tv_sec*1000000 + tv.tv_usec;
+}
+
+int wlh_get_keysyms(const struct wayland_helper *wlh, const xkb_keysym_t** syms) {
+    return xkb_state_key_get_syms(wlh->xkbstate, wlh->last_key, syms);
+}
+
+int wlh_key_should_repeat(struct wayland_helper *wlh) {
+    if (!wlh->keydown)
+	return 0;
+    long long now = wlh_timenow_µs();
+    int ret;
+    if (wlh->last_repeat_µs)
+	ret = now - wlh->last_repeat_µs >= wlh->repeat_interval_µs;
+    else
+	ret = now - wlh->last_keytime_µs >= wlh->repeat_delay_µs;
+    if (ret) {
+	wlh->last_repeat_µs = now;
+	return 1;
+    }
+    return 0;
+}
+
 #ifdef wayland_test
 static int pause_drawing = 0;
 
-static void kb_key_callback(void* data, struct wl_keyboard* wlkb, uint32_t serial,
-			    uint32_t time, uint32_t key, uint32_t state) {
-    struct wayland_helper *wlh = data;
-    key += 8;
-    if (!state) {
-	repeat_started = 0;
-	return;
-    }
-    static const xkb_keysym_t* syms;
-    int ival = xkb_state_key_get_syms(wlh->xkbstate, key, &syms);
-    for (int i=0; i<ival; i++) {
-	switch (syms[i]) {
-	case XKB_KEY_q:
-	    ((struct wayland_helper*)data)->stop = 1; break;
-	case XKB_KEY_space:
-	    pause_drawing = !pause_drawing; break;
-	default:
-	    break;
+static void key_callback(struct wayland_helper *wlh) {
+    const xkb_keysym_t *syms;
+    int nsyms = wlh_get_keysyms(wlh, &syms);
+    for (int isym=0; isym<nsyms; isym++) {
+	switch (syms[isym]) {
+	    case XKB_KEY_q:
+		wlh->stop = 1; break;
+	    case XKB_KEY_space:
+		pause_drawing = !pause_drawing; break;
+	    default:
+		break;
 	}
     }
 }
 
 int main() {
-    struct wayland_helper wlh = {0};
-    if (wlh_init_wayland(&wlh))
+    struct wayland_helper wlh = {
+	.key_callback = key_callback;
+    };
+    if (wlh_init(&wlh))
 	errx(1, "wlh_init_wayland");
-    wlh_init_keyboard(kb_key_callback, &wlh);
     xdg_toplevel_set_title(xdgtop, "wltest");
     int number = 0;
     putchar('\n');

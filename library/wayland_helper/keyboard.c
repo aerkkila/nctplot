@@ -3,14 +3,6 @@
 
 static struct wl_keyboard* keyboard;
 static struct xkb_context* xkbcontext;
-static long long repeat_interval_µs, repeat_delay_µs, when_pressed_µs;
-char pressed, repeat_started;
-
-static long long timenow_µs() {
-    struct timeval tv;
-    gettimeofday(&tv, NULL);
-    return (long long)tv.tv_sec*1000000 + tv.tv_usec;
-}
 
 static void kb_modifiers_callback(void* data, struct wl_keyboard* wlkb, uint32_t serial, uint32_t mods_depr,
 			       uint32_t mods_latch, uint32_t mods_lock, uint32_t group) {
@@ -31,47 +23,44 @@ static void kb_keymap_callback(void* data, struct wl_keyboard* wlkb, uint32_t fo
 }
 
 static void kb_repeat_info_callback(void* data, struct wl_keyboard* wlkb, int32_t interval, int32_t delay) {
-    repeat_interval_µs = interval * 1000;
-    repeat_delay_µs = delay * 1000;
+    struct wayland_helper *wlh = data;
+    wlh->repeat_interval_µs = interval * 1000;
+    wlh->repeat_delay_µs = delay * 1000;
 }
 
 static void nop() {}
+
+static void kb_key_callback(
+    void* vdata, struct wl_keyboard* kb, uint32_t serial,
+    uint32_t time, uint32_t key, uint32_t state) {
+    struct wayland_helper *wlh = vdata;
+    wlh->keydown = state;
+    wlh->last_key = key + 8;
+    wlh->last_keymods = wlh_get_modstate(wlh);
+    wlh->last_keytime_µs = wlh_timenow_µs();
+    wlh->last_repeat_µs = 0;
+    wlh->key_callback(wlh);
+}
 
 static struct wl_keyboard_listener keyboardlistener = {
     .keymap = kb_keymap_callback,
     .enter = nop, // Should we read the already pressed modifiers?
     .leave = nop,
-    .key = NULL, // see init_keyboard: user provides the function
+    .key = kb_key_callback, // see init_keyboard: user provides the function
     .modifiers = kb_modifiers_callback,
     .repeat_info = kb_repeat_info_callback,
 };
 
-void wlh_init_keyboard(
-    void (*callback_function)(
-	void*, struct wl_keyboard*, uint32_t serial,
-	uint32_t time, uint32_t key, uint32_t state
-    ), struct wayland_helper *wlh) {
+static void init_keyboard(struct wayland_helper *wlh) {
     xkbcontext = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
     keyboard = wl_seat_get_keyboard(seat);
-    keyboardlistener.key = callback_function ? callback_function : nop;
     wl_keyboard_add_listener(keyboard, &keyboardlistener, wlh);
+    if (!wlh->key_callback)
+	wlh->key_callback = nop;
 }
 
-void destroy_keyboard(struct wayland_helper *wlh) {
+static void destroy_keyboard(struct wayland_helper *wlh) {
     wl_keyboard_release(keyboard); keyboard=NULL;
     xkb_context_unref(xkbcontext); xkbcontext=NULL;
     xkb_state_unref(wlh->xkbstate); wlh->xkbstate=NULL;
-}
-
-int repeat_key() {
-    static long long last_repeat;
-    long long now = timenow_µs();
-    int ret =
-	(!repeat_started && now - when_pressed_µs > repeat_delay_µs) ||
-	(repeat_started  && now - last_repeat > repeat_interval_µs);
-    if (ret) {
-	last_repeat = now;
-	repeat_started = 1;
-    }
-    return ret;
 }

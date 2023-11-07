@@ -84,6 +84,7 @@ static void inc_offset_i(Arg);
 static void inc_znum(Arg intarg);
 static void quit(Arg _);
 static void var_ichange(Arg jump);
+static void keydown_func(int keysym, unsigned mod);
 
 union Arg {
     void* v;
@@ -1183,12 +1184,12 @@ static void mousepaint() {
     }
 }
 
-#define handle_keybindings(sym, a) _handle_keybindings(sym, a, ARRSIZE(a))
-static int _handle_keybindings(int keysym, Binding b[], int len) {
+#define handle_keybindings(sym, mod, a) _handle_keybindings(sym, mod, a, ARRSIZE(a))
+static int _handle_keybindings(int keysym, unsigned modstate, Binding b[], int len) {
     int ret = 0;
     for(int i=0; i<len; i++)
 	if(keysym == b[i].key)
-	    if(get_modstate() == b[i].mod) {
+	    if(modstate == b[i].mod) {
 		b[i].fun(b[i].arg);
 		ret++; // There can be multiple bindings for the same key.
 	    }
@@ -1197,12 +1198,12 @@ static int _handle_keybindings(int keysym, Binding b[], int len) {
 
 #include bindings_file
 
-static void keydown_func(int keysym) {
+static void keydown_func(int keysym, unsigned mod) {
     if(0);
-    else if (prog_mode == variables_m  && handle_keybindings(keysym, keydown_bindings_variables_m)) return;
-    else if (prog_mode == mousepaint_m && handle_keybindings(keysym, keydown_bindings_mousepaint_m)) return;
-    else if (prog_mode == colormaps_m  && handle_keybindings(keysym, keydown_bindings_colormaps_m)) return;
-    handle_keybindings(keysym, keydown_bindings);
+    else if (prog_mode == variables_m  && handle_keybindings(keysym, mod, keydown_bindings_variables_m)) return;
+    else if (prog_mode == mousepaint_m && handle_keybindings(keysym, mod, keydown_bindings_mousepaint_m)) return;
+    else if (prog_mode == colormaps_m  && handle_keybindings(keysym, mod, keydown_bindings_colormaps_m)) return;
+    handle_keybindings(keysym, mod, keydown_bindings);
 }
 
 /* Only following functions should be called from programs. */

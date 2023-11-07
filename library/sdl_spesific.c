@@ -99,7 +99,7 @@ start:
 		call_resized = 1;
 	    break;
 	case SDL_KEYDOWN:
-	    keydown_func(event.key.keysym.sym); break;
+	    keydown_func(event.key.keysym.sym, get_modstate()); break;
 	case SDL_MOUSEMOTION:
 	    mousex = event.motion.x;
 	    mousey = event.motion.y;
