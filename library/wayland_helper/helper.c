@@ -127,13 +127,15 @@ void wlh_commit(struct wayland_helper *wlh) {
     wlh->redraw = wlh->can_redraw = 0;
 }
 
+#define isactive(a) (!!xkb_state_mod_name_is_active(wlh->xkbstate, a, XKB_STATE_MODS_EFFECTIVE))
 unsigned wlh_get_modstate(const struct wayland_helper *wlh) {
     return
-	WLR_MODIFIER_CONTROL	* xkb_state_mod_name_is_active(wlh->xkbstate, "Control") |
-	WLR_MODIFIER_ALT	* xkb_state_mod_name_is_active(wlh->xkbstate, "Alt") |
-	WLR_MODIFIER_SHIFT	* xkb_state_mod_name_is_active(wlh->xkbstate, "Shift") |
-	WLR_MODIFIER_LOGO	* xkb_state_mod_name_is_active(wlh->xkbstate, "Logo");
+	WLR_MODIFIER_CTRL	* isactive("Control")	|
+	WLR_MODIFIER_ALT	* isactive("Alt")	|
+	WLR_MODIFIER_SHIFT	* isactive("Shift")	|
+	WLR_MODIFIER_LOGO	* isactive("Logo");
 }
+#undef isactive
 
 #ifdef wayland_test
 static int pause_drawing = 0;

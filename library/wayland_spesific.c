@@ -27,8 +27,22 @@ static void set_scale(int scalex, int scaley) {
     wlh_scaley = scaley;
 }
 
-/* tämä olisi hyvä toteuttaa eri tavalla */
-const static unsigned (*get_modstate)(void*) = (unsigned(*)(void*))wlh_get_modstate;
+static void quit_graphics() {
+    wlh_destroy(&wlh);
+}
+
+static void graphics_draw_point(int i, int j) {
+    wlh.data[j*wlh.xres + i] = wlh_color;
+}
+
+static unsigned get_modstate() {
+    return wlh_get_modstate(&wlh);
+}
+
+static void init_graphics() {
+    wlh_init_wayland(&wlh);
+    wlh_init_keyboard(&wlh, NULL);
+}
 
 static void mainloop() {
     while (!wlh.stop && wl_display_roundtrip(wlh.display)) {
@@ -39,7 +53,7 @@ static void mainloop() {
 	if (zid < 0)	play_inv = play_on = 0;
 	if (play_inv)	{inc_znum((Arg){.i=-1}); play_on=0;}
 	if (play_on)	inc_znum((Arg){.i=1});
-	sleep_frame_rate();
+	usleep(sleeptime*1000);
     }
     quit((Arg){0});
 }

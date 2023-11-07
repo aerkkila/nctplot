@@ -99,7 +99,7 @@ start:
 		call_resized = 1;
 	    break;
 	case SDL_KEYDOWN:
-	    keydown_func(); break;
+	    keydown_func(event.key.keysym.sym); break;
 	case SDL_MOUSEMOTION:
 	    mousex = event.motion.x;
 	    mousey = event.motion.y;
@@ -111,14 +111,14 @@ start:
 		else mousemove();
 	    }
 	    else
-		mousemotion();
+		mousemotion(event.motion.xrel, event.motion.yrel);
 	    break;
 	case SDL_MOUSEBUTTONDOWN:
 	    mouse_pressed=1; break;
 	case SDL_MOUSEBUTTONUP:
 	    mouse_pressed=0; break;
 	case SDL_MOUSEWHEEL:
-	    mousewheel();
+	    mousewheel(event.wheel.y);
 	}
 	if(stop) return;
     }

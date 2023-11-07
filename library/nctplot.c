@@ -81,6 +81,7 @@ static void curses_write_cmaps();
 static uint_fast64_t time_now_ms();
 static void inc_offset_j(Arg);
 static void inc_offset_i(Arg);
+static void inc_znum(Arg intarg);
 static void quit(Arg _);
 static void var_ichange(Arg jump);
 
@@ -382,8 +383,7 @@ static void mousemotion() {
     printf("\033[%iA\r", lines_echoed);
 }
 
-static void mousewheel() {
-    int num = event.wheel.y;
+static void mousewheel(int num) {
     if (!num)
 	return;
     float x = mousex;
@@ -400,10 +400,10 @@ static void mousewheel() {
     multiply_zoom_fixed_point(multiple, x/draw_w, y/draw_h);
 }
 
-static void mousemove() {
+static void mousemove(float xrel, float yrel) {
     static float move_datax, move_datay;
-    move_datax += event.motion.xrel * data_per_pixel;
-    move_datay += event.motion.yrel * data_per_pixel;
+    move_datax += xrel * data_per_pixel;
+    move_datay += yrel * data_per_pixel;
     int xmove, ymove;
     move_datax -= (xmove = iround(move_datax));
     move_datay -= (ymove = iround(move_datay));
@@ -1183,11 +1183,11 @@ static void mousepaint() {
     }
 }
 
-#define handle_keybindings(a) _handle_keybindings(a, ARRSIZE(a))
-static int _handle_keybindings(Binding b[], int len) {
+#define handle_keybindings(sym, a) _handle_keybindings(sym, a, ARRSIZE(a))
+static int _handle_keybindings(int keysym, Binding b[], int len) {
     int ret = 0;
     for(int i=0; i<len; i++)
-	if(event.key.keysym.sym == b[i].key)
+	if(keysym == b[i].key)
 	    if(get_modstate() == b[i].mod) {
 		b[i].fun(b[i].arg);
 		ret++; // There can be multiple bindings for the same key.
@@ -1195,15 +1195,15 @@ static int _handle_keybindings(Binding b[], int len) {
     return ret;
 }
 
-static void keydown_func() {
-    if(0);
-    else if (prog_mode == variables_m  && handle_keybindings(keydown_bindings_variables_m)) return;
-    else if (prog_mode == mousepaint_m && handle_keybindings(keydown_bindings_mousepaint_m)) return;
-    else if (prog_mode == colormaps_m  && handle_keybindings(keydown_bindings_colormaps_m)) return;
-    handle_keybindings(keydown_bindings);
-}
-
 #include bindings_file
+
+static void keydown_func(int keysym) {
+    if(0);
+    else if (prog_mode == variables_m  && handle_keybindings(keysym, keydown_bindings_variables_m)) return;
+    else if (prog_mode == mousepaint_m && handle_keybindings(keysym, keydown_bindings_mousepaint_m)) return;
+    else if (prog_mode == colormaps_m  && handle_keybindings(keysym, keydown_bindings_colormaps_m)) return;
+    handle_keybindings(keysym, keydown_bindings);
+}
 
 /* Only following functions should be called from programs. */
 

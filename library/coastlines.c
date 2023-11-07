@@ -1,4 +1,4 @@
-#if defined HAVE_SHPLIB && not defined HAVE_WAYLAND // wraps the whole file
+#if defined HAVE_SHPLIB
 #include <shapefil.h>
 #include <math.h>
 #include "shpname.h"
@@ -187,4 +187,9 @@ static void draw_coastlines(struct shown_area *area) {
 static void free_coastlines() {
     coastl_lengths = (free(coastl_lengths), NULL);
 }
+
+#else // not HAVE_SHPLIB
+#define init_coastlines(...) // ignored
+#define draw_coastlines(...) // ignored
+#define free_coastlines(...) // ignored
 #endif // HAVE_SHPLIB
