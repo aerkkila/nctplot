@@ -3,6 +3,7 @@
 #include <png.h>
 #include <string.h>
 #include <err.h>
+#include <stdlib.h>
 extern int draw_w, draw_h;
 
 static int write_png(unsigned char* rgb, const char* name) {

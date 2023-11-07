@@ -1,6 +1,5 @@
 #include <nctietue3.h>
 #include <cmh_colormaps.h>
-#include <SDL2/SDL.h>
 #include <stdint.h>
 #include <curses.h>
 #include <sys/time.h>
@@ -45,12 +44,9 @@ static plottable* plottables;
 static int pltind, prev_pltind, n_plottables;
 #define plt (plottables[pltind])
 static nct_var* var; // = plt.var
-static SDL_Renderer* rend;
-static SDL_Window* window;
-static SDL_Texture* base;
 static WINDOW *wnd;
-static const Uint32 default_sleep=8; // ms
-static Uint32 sleeptime;
+static const unsigned default_sleep=8; // ms
+static unsigned sleeptime;
 static int mousex, mousey;
 static int win_w, win_h, xid, yid, zid, draw_w, draw_h, pending_varnum=-1, pending_cmapnum;
 static char stop, fill_on, play_on, play_inv, update_minmax=1, update_minmax_cur;
@@ -112,12 +108,6 @@ struct shown_area {
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 
-#include "functions.c" // draw1d, draw_row, make_minmax; automatically generated from functions.in.c
-#include "coastlines.c"
-#include "png.c"
-
-static SDL_Event event;
-
 struct Binding {
     int key;
     int mod;
@@ -140,6 +130,16 @@ static int iround(float f) {
     int ifloor = f;
     return ifloor + (f-ifloor >= 0.5) - (f-ifloor <= -0.5);
 }
+
+#ifdef HAVE_WAYLAND
+#include "wayland_spesific.c"
+#else
+#include "sdl_spesific.c"
+#endif
+
+#include "functions.c" // draw1d, draw_row, make_minmax; automatically generated from functions.in.c
+#include "coastlines.c"
+#include "png.c"
 
 /* These isnan functions can be used even with -ffinite-math-only optimization,
    which is part of -Ofast optimization. */
@@ -231,9 +231,11 @@ static void curses_write_cmaps() {
 static void draw2d(const nct_var* var) {
     my_echo(g_minmax);
 
-    SDL_SetRenderDrawColor(rend, globs.color_bg[0], globs.color_bg[1], globs.color_bg[2], 255);
-    SDL_RenderClear(rend);
-    SDL_RenderSetScale(rend, g_pixels_per_datum, g_pixels_per_datum);
+    /* defined either ind sdl_spesific or wayland_spesific depending on the choice in config.mk */
+    set_color(globs.color_bg);
+    clear_background();
+    set_scale(g_pixels_per_datum, g_pixels_per_datum);
+
     if (g_only_nans) return;
 
     void* dataptr = var->data + (plt.area->znum*plt.stepsize_z*(zid>=0) - var->startpos) * g_size1;
@@ -258,22 +260,22 @@ static void draw2d(const nct_var* var) {
 static void draw_colormap() {
     float cspace = 255.0f/win_w;
     float di = 0;
-    SDL_RenderSetScale(rend, 1, 1);
+    set_scale(1, 1);
     int j0 = draw_h + cmapspace - g_extended_y*g_pixels_per_datum;
     if(!globs.invert_c)
 	for(int i=0; i<win_w; i++, di+=cspace) {
 	    unsigned char* c = cmh_colorvalue(globs.cmapnum, (int)di);
-	    SDL_SetRenderDrawColor(rend, c[0], c[1], c[2], 255);
+	    set_color(c);
 	    for(int j=j0; j<draw_h+cmapspace+cmappix; j++)
-		SDL_RenderDrawPoint(rend, i, j);
+		graphics_draw_point(i,j);
 	}
     else
 	for(int i=win_w-1; i>=0; i--, di+=cspace) {
 	    unsigned char* c = cmh_colorvalue(globs.cmapnum, (int)di);
-	    SDL_SetRenderDrawColor(rend, c[0], c[1], c[2], 255);
+	    set_color(c);
 	    for(int j=j0; j<draw_h+cmapspace+cmappix; j++)
-		SDL_RenderDrawPoint(rend, i, j);
-	}	
+		graphics_draw_point(i,j);
+	}
 }
 
 static void clear_echo() {
@@ -487,35 +489,18 @@ static void redraw(nct_var* var) {
 	g_only_nans = make_minmax(var->dtype);
     }
 
+#ifndef HAVE_WAYLAND
     SDL_SetRenderTarget(rend, base);
+#endif
     draw_funcptr(var);
     if (globs.coastlines) {
 	if (!plt.area->coasts)
 	    init_coastlines(plt.area, NULL);
 	draw_coastlines(plt.area);
     }
+#ifndef HAVE_WAYLAND
     SDL_SetRenderTarget(rend, NULL);
-}
-
-static void resized() {
-    static uint_fast64_t lasttime;
-    uint_fast64_t thistime = time_now_ms();
-    if(thistime-lasttime < 16) {
-	call_resized = 1;
-	return;
-    }
-    call_resized = 0;
-    int w, h;
-    SDL_GetWindowSize(window, &w, &h);
-    if (w == win_w && h == win_h)
-	return;
-    win_w = w; win_h = h;
-    call_redraw = 1;
-    lasttime = thistime;
-    SDL_DestroyTexture(base);
-    SDL_GetWindowSize(window, &win_w, &win_h);
-    base = SDL_CreateTexture(rend, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, win_w, win_h);
-    set_draw_params();
+#endif
 }
 
 static void set_dimids() {
@@ -1015,10 +1000,7 @@ static void quit(Arg _) {
     plottables = (free(plottables), NULL);
     mp_params = (struct Mp_params){0};
     memset(&memory, 0, sizeof(memory));
-    SDL_DestroyTexture(base);
-    SDL_DestroyRenderer(rend);
-    SDL_DestroyWindow(window);
-    SDL_Quit();
+    quit_graphics();
 }
 
 #ifdef HAVE_NCTPROJ
@@ -1201,23 +1183,6 @@ static void mousepaint() {
     }
 }
 
-#include "bindings.h"
-
-static int get_modstate() {
-    /* makes modstate side-insensitive and removes other modifiers than [alt,ctrl,gui,shift] */
-    int mod = 0;
-    int mod0 = SDL_GetModState();
-    if(mod0 & KMOD_CTRL)
-	mod |= KMOD_CTRL;
-    if(mod0 & KMOD_SHIFT)
-	mod |= KMOD_SHIFT;
-    if(mod0 & KMOD_ALT)
-	mod |= KMOD_ALT;
-    if(mod0 & KMOD_GUI)
-	mod |= KMOD_GUI;
-    return mod;
-}
-
 #define handle_keybindings(a) _handle_keybindings(a, ARRSIZE(a))
 static int _handle_keybindings(Binding b[], int len) {
     int ret = 0;
@@ -1238,54 +1203,7 @@ static void keydown_func() {
     handle_keybindings(keydown_bindings);
 }
 
-static void mainloop() {
-    int mouse_pressed=0;
-start:
-    while(SDL_PollEvent(&event)) {
-	switch(event.type) {
-	case SDL_QUIT:
-	    quit((Arg){0}); break;
-	case SDL_WINDOWEVENT:
-	    if(event.window.event==SDL_WINDOWEVENT_RESIZED)
-		call_resized = 1;
-	    break;
-	case SDL_KEYDOWN:
-	    keydown_func(); break;
-	case SDL_MOUSEMOTION:
-	    mousex = event.motion.x;
-	    mousey = event.motion.y;
-	    if(mouse_pressed) {
-		if (prog_mode==mousepaint_m) {
-		    mousepaint();
-		    call_redraw = 1;
-		}
-		else mousemove();
-	    }
-	    else
-		mousemotion();
-	    break;
-	case SDL_MOUSEBUTTONDOWN:
-	    mouse_pressed=1; break;
-	case SDL_MOUSEBUTTONUP:
-	    mouse_pressed=0; break;
-	case SDL_MOUSEWHEEL:
-	    mousewheel();
-	}
-	if(stop) return;
-    }
-
-    if (stop)		return;
-    if (call_resized)	resized();
-    if (call_redraw)	redraw(var);
-    if (zid < 0)	play_inv = play_on = 0;
-    if (play_inv)	{inc_znum((Arg){.i=-1}); play_on=0;}
-    if (play_on)	inc_znum((Arg){.i=1});
-
-    SDL_RenderCopy(rend, base, NULL, NULL);
-    SDL_RenderPresent(rend);
-    SDL_Delay(sleeptime);
-    goto start;
-}
+#include bindings_file
 
 /* Only following functions should be called from programs. */
 
@@ -1305,19 +1223,7 @@ void nctplot_(void* vobject, int isset) {
     }
 
 variable_found:
-    if (SDL_Init(SDL_INIT_VIDEO)) {
-	nct_puterror("sdl_init: %s\n", SDL_GetError());
-	return; }
-    SDL_Event event;
-    while(SDL_PollEvent(&event));
-    SDL_DisplayMode dm;
-    if (SDL_GetCurrentDisplayMode(0, &dm)) {
-	nct_puterror("getting monitor size: %s\n", SDL_GetError());
-	win_w = win_h = 500;
-    } else {
-	win_w = dm.w;
-	win_h = dm.h;
-    }
+    init_graphics(); // defined either in sdl_spesific.c or in wayland_spesific.c depending on the choice in config.mk
 
     globs = default_globals; // must be early because globals may be modified or needed by functions
     n_plottables = var->super->nvars;
@@ -1331,11 +1237,6 @@ variable_found:
     else
 	ylen = 400;
   
-    window = SDL_CreateWindow("nctplot", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
-			      MIN(xlen, win_w), MIN(ylen+cmapspace+cmappix, win_h), SDL_WINDOW_RESIZABLE);
-    rend = SDL_CreateRenderer(window, -1, SDL_RENDERER_TARGETTEXTURE);
-    SDL_GetWindowSize(window, &win_w, &win_h);
-    base = SDL_CreateTexture(rend, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, win_w, win_h);
     variable_changed();
 
     sleeptime = default_sleep;

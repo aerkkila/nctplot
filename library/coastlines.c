@@ -1,4 +1,4 @@
-#ifdef HAVE_SHPLIB // wraps the whole file
+#if defined HAVE_SHPLIB && not defined HAVE_WAYLAND // wraps the whole file
 #include <shapefil.h>
 #include <math.h>
 #include "shpname.h"
@@ -90,15 +90,17 @@ static void init_coastlines(struct shown_area* area, void* funptr) {
 
 static double tmp_x0, tmp_y0, tmp_xspace, tmp_yspace;
 
-static void coord_to_point(double x, double y, SDL_Point* point) {
+#ifndef HAVE_WAYLAND
+static void sdl_coord_to_point(double x, double y, SDL_Point* point) {
     point->x = round((x - tmp_x0) * tmp_xspace);
     point->y = round((y - tmp_y0) * tmp_yspace);
 }
 
-static void coord_to_point_inv_y(double x, double y, SDL_Point* point) {
+static void sdl_coord_to_point_inv_y(double x, double y, SDL_Point* point) {
     point->x = round((x - tmp_x0) * tmp_xspace);
     point->y = draw_h - round((y - tmp_y0) * tmp_yspace);
 }
+#endif
 
 static void make_coastlinepoints(struct shown_area *area) {
     /* tmp_x0 is coordinate value, therefore offset is multiplied with coordinate interval, area->xspace */
@@ -112,8 +114,10 @@ static void make_coastlinepoints(struct shown_area *area) {
 
     int ibreak = 0, ipoint = 0, ind_from = 0;
 
+#ifndef HAVE_WAYLAND
     void (*coord_to_point_fun)(double, double, SDL_Point*) = 
-	globs.invert_y ? coord_to_point_inv_y : coord_to_point;
+	globs.invert_y ? sdl_coord_to_point_inv_y : sdl_coord_to_point;
+#endif
 
     for(int e=0; e<coastl_nparts; e++) {
 	for(int ipoint_from=0; ipoint_from<coastl_lengths[e]; ipoint_from++) {

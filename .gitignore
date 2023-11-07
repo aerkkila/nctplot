@@ -4,6 +4,7 @@ library/functions.c
 library/function_wrappers.c
 library/ne_10m_coastline*
 library/shpname.h
+library/bindings_xkb.h
 executable/nctplot
 *xdg-shell*
 *.out

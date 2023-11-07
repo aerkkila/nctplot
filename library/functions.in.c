@@ -46,8 +46,8 @@ static void draw_row_@nctype(int jpixel, const void* vrowptr) {
 	int value = CVAL(val, g_minmax_@nctype);
 	if (globs.invert_c) value = 0xff-value;
 	unsigned char* c = cmh_colorvalue(globs.cmapnum,value);
-	SDL_SetRenderDrawColor(rend, c[0], c[1], c[2], 0xff);
-	SDL_RenderDrawPoint(rend, ipixel/g_pixels_per_datum, jpixel/g_pixels_per_datum);
+	set_color(c);
+	graphics_draw_point(ipixel/g_pixels_per_datum, jpixel/g_pixels_per_datum);
     }
 }
 
@@ -107,19 +107,19 @@ static void draw1d_@nctype(const nct_var* var) {
     if (prog_mode == variables_m)
 	curses_write_vars();
     my_echo(g_minmax_@nctype);
-    SDL_SetRenderDrawColor(rend, globs.color_bg[0], globs.color_bg[1], globs.color_bg[2], 255);
-    SDL_RenderClear(rend);
+    set_color(globs.color_bg);
+    clear_background();
 #if __nctype__ == NC_DOUBLE
 	if (my_isnan_double(g_minmax_@nctype[0])) return;
 #else
 	if (my_isnan_float(g_minmax_@nctype[0])) return;
 #endif
     double di=0;
-    SDL_SetRenderDrawColor(rend, globs.color_fg[0], globs.color_fg[1], globs.color_fg[2], 255);
+    set_color(globs.color_fg);
     ctype* dataptr = (ctype*)var->data - var->startpos;
     for(int i=0; i<win_w; i++, di+=data_per_pixel) {
 	int y = (dataptr[(int)di] - g_minmax_@nctype[0]) * win_h / (g_minmax_@nctype[1]-g_minmax_@nctype[0]);
-	SDL_RenderDrawPoint(rend, i, y);
+	graphics_draw_point(i, y);
     }
 }
 

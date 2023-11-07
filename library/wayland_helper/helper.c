@@ -1,4 +1,5 @@
 #include <wayland-client.h>
+#include <xkbcommon/xkbcommon-names.h>
 #include "xdg-shell.h"
 #include "xdg-shell.c"
 #include <assert.h>
@@ -6,23 +7,17 @@
 #include <stdlib.h>
 #include <string.h>
 #include <err.h>
-
-struct wayland_helper {
-    unsigned char* data;
-    int xresmin, yresmin, stop, redraw, can_redraw,
-	xres, yres; // only mutable in xdg:topconfigure
-};
+#include "helper.h"
 
 /* things to create */
-struct wl_surface*    surface;
-struct wl_buffer*     buffer;
+static struct wl_surface*    surface;
+static struct wl_buffer*     buffer;
 #include "framecallback.c" // framecaller
 
 /* things to recieve */
-struct wl_display*    display;
-struct wl_registry*   registry;
-struct wl_compositor* compositor;
-struct wl_seat*       seat;
+static struct wl_registry*   registry;
+static struct wl_compositor* compositor;
+static struct wl_seat*       seat;
 #include "xdg.c" // xdg_base
 #include "shm.c" // shared_memory
 
@@ -71,30 +66,30 @@ static int require(void* a, ...) {
     return has_error;
 }
 
-int init_wayland(struct wayland_helper *image) {
-    assert((display = wl_display_connect(NULL)));
-    assert((registry = wl_display_get_registry(display)));
+int wlh_init_wayland(struct wayland_helper *wlh) {
+    assert((wlh->display = wl_display_connect(NULL)));
+    assert((registry = wl_display_get_registry(wlh->display)));
     wl_registry_add_listener(registry, &registry_listener, NULL);
-    wl_display_dispatch(display);
-    wl_display_roundtrip(display);
-    if (require(display, "display", compositor, "compositor", shared_memory,
+    wl_display_dispatch(wlh->display);
+    wl_display_roundtrip(wlh->display);
+    if (require(wlh->display, "display", compositor, "compositor", shared_memory,
 	    "shared_memory", xdg_base, "xdg_base", seat, "wl_seat", NULL))
 	return 1;
 
     assert((surface = wl_compositor_create_surface(compositor)));
     framecaller = wl_surface_frame(surface);
-    wl_callback_add_listener(framecaller, &frame_listener, image);
+    wl_callback_add_listener(framecaller, &frame_listener, wlh);
 
-    if (image->xresmin <= 0)
-	image->xresmin = 1;
-    if (image->yresmin <= 0)
-	image->yresmin = 1;
-    init_xdg(image);
+    if (wlh->xresmin <= 0)
+	wlh->xresmin = 1;
+    if (wlh->yresmin <= 0)
+	wlh->yresmin = 1;
+    init_xdg(wlh);
     return 0;
 }
 
-void destroy_wayland(struct wayland_helper *image) {
-    destroy_imagebuffer(image);
+void wlh_destroy(struct wayland_helper *wlh) {
+    destroy_imagebuffer(wlh);
     if (buffer) {
 	wl_buffer_destroy(buffer);
 	buffer = NULL;
@@ -107,29 +102,37 @@ void destroy_wayland(struct wayland_helper *image) {
     wl_callback_destroy(framecaller); framecaller=NULL;
 
     if (keyboard)
-	destroy_keyboard();
+	destroy_keyboard(wlh);
 
     wl_seat_destroy(seat); seat=NULL;
     wl_shm_destroy(shared_memory); shared_memory=NULL;
     xdg_wm_base_destroy(xdg_base); xdg_base=NULL;
     wl_compositor_destroy(compositor); compositor=NULL;
     wl_registry_destroy(registry);
-    wl_display_disconnect(display);
+    wl_display_disconnect(wlh->display);
 }
 
-void wayland_fullscreen() {
+void wlh_fullscreen() {
     xdg_toplevel_set_fullscreen(xdgtop, NULL);
 }
 
-void wayland_nofullscreen() {
+void wlh_nofullscreen() {
     xdg_toplevel_unset_fullscreen(xdgtop);
 }
 
-void wayland_render(struct wayland_helper *image) {
-    wl_surface_damage_buffer(surface, 0, 0, image->xres, image->yres);
+void wlh_commit(struct wayland_helper *wlh) {
+    wl_surface_damage_buffer(surface, 0, 0, wlh->xres, wlh->yres);
     wl_surface_attach(surface, buffer, 0, 0); // This is always released automatically.
     wl_surface_commit(surface);
-    image->redraw = image->can_redraw = 0;
+    wlh->redraw = wlh->can_redraw = 0;
+}
+
+unsigned wlh_get_modstate(const struct wayland_helper *wlh) {
+    return
+	WLR_MODIFIER_CONTROL	* xkb_state_mod_name_is_active(wlh->xkbstate, "Control") |
+	WLR_MODIFIER_ALT	* xkb_state_mod_name_is_active(wlh->xkbstate, "Alt") |
+	WLR_MODIFIER_SHIFT	* xkb_state_mod_name_is_active(wlh->xkbstate, "Shift") |
+	WLR_MODIFIER_LOGO	* xkb_state_mod_name_is_active(wlh->xkbstate, "Logo");
 }
 
 #ifdef wayland_test
@@ -137,13 +140,14 @@ static int pause_drawing = 0;
 
 static void kb_key_callback(void* data, struct wl_keyboard* wlkb, uint32_t serial,
 			    uint32_t time, uint32_t key, uint32_t state) {
+    struct wayland_helper *wlh = data;
     key += 8;
     if (!state) {
 	repeat_started = 0;
 	return;
     }
     static const xkb_keysym_t* syms;
-    int ival = xkb_state_key_get_syms(xkbstate, key, &syms);
+    int ival = xkb_state_key_get_syms(wlh->xkbstate, key, &syms);
     for (int i=0; i<ival; i++) {
 	switch (syms[i]) {
 	case XKB_KEY_q:
@@ -157,17 +161,17 @@ static void kb_key_callback(void* data, struct wl_keyboard* wlkb, uint32_t seria
 }
 
 int main() {
-    struct wayland_helper imag = {0};
-    if (init_wayland(&imag))
-	errx(1, "init_wayland");
-    init_keyboard(kb_key_callback, &imag);
+    struct wayland_helper wlh = {0};
+    if (wlh_init_wayland(&wlh))
+	errx(1, "wlh_init_wayland");
+    wlh_init_keyboard(kb_key_callback, &wlh);
     xdg_toplevel_set_title(xdgtop, "wltest");
     int number = 0;
     putchar('\n');
     int scale = 1;
-    while (!imag.stop && wl_display_roundtrip(display) > 0) {
+    while (!wlh.stop && wl_display_roundtrip(wlh.display) > 0) {
 #ifndef benchmark
-	if (!imag.can_redraw) {
+	if (!wlh.can_redraw) {
 	    usleep(10000);
 	    continue;
 	}
@@ -176,28 +180,26 @@ int main() {
 	    usleep(10000);
 	    continue;
 	}
-	int maxx = imag.xres/scale;
-	int maxy = imag.yres/scale;
-	int stride = imag.xres * 4;
+	int maxx = wlh.xres/scale;
+	int maxy = wlh.yres/scale;
 	for (int j=0; j<maxy; j++) {
-	    for (int i=0; i<maxx; i++) {
-		unsigned char* ptr = imag.data + (j*scale*imag.xres + i*scale) * 4;
+	    uint32_t *ptr = wlh.data + j*scale*wlh.xres;
+	    for (int i=0; i<=maxx-scale; i+=scale) {
 		uint32_t color =
 		    (number*2 & 0xff) |				// red
 		    ((j/2*(i/2) + number) & 0xff) << 8 |	// green
 		    ((j/5*(i/5) + number*5) & 0xff) << 16 |	// blue
 		    0xff << 24;					// alpha
-		memcpy(ptr, &color, 4);
+		ptr[i] = color;
 		for (int sx=1; sx<scale; sx++)
-		    memcpy(ptr+4*sx, ptr, 4);
+		    ptr[i+sx] = color;
 	    }
-	    unsigned char* ptr = imag.data + j*scale*stride;
 	    for (int sy=1; sy<scale; sy++)
-		memcpy(ptr+stride*sy, ptr, stride);
+		memcpy(ptr+wlh.xres*sy, ptr, wlh.xres*4);
 	}
 	number++;
 	printf("\033[A\r%i\n", number);
-	wayland_render(&imag);
+	wlh_commit(&wlh);
 #ifndef benchmark
 	usleep(10000);
 #else
@@ -205,6 +207,6 @@ int main() {
 	    break;
 #endif
     }
-    destroy_wayland(&imag);
+    wlh_destroy(&wlh);
 }
 #endif

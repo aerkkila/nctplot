@@ -1,7 +1,7 @@
 include config.mk
 
 alltarget = libnctplot.so
-libraries = -lnctietue3 -lncurses -lSDL2 -ldl
+libraries = -lnctietue3 -lncurses -ldl
 objects = nctplot.o
 
 ifdef have_shapelib
@@ -21,8 +21,11 @@ ifdef have_png
 	libraries += -lpng
 endif
 ifdef have_wayland
+	CFLAGS += -DHAVE_WAYLAND
 	objects += wayland_helper/helper.o
 	libraries += -lwayland-client -lxkbcommon
+else
+	libraries += -lSDL2
 endif
 
 all: $(alltarget)
