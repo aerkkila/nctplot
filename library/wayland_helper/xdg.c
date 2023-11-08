@@ -16,20 +16,24 @@ static struct xdg_wm_base_listener xdg_base_listener = {
 static struct wl_buffer* attach_imagebuffer(struct wayland_helper*); // from shm.c
 
 static char xdg_surface_changed = 0;
+static int pending_x, pending_y;
 
 static void xdgconfigure(void* data, struct xdg_surface* surf, uint32_t serial) {
+    struct wayland_helper *wlh = data;
     xdg_surface_ack_configure(surf, serial);
     if (xdg_surface_changed && buffer) {
+	wlh->xres = pending_x;
+	wlh->yres = pending_y;
 	wl_buffer_destroy(buffer);
 	buffer = NULL;
 	xdg_surface_changed = 0;
+	wlh->res_changed = 1;
     }
     if (!buffer)
 	buffer = attach_imagebuffer(data);
     //wl_buffer_add_listener(buffer, &wl_buf_lis, NULL);
     wl_surface_attach(surface, buffer, 0, 0);
     wl_surface_commit(surface);
-    //piirrä_uudesti = 1;
 }
 
 static struct xdg_surface_listener xdgsurflistener = {
@@ -40,10 +44,9 @@ static struct xdg_surface_listener xdgsurflistener = {
 
 static void topconfigure(void* data, struct xdg_toplevel* top, int32_t w, int32_t h, struct wl_array* states) {
     struct wayland_helper *wlh = data;
-    int x0 = wlh->xres, y0 = wlh->yres;
-    wlh->xres = w<wlh->xresmin? wlh->xresmin: w;
-    wlh->yres = h<wlh->yresmin? wlh->yresmin: h;
-    xdg_surface_changed = wlh->xres != x0 || wlh->yres != y0;
+    pending_x = w<wlh->xresmin ? wlh->xresmin : w;
+    pending_y = h<wlh->yresmin ? wlh->yresmin : h;
+    xdg_surface_changed = wlh->xres != pending_x || wlh->yres != pending_y;
 }
 
 static void xdgclose(void* data, struct xdg_toplevel* top) {

@@ -20,4 +20,4 @@ wltest_benchmark.out: wayland_helper.c xdg-shell.c xdg-shell.h *.c *.h
 	$(CC) $(CFLAGS) -o $@ $< -Dwayland_test -Dbenchmark -lwayland-client -lxkbcommon
 
 clean:
-	rm *.out *.o xdg-shell*
+	rm -f *.out *.o xdg-shell*

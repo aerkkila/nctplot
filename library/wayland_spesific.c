@@ -18,12 +18,11 @@ static void set_color(unsigned char* c) {
 }
 
 static void clear_background() {
-    for (int i=0; i<wlh.yres*wlh.xres; i++)
+    for (int i=0; i<win_h*win_w; i++)
 	wlh.data[i] = wlh_color;
 }
 
 static void set_scale(int scalex, int scaley) {
-    return;
     wlh_scalex = scalex;
     wlh_scaley = scaley;
 }
@@ -33,7 +32,9 @@ static void quit_graphics() {
 }
 
 static void graphics_draw_point(int i, int j) {
-    wlh.data[j*wlh.xres + i] = wlh_color;
+    for (int jj=j*wlh_scaley; jj<(j+1)*wlh_scaley; jj++)
+	for (int ii=i*wlh_scalex; ii<(i+1)*wlh_scalex; ii++)
+	    wlh.data[jj*win_w + ii] = wlh_color;
 }
 
 static void key_callback(struct wayland_helper *wlh) {
@@ -45,24 +46,28 @@ static void key_callback(struct wayland_helper *wlh) {
 
 static void init_graphics(int xlen, int ylen) {
     wlh.key_callback = key_callback;
-    win_h = wlh.yres = xlen;
-    win_w = wlh.xres = ylen;
     wlh_init(&wlh);
+    win_h = 1;
+    win_w = 1;
 }
 
 static void mainloop() {
     while (wl_display_roundtrip(wlh.display) > 0 && !wlh.stop) {
 	if (wlh_key_should_repeat(&wlh))
 	    key_callback(&wlh);
-	if (wlh.redraw && wlh.can_redraw) {
-	    redraw(var);
-	    wlh_commit(&wlh);
-	}
 	if (zid < 0)	play_inv = play_on = 0;
 	if (play_inv)	{inc_znum((Arg){.i=-1}); play_on=0;}
 	if (play_on)	inc_znum((Arg){.i=1});
-	win_h = wlh.yres;
-	win_w = wlh.xres;
+	if (wlh.res_changed) {
+	    wlh.res_changed = 0;
+	    win_h = wlh.yres;
+	    win_w = wlh.xres;
+	    set_draw_params();
+	}
+	if ((wlh.redraw || call_redraw) && wlh.can_redraw) {
+	    redraw(var);
+	    wlh_commit(&wlh);
+	}
 	usleep(sleeptime*1000);
     }
     quit((Arg){0});

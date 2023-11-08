@@ -49,7 +49,7 @@ static const unsigned default_sleep=8; // ms
 static unsigned sleeptime;
 static int mousex, mousey;
 static int win_w, win_h, xid, yid, zid, draw_w, draw_h, pending_varnum=-1, pending_cmapnum;
-static char stop, fill_on, play_on, play_inv, update_minmax=1, update_minmax_cur;
+static char stop, fill_on, play_on, play_inv, update_minmax=1, update_minmax_cur, too_small_to_draw;
 static int lines_echoed;
 static int cmappix=30, cmapspace=10, call_resized, call_redraw;
 static float minshift_abs, maxshift_abs, zoom=1;
@@ -232,6 +232,8 @@ static void curses_write_cmaps() {
 
 static void draw2d(const nct_var* var) {
     my_echo(g_minmax);
+    if (too_small_to_draw)
+	return;
 
     /* defined either ind sdl_spesific or wayland_spesific depending on the choice in config.mk */
     set_color(globs.color_bg);
@@ -552,6 +554,7 @@ static void set_draw_params() {
     draw_h = round((g_ylen-offset_j) / data_per_pixel);
     draw_w = MIN(win_w, draw_w);
     draw_h = MIN(win_h-cmapspace-cmappix, draw_h);
+    too_small_to_draw = draw_h < 0;
     if (zid < 0) zid = -1;
     plt.stepsize_z = nct_get_len_from(var, zid+1); // works even if zid == -1
     plt.stepsize_z += plt.stepsize_z == 0; // length must be at least 1

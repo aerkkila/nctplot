@@ -101,6 +101,8 @@ static int make_minmax_@nctype() {
 }
 
 static void draw1d_@nctype(const nct_var* var) {
+    if (too_small_to_draw)
+	return;
     make_minmax_@nctype();
     if (g_minmax_@nctype[1] == g_minmax_@nctype[0])
 	g_minmax_@nctype [1] += 1;

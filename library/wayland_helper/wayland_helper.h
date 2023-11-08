@@ -19,7 +19,8 @@ enum wlr_keyboard_modifier {
 struct wayland_helper {
     uint32_t* data;
     int xresmin, yresmin, stop, redraw, can_redraw,
-	xres, yres; // only mutable in xdg:topconfigure
+	xres, yres, // only mutable in xdg:topconfigure
+	res_changed; // user may set to zero if wants
     long long repeat_interval_µs, repeat_delay_µs, last_keytime_µs, last_repeat_µs;
     int last_key, last_keymods, keydown;
     void (*key_callback)(struct wayland_helper*);

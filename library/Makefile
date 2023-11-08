@@ -65,7 +65,7 @@ shpname.h: Makefile config.mk
 	printf "static const char* shpname = \"$(shrdir)/nctplot/ne_10m_coastline/ne_10m_coastline.shp\";\n" > $@
 
 test.o: ../executable/*
-	$(CC) -g -Wall -c ../executable/main.c -o $@
+	$(CC) -O0 -g -Wall -c ../executable/main.c -o $@
 
 test.out: test.o nctplot_debug.o wayland_helper/wayland_helper.o
 	$(CC) -o $@ $^ $(libraries)
