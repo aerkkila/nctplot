@@ -28,9 +28,11 @@ ifdef have_wayland
 	objects += wayland_helper/wayland_helper.o
 	libraries += -lwayland-client -lxkbcommon
 	dependencies += bindings_xkb.h wayland_spesific.c wayland_helper/wayland_helper.o
+	objects_test = nctplot_debug.o test.o wayland_helper/wayland_helper.o
 else
 	libraries += -lSDL2
 	dependencies += bindings.h sdl_spesific.c
+	objects_test = nctplot_debug.o test.o
 endif
 
 all: $(alltarget)
@@ -49,10 +51,10 @@ function_wrappers.c: functions.c
 libnctplot.so: $(objects)
 	$(CC) -o $@ -shared $^ $(libraries)
 
-nctplot.o: $(dependencies)
+nctplot.o: $(dependencies) config.mk
 	$(CC) $(CFLAGS) -o $@ -c ${@:o=c}
 
-nctplot_debug.o: $(dependencies)
+nctplot_debug.o: $(dependencies) config.mk
 	$(CC) $(CFLAGS) -g3 -gdwarf-2 -O0 -DDEBUG -o $@ -c nctplot.c
 
 bindings_xkb.h: sdl2xkb.pl bindings.h
@@ -67,7 +69,7 @@ shpname.h: Makefile config.mk
 test.o: ../executable/*
 	$(CC) -O0 -g -Wall -c ../executable/main.c -o $@
 
-test.out: test.o nctplot_debug.o wayland_helper/wayland_helper.o
+test.out: $(objects_test)
 	$(CC) -o $@ $^ $(libraries)
 
 ne_10m_coastline:

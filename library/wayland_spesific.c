@@ -37,6 +37,17 @@ static void graphics_draw_point(int i, int j) {
 	    wlh.data[jj*win_w + ii] = wlh_color;
 }
 
+static void draw_point_in_xscale(int i, int j) {
+    for (int ii=i*wlh_scalex; ii<(i+1)*wlh_scalex; ii++)
+	wlh.data[j*wlh_scaley*win_w + ii] = wlh_color;
+}
+
+static void expand_row_to_yscale(int j) {
+    uint32_t* ptr = wlh.data + j*wlh_scaley*win_w;
+    for (int jj=1; jj<j+wlh_scaley; jj++)
+	memcpy(ptr+jj*win_w, ptr, win_w*4);
+}
+
 static void key_callback(struct wayland_helper *wlh) {
     const xkb_keysym_t* syms;
     int nsyms = wlh_get_keysyms(wlh, &syms);

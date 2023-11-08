@@ -1,5 +1,4 @@
 #include <SDL2/SDL.h>
-#include "bindings.h"
 
 #define bindings_file "bindings.h"
 
@@ -22,7 +21,7 @@ static inline void set_scale(int scalex, int scaley) {
     SDL_RenderSetScale(rend, scalex, scaley);
 }
 
-static void init_graphics(int xlen_in, int ylen_in) {
+static void init_graphics(int xlen, int ylen) {
     if (SDL_Init(SDL_INIT_VIDEO)) {
 	nct_puterror("sdl_init: %s\n", SDL_GetError());
 	return; }
@@ -108,7 +107,7 @@ start:
 		    mousepaint();
 		    call_redraw = 1;
 		}
-		else mousemove();
+		else mousemove(event.motion.xrel, event.motion.yrel);
 	    }
 	    else
 		mousemotion(event.motion.xrel, event.motion.yrel);

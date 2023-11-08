@@ -85,6 +85,11 @@ static void inc_znum(Arg intarg);
 static void quit(Arg _);
 static void var_ichange(Arg jump);
 static void keydown_func(int keysym, unsigned mod);
+static void _maybe_print_mousecoordinate(int vardimid, int at);
+static void mousemotion();
+static void mousewheel(int num);
+static void mousemove(float xrel, float yrel);
+static void mousepaint();
 
 union Arg {
     void* v;
@@ -1193,14 +1198,13 @@ static void mousepaint() {
 static int _handle_keybindings(int keysym, unsigned modstate, Binding b[], int len) {
     int ret = 0, found = 0;
     for(int i=0; i<len; i++)
-	if(keysym == b[i].key)
-	    if(modstate == b[i].mod) {
-		found = 1;
-		b[i].fun(b[i].arg);
-		ret++; // There can be multiple bindings for the same key.
-	    }
-	    else if (found)
-		return ret; // Multiple bindings must be consecutive.
+	if (keysym == b[i].key && modstate == b[i].mod) {
+	    found = 1;
+	    b[i].fun(b[i].arg);
+	    ret++; // There can be multiple bindings for the same key.
+	}
+	else if (found)
+	    return ret; // Multiple bindings must be consecutive.
     return ret;
 }
 
