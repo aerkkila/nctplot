@@ -172,6 +172,8 @@ int wlh_key_should_repeat(struct wayland_helper *wlh) {
 static int pause_drawing = 0;
 
 static void key_callback(struct wayland_helper *wlh) {
+    if (!wlh->keydown)
+	return;
     const xkb_keysym_t *syms;
     int nsyms = wlh_get_keysyms(wlh, &syms);
     for (int isym=0; isym<nsyms; isym++) {
@@ -188,7 +190,7 @@ static void key_callback(struct wayland_helper *wlh) {
 
 int main() {
     struct wayland_helper wlh = {
-	.key_callback = key_callback;
+	.key_callback = key_callback,
     };
     if (wlh_init(&wlh))
 	errx(1, "wlh_init_wayland");
@@ -209,17 +211,17 @@ int main() {
 	}
 	int maxx = wlh.xres/scale;
 	int maxy = wlh.yres/scale;
-	for (int j=0; j<maxy; j++) {
+	for (int j=0; j<maxy-scale; j++) {
 	    uint32_t *ptr = wlh.data + j*scale*wlh.xres;
-	    for (int i=0; i<=maxx-scale; i+=scale) {
+	    for (int i=0; i<=maxx-scale; i++) {
 		uint32_t color =
 		    (number*2 & 0xff) |				// red
 		    ((j/2*(i/2) + number) & 0xff) << 8 |	// green
-		    ((j/5*(i/5) + number*5) & 0xff) << 16 |	// blue
+		    ((j/5*(i/4) + number*5) & 0xff) << 16 |	// blue
 		    0xff << 24;					// alpha
-		ptr[i] = color;
+		ptr[i*scale] = color;
 		for (int sx=1; sx<scale; sx++)
-		    ptr[i+sx] = color;
+		    ptr[i*scale+sx] = color;
 	    }
 	    for (int sy=1; sy<scale; sy++)
 		memcpy(ptr+wlh.xres*sy, ptr, wlh.xres*4);
