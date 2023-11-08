@@ -20,8 +20,8 @@ struct wayland_helper {
     uint32_t* data;
     int xresmin, yresmin, stop, redraw, can_redraw,
 	xres, yres; // only mutable in xdg:topconfigure
-    long long repeat_interval_µs, repeat_delay_µs, keydown,
-	 last_key, last_keymods, last_keytime_µs, last_repeat_µs;
+    long long repeat_interval_µs, repeat_delay_µs, last_keytime_µs, last_repeat_µs;
+    int last_key, last_keymods, keydown;
     void (*key_callback)(struct wayland_helper*);
 
     struct wl_display* display;

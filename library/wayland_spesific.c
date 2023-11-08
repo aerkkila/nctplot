@@ -23,12 +23,13 @@ static void clear_background() {
 }
 
 static void set_scale(int scalex, int scaley) {
+    return;
     wlh_scalex = scalex;
     wlh_scaley = scaley;
 }
 
 static void quit_graphics() {
-    wlh_destroy(&wlh);
+    wlh.stop = 1;
 }
 
 static void graphics_draw_point(int i, int j) {
@@ -42,13 +43,17 @@ static void key_callback(struct wayland_helper *wlh) {
 	keydown_func(syms[isym], wlh->last_keymods);
 }
 
-static void init_graphics() {
+static void init_graphics(int xlen, int ylen) {
     wlh.key_callback = key_callback;
+    win_h = wlh.yres = xlen;
+    win_w = wlh.xres = ylen;
     wlh_init(&wlh);
 }
 
 static void mainloop() {
-    while (!wlh.stop && wl_display_roundtrip(wlh.display)) {
+    while (wl_display_roundtrip(wlh.display) > 0 && !wlh.stop) {
+	if (wlh_key_should_repeat(&wlh))
+	    key_callback(&wlh);
 	if (wlh.redraw && wlh.can_redraw) {
 	    redraw(var);
 	    wlh_commit(&wlh);
@@ -56,9 +61,10 @@ static void mainloop() {
 	if (zid < 0)	play_inv = play_on = 0;
 	if (play_inv)	{inc_znum((Arg){.i=-1}); play_on=0;}
 	if (play_on)	inc_znum((Arg){.i=1});
+	win_h = wlh.yres;
+	win_w = wlh.xres;
 	usleep(sleeptime*1000);
-	if (wlh_key_should_repeat(&wlh))
-	    key_callback(&wlh);
     }
     quit((Arg){0});
+    wlh_destroy(&wlh);
 }

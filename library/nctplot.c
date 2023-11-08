@@ -992,13 +992,15 @@ static void quit(Arg _) {
 	end_curses((Arg){0});
     if (lines_echoed > 0)
 	printf("\r\033[%iB", lines_echoed), fflush(stdout);	// move cursor past the echo region
+    lines_echoed = 0;
     if (mp_params.dlhandle)
 	dlclose(mp_params.dlhandle);
     free_coastlines();
     for(int i=0; i<n_plottables; i++)
 	free_plottable(plottables+i);
-    free(globslist); globslist = NULL; globslistlen = 0;
     plottables = (free(plottables), NULL);
+    n_plottables = 0;
+    free(globslist); globslist = NULL; globslistlen = 0;
     mp_params = (struct Mp_params){0};
     memset(&memory, 0, sizeof(memory));
     quit_graphics();
@@ -1186,13 +1188,16 @@ static void mousepaint() {
 
 #define handle_keybindings(sym, mod, a) _handle_keybindings(sym, mod, a, ARRSIZE(a))
 static int _handle_keybindings(int keysym, unsigned modstate, Binding b[], int len) {
-    int ret = 0;
+    int ret = 0, found = 0;
     for(int i=0; i<len; i++)
 	if(keysym == b[i].key)
 	    if(modstate == b[i].mod) {
+		found = 1;
 		b[i].fun(b[i].arg);
 		ret++; // There can be multiple bindings for the same key.
 	    }
+	    else if (found)
+		return ret; // Multiple bindings must be consecutive.
     return ret;
 }
 
@@ -1224,8 +1229,6 @@ void nctplot_(void* vobject, int isset) {
     }
 
 variable_found:
-    init_graphics(); // defined either in sdl_spesific.c or in wayland_spesific.c depending on the choice in config.mk
-
     globs = default_globals; // must be early because globals may be modified or needed by functions
     n_plottables = var->super->nvars;
     plottables = calloc(n_plottables, sizeof(plottable));
@@ -1238,6 +1241,7 @@ variable_found:
     else
 	ylen = 400;
   
+    init_graphics(xlen, ylen); // defined either in sdl_spesific.c or in wayland_spesific.c depending on the choice in config.mk
     variable_changed();
 
     sleeptime = default_sleep;

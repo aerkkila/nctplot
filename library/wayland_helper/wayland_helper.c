@@ -80,10 +80,16 @@ int wlh_init(struct wayland_helper *wlh) {
     framecaller = wl_surface_frame(surface);
     wl_callback_add_listener(framecaller, &frame_listener, wlh);
 
+    wlh->redraw = 1;
+
     if (wlh->xresmin <= 0)
 	wlh->xresmin = 1;
     if (wlh->yresmin <= 0)
 	wlh->yresmin = 1;
+    if (wlh->xres <= 0)
+	wlh->xres = wlh->xresmin;
+    if (wlh->yres <= 0)
+	wlh->yres = wlh->yresmin;
     init_xdg(wlh);
 
     init_keyboard(wlh);
@@ -112,6 +118,7 @@ void wlh_destroy(struct wayland_helper *wlh) {
     wl_compositor_destroy(compositor); compositor=NULL;
     wl_registry_destroy(registry);
     wl_display_disconnect(wlh->display);
+    wlh->stop = 1;
 }
 
 void wlh_fullscreen() {
@@ -129,15 +136,11 @@ void wlh_commit(struct wayland_helper *wlh) {
     wlh->redraw = wlh->can_redraw = 0;
 }
 
-#define isactive(a) (!!xkb_state_mod_name_is_active(wlh->xkbstate, a, XKB_STATE_MODS_EFFECTIVE))
+#define modbits(a) (WLR_MODIFIER_##a * !!xkb_state_mod_name_is_active(wlh->xkbstate, XKB_MOD_NAME_##a, XKB_STATE_MODS_EFFECTIVE))
 unsigned wlh_get_modstate(const struct wayland_helper *wlh) {
-    return
-	WLR_MODIFIER_CTRL	* isactive("Control")	|
-	WLR_MODIFIER_ALT	* isactive("Alt")	|
-	WLR_MODIFIER_SHIFT	* isactive("Shift")	|
-	WLR_MODIFIER_LOGO	* isactive("Logo");
+    return modbits(CTRL) | modbits(ALT) | modbits(SHIFT) | modbits(LOGO);
 }
-#undef isactive
+#undef modbits
 
 long long wlh_timenow_µs() {
     struct timeval tv;

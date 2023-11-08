@@ -42,10 +42,19 @@ static void kb_key_callback(
     wlh->key_callback(wlh);
 }
 
+static void kb_leave_callback(
+	void *data,
+	struct wl_keyboard *wl_keyboard,
+	uint32_t serial,
+	struct wl_surface *surface) {
+    struct wayland_helper *wlh = data;
+    wlh->keydown = 0;
+}
+
 static struct wl_keyboard_listener keyboardlistener = {
     .keymap = kb_keymap_callback,
     .enter = nop, // Should we read the already pressed modifiers?
-    .leave = nop,
+    .leave = kb_leave_callback,
     .key = kb_key_callback, // see init_keyboard: user provides the function
     .modifiers = kb_modifiers_callback,
     .repeat_info = kb_repeat_info_callback,

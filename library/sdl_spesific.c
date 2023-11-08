@@ -22,7 +22,7 @@ static inline void set_scale(int scalex, int scaley) {
     SDL_RenderSetScale(rend, scalex, scaley);
 }
 
-static void init_graphics() {
+static void init_graphics(int xlen_in, int ylen_in) {
     if (SDL_Init(SDL_INIT_VIDEO)) {
 	nct_puterror("sdl_init: %s\n", SDL_GetError());
 	return; }

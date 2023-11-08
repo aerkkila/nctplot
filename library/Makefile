@@ -27,7 +27,7 @@ ifdef have_wayland
 	CFLAGS += -DHAVE_WAYLAND
 	objects += wayland_helper/wayland_helper.o
 	libraries += -lwayland-client -lxkbcommon
-	dependencies += bindings_xkb.h wayland_spesific.c wayland_helper/*
+	dependencies += bindings_xkb.h wayland_spesific.c wayland_helper/wayland_helper.o
 else
 	libraries += -lSDL2
 	dependencies += bindings.h sdl_spesific.c
@@ -52,11 +52,14 @@ libnctplot.so: $(objects)
 nctplot.o: $(dependencies)
 	$(CC) $(CFLAGS) -o $@ -c ${@:o=c}
 
+nctplot_debug.o: $(dependencies)
+	$(CC) $(CFLAGS) -g3 -gdwarf-2 -O0 -DDEBUG -o $@ -c nctplot.c
+
 bindings_xkb.h: sdl2xkb.pl bindings.h
 	./$<
 
-wayland_helper/walyand_helper.o:
-	cd wayland_helper && $(MAKE) --no-print-directory
+wayland_helper/wayland_helper.o: wayland_helper/*
+	cd wayland_helper && $(MAKE) wayland_helper.o --no-print-directory
 
 shpname.h: Makefile config.mk
 	printf "static const char* shpname = \"$(shrdir)/nctplot/ne_10m_coastline/ne_10m_coastline.shp\";\n" > $@
@@ -64,7 +67,7 @@ shpname.h: Makefile config.mk
 test.o: ../executable/*
 	$(CC) -g -Wall -c ../executable/main.c -o $@
 
-test.out: test.o nctplot.o wayland_helper/wayland_helper.o
+test.out: test.o nctplot_debug.o wayland_helper/wayland_helper.o
 	$(CC) -o $@ $^ $(libraries)
 
 ne_10m_coastline:
