@@ -49,6 +49,8 @@ static void expand_row_to_yscale(int j) {
 }
 
 static void key_callback(struct wayland_helper *wlh) {
+    if (!wlh->keydown)
+	return;
     const xkb_keysym_t* syms;
     int nsyms = wlh_get_keysyms(wlh, &syms);
     for (int isym=0; isym<nsyms; isym++)
