@@ -44,7 +44,7 @@ static void draw_point_in_xscale(int i, int j) {
 
 static void expand_row_to_yscale(int j) {
     uint32_t* ptr = wlh.data + j*wlh_scaley*win_w;
-    for (int jj=1; jj<j+wlh_scaley; jj++)
+    for (int jj=1; jj<wlh_scaley; jj++)
 	memcpy(ptr+jj*win_w, ptr, win_w*4);
 }
 
