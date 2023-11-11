@@ -22,6 +22,7 @@ static struct wl_seat*       seat;
 #include "shm.c" // shared_memory
 
 #include "keyboard.c"
+#include "mouse.c"
 
 #define do_binding if(0)
 #define option(a,b,c) } else if(!strcmp(interface, a##_interface.name)) { b = wl_registry_bind(reg, id, &a##_interface, c)
@@ -93,6 +94,7 @@ int wlh_init(struct wayland_helper *wlh) {
     init_xdg(wlh);
 
     init_keyboard(wlh);
+    wlh_init_mouse(wlh);
     return 0;
 }
 
@@ -111,6 +113,9 @@ void wlh_destroy(struct wayland_helper *wlh) {
 
     if (keyboard)
 	destroy_keyboard(wlh);
+
+    if (mouse)
+	mouse = (wl_pointer_release(mouse), NULL);
 
     wl_seat_destroy(seat); seat=NULL;
     wl_shm_destroy(shared_memory); shared_memory=NULL;

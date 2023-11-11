@@ -86,6 +86,8 @@ static void resized() {
     set_draw_params();
 }
 
+static int mousex, mousey;
+
 static void mainloop() {
     int mouse_pressed=0;
 start:

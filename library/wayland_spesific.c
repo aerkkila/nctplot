@@ -57,8 +57,24 @@ static void key_callback(struct wayland_helper *wlh) {
 	keydown_func(syms[isym], wlh->last_keymods);
 }
 
+static void motion_callback(struct wayland_helper *wlh, int xrel, int yrel) {
+    mousemotion(xrel, yrel);
+}
+
+static void wheel_callback(struct wayland_helper *wlh, int axis, int num) {
+    if (axis == WL_POINTER_AXIS_VERTICAL_SCROLL)
+	mousewheel(num < 0 ? 1 : -1);
+}
+
+#define mousex wlh.mousex
+#define mousey wlh.mousey
+
 static void init_graphics(int xlen, int ylen) {
-    wlh.key_callback = key_callback;
+    wlh = (struct wayland_helper) {
+	.key_callback = key_callback,
+	.motion_callback = motion_callback,
+	.wheel_callback = wheel_callback,
+    };
     wlh_init(&wlh);
     win_h = 1;
     win_w = 1;

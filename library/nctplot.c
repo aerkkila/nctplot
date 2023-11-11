@@ -47,7 +47,6 @@ static nct_var* var; // = plt.var
 static WINDOW *wnd;
 static const unsigned default_sleep=8; // ms
 static unsigned sleeptime;
-static int mousex, mousey;
 static int win_w, win_h, xid, yid, zid, draw_w, draw_h, pending_varnum=-1, pending_cmapnum;
 static char stop, fill_on, play_on, play_inv, update_minmax=1, update_minmax_cur, too_small_to_draw;
 static int lines_echoed;
@@ -86,7 +85,7 @@ static void quit(Arg _);
 static void var_ichange(Arg jump);
 static void keydown_func(int keysym, unsigned mod);
 static void _maybe_print_mousecoordinate(int vardimid, int at);
-static void mousemotion();
+static void mousemotion(int xrel, int yrel);
 static void mousewheel(int num);
 static void mousemove(float xrel, float yrel);
 static void mousepaint();
@@ -369,7 +368,7 @@ static void _maybe_print_mousecoordinate(int vardimid, int at) {
 	printf("Ø");
 }
 
-static void mousemotion() {
+static void mousemotion(int xrel, int yrel) {
     static int count;
     if(prog_mode < n_cursesmodes || !globs.echo)
 	return;

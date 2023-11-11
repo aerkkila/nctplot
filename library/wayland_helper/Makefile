@@ -1,7 +1,7 @@
 include ../config.mk
 include xdg-shell.mk
 
-wayland_helper.o: wayland_helper.c xdg-shell.c xdg-shell.h *.c *.h
+wayland_helper.o: wayland_helper.c xdg-shell.c xdg-shell.h *.c *.h Makefile
 	$(CC) $(CFLAGS) -c $<
 
 xdg-shell.mk:
