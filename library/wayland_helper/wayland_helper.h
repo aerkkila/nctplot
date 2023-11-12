@@ -21,11 +21,13 @@ struct wayland_helper {
     int xresmin, yresmin, stop, redraw, can_redraw,
 	xres, yres, // only mutable in xdg:topconfigure
 	res_changed; // user may set to zero if wants
+    unsigned button;
     long long repeat_interval_µs, repeat_delay_µs, last_keytime_µs, last_repeat_µs;
     int last_key, last_keymods, keydown, mousex, mousey;
     void (*key_callback)(struct wayland_helper*);
     void (*motion_callback)(struct wayland_helper*, int xrel, int yrel);
     void (*wheel_callback)(struct wayland_helper*, int axistype, int scroll);
+    void (*button_callback)(struct wayland_helper*, int button, int state);
 
     struct wl_display* display;
     struct xkb_state* xkbstate;

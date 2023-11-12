@@ -58,7 +58,16 @@ static void key_callback(struct wayland_helper *wlh) {
 }
 
 static void motion_callback(struct wayland_helper *wlh, int xrel, int yrel) {
-    mousemotion(xrel, yrel);
+    if (!wlh->button) {
+	mousemotion(xrel, yrel);
+	return;
+    }
+    if (prog_mode == mousepaint_m) {
+	mousepaint(xrel, yrel);
+	call_redraw = 1;
+    }
+    else
+	mousemove(xrel, yrel);
 }
 
 static void wheel_callback(struct wayland_helper *wlh, int axis, int num) {
