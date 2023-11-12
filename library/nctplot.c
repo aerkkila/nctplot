@@ -538,6 +538,8 @@ static void set_draw_params() {
     plt.area->j_off_by_one = 0;
     int offset_i = plt.area->offset_i;
 
+    g_only_nans = make_minmax(var->dtype);
+
     g_size1 = nctypelen(var->dtype);
     g_xlen = nct_get_vardim(var, xid)->len;
     if(yid>=0) {
@@ -567,12 +569,14 @@ static void set_draw_params() {
     g_pixels_per_datum += !g_pixels_per_datum;
     g_data_per_step = g_pixels_per_datum * data_per_pixel; // step is a virtual pixel >= physical pixel
 
-    int if_add_1;
     draw_w = draw_w / g_pixels_per_datum * g_pixels_per_datum;
-    if_add_1 = draw_w / g_pixels_per_datum < g_xlen - offset_i && draw_w < win_w;
-    draw_w += if_add_1 * g_pixels_per_datum; // may be larger than win_w which is not a problem
-
     draw_h = draw_h / g_pixels_per_datum * g_pixels_per_datum;
+
+#ifndef HAVE_WAYLAND
+    int if_add_1;
+    if_add_1 = draw_w / g_pixels_per_datum < g_xlen - offset_i && draw_w < win_w;
+    draw_w += if_add_1 * g_pixels_per_datum; // may be larger than win_w which is not a problem in SDL
+
     if (globs.invert_y) {
 	if_add_1 = draw_h / g_pixels_per_datum < g_ylen - offset_j && draw_h < win_h && offset_j;
 	offset_j -= if_add_1;
@@ -581,10 +585,9 @@ static void set_draw_params() {
     }
     else
 	if_add_1 = draw_h / g_pixels_per_datum < g_ylen - offset_j && draw_h < win_h;
-    draw_h += if_add_1 * g_pixels_per_datum; // may be larger than win_h which is not a problem
+    draw_h += if_add_1 * g_pixels_per_datum; // may be larger than win_h which is not a problem in SDL
     g_extended_y = if_add_1;
-
-    g_only_nans = make_minmax(var->dtype);
+#endif
 }
 
 static uint_fast64_t time_now_ms() {

@@ -9,7 +9,7 @@ static void wlh_motion(void *data, struct wl_pointer *p, u32 time, wl_fixed_t x,
     int x1 = wl_fixed_to_int(x);
     int y1 = wl_fixed_to_int(y);
     int xrel = x1 - wlh->mousex;
-    int yrel = x1 - wlh->mousey;
+    int yrel = y1 - wlh->mousey;
     wlh->mousex = x1;
     wlh->mousey = y1;
     if (wlh->motion_callback && (xrel | yrel))
