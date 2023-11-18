@@ -5,7 +5,7 @@
 pager = nvim\ -R vim\ -R $(PAGER) less more
 
 # shapelib/shplib is used in drawing coastlines. Comment out the following if you don't have shapelib installed.
-#have_shapelib = 1
+have_shapelib = 1
 
 # nctproj is used in coordinate transformations. Comment this out if nctietue3 was compiled without nctproj.
 have_nctproj = 1

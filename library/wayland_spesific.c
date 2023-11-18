@@ -2,7 +2,20 @@
 #include <string.h>
 #include "wayland_helper/wayland_helper.h"
 
+#ifndef Abs
+#define Abs(a) ((a)<0 ? -(a) : (a))
+#endif
+
 #define bindings_file "bindings_xkb.h"
+
+typedef struct {
+    int x, y;
+} point_t; // for compatibility with SDL
+
+union point_u { // amerikan temppu
+    point_t p;
+    int i[2];
+};
 
 static struct wayland_helper wlh;
 static uint32_t wlh_color = 0;
@@ -46,6 +59,55 @@ static void expand_row_to_yscale(int j) {
     uint32_t* ptr = wlh.data + j*wlh_scaley*win_w;
     for (int jj=1; jj<wlh_scaley; jj++)
 	memcpy(ptr+jj*win_w, ptr, win_w*4);
+}
+
+#define draw_line_$method draw_line_bresenham
+
+/* https://en.wikipedia.org/wiki/Bresenham's_line_algorithm */
+/* This method is nice because it uses only integers. */
+static void draw_line_bresenham(const int *xy) {
+    int nosteep = Abs(xy[3] - xy[1]) < Abs(xy[2] - xy[0]);
+    int m1=xy[2+nosteep], m0=xy[nosteep], n1=xy[2+!nosteep], n0=xy[!nosteep];
+
+    const int dm = m1 - m0;
+    const int dn = n1 - n0;
+    int D = 2*dn - dm;
+    const int D_add0 = 2 * dn;
+    const int D_add1 = 2 * (dn - dm);
+    const int n_add = dn >= 0 ? 1 : -1;
+    if (nosteep) // (m,n) = (x,y)
+	for (; m0<=m1; m0++) {
+	    wlh.data[n0*win_w + m0] = wlh_color;
+	    n0 += D > 0 ? n_add : 0;
+	    D  += D > 0 ? D_add1 : D_add0;
+	}
+    else // (m,n) = (y,x)
+	for (; m0<=m1; m0++) {
+	    wlh.data[m0*win_w + n0] = wlh_color;
+	    n0 += D > 0 ? n_add : 0;
+	    D  += D > 0 ? D_add1 : D_add0;
+	}
+}
+
+static int check(const void *v) {
+    const union point_u *u = v;
+    int ret = 0;
+    if (ret+=(u[0].p.y >= win_h || u[0].p.y < 0))
+	;//asm("int $3");
+    else if ((ret+=u[0].p.x >= win_w || u[0].p.x < 0))
+	;//asm("int $3");
+    return ret;
+}
+
+static void draw_lines(const void *v, int n) {
+    const union point_u *u = v;
+    for (int i=0; i<n; i++) {
+	check(u+i);
+	wlh.data[u[i].p.y * win_w + u[i].p.x] = wlh_color;
+    }
+    return;
+    for (int i=0; i<n-1; i++)
+	draw_line_$method(u[i].i);
 }
 
 static void key_callback(struct wayland_helper *wlh) {

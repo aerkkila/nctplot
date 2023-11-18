@@ -2,12 +2,15 @@
 
 #define bindings_file "bindings.h"
 
+typedef point_t SDL_Point;
+
 static SDL_Renderer* rend;
 static SDL_Window* window;
 static SDL_Texture* base;
 static SDL_Event event;
 
 #define graphics_draw_point(i,j) SDL_RenderDrawPoint(rend, i, j)
+#define draw_lines(p, n) SDL_RenderDrawLines(rend, p, n)
 
 static inline void set_color(unsigned char* c) {
     SDL_SetRenderDrawColor(rend, c[0], c[1], c[2], 255);

@@ -106,7 +106,7 @@ struct shown_area {
     void* points;	// pixelcoordinates of coastlines
     int *breaks, nbreaks; // indices where to lift pen from the paper
     char* crs;
-    double x0, y0, xspace, yspace;
+    double x0, y0, xunits_per_datum, yunits_per_datum;
     char coastl_params[size_coastl_params]; // to tell if coastlines need to be redrawn
 };
 

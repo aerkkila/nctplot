@@ -1,6 +1,7 @@
 #if defined HAVE_SHPLIB
 #include <shapefil.h>
 #include <math.h>
+#include <stdlib.h>
 #include "shpname.h"
 
 #ifdef HAVE_PROJ
@@ -69,8 +70,12 @@ static double* make_coastlines(const char* coordinates, void (*conversion)(float
     return coords;
 }
 
-static int valid_point(double point[2]) {
+static int __attribute__((pure)) valid_point(const double point[2]) {
     return (isnormal(point[0]) || point[0]==0) && (isnormal(point[1]) || point[1]==0);
+}
+
+static int __attribute__((pure)) outside_window(const point_t *point) {
+    return point->x < 0 || point->y < 0 || point->x >= win_w || point->y >= win_h;
 }
 
 static void init_coastlines(struct shown_area* area, void* funptr) {
@@ -80,65 +85,78 @@ static void init_coastlines(struct shown_area* area, void* funptr) {
     nct_var* var1;
     var1 = nct_get_vardim(plt.var, xid);
     area->x0 = nct_getg_floating(var1, 0);
-    area->xspace = nct_getg_floating(var1, 1) - area->x0;
-    area->x0 -= 0.5*area->xspace;
+    area->xunits_per_datum = nct_getg_floating(var1, 1) - area->x0;
+    area->x0 -= 0.5*area->xunits_per_datum;
     var1 = nct_get_vardim(plt.var, yid);
     area->y0 = nct_getg_floating(var1, 0);
-    area->yspace = nct_getg_floating(var1, 1) - area->y0;
-    area->y0 -= 0.5*area->yspace;
+    area->yunits_per_datum = nct_getg_floating(var1, 1) - area->y0;
+    area->y0 -= 0.5*area->yunits_per_datum;
 }
 
-static double tmp_x0, tmp_y0, tmp_xspace, tmp_yspace;
+static double tmp_x0, tmp_y0, tmp_xpixels_per_unit, tmp_ypixels_per_unit;
 
-#ifndef HAVE_WAYLAND
-static void sdl_coord_to_point(double x, double y, SDL_Point* point) {
-    point->x = round((x - tmp_x0) * tmp_xspace);
-    point->y = round((y - tmp_y0) * tmp_yspace);
+static void coord_to_point(double x, double y, point_t* point) {
+    point->x = round((x - tmp_x0) * tmp_xpixels_per_unit);
+    point->y = round((y - tmp_y0) * tmp_ypixels_per_unit);
 }
 
-static void sdl_coord_to_point_inv_y(double x, double y, SDL_Point* point) {
-    point->x = round((x - tmp_x0) * tmp_xspace);
-    point->y = draw_h - round((y - tmp_y0) * tmp_yspace);
+static void coord_to_point_inv_y(double x, double y, point_t* point) {
+    point->x = round((x - tmp_x0) * tmp_xpixels_per_unit);
+    point->y = draw_h - round((y - tmp_y0) * tmp_ypixels_per_unit);
 }
-#endif
+
+static int line_break(int *breaks, int ibreak, int *ipoint) {
+    int last_break = ibreak>0 ? breaks[ibreak-1] : 0;
+    if (ibreak==0) {
+	if (*ipoint >= 2)
+	    breaks[ibreak++] = *ipoint;
+	else
+	    *ipoint = 0;
+    }
+    if (*ipoint-last_break >= 2)
+	breaks[ibreak++] = *ipoint;
+    else
+	*ipoint = last_break; // single point is omitted
+    return ibreak;
+}
 
 static void make_coastlinepoints(struct shown_area *area) {
-    /* tmp_x0 is coordinate value, therefore offset is multiplied with coordinate interval, area->xspace */
-    tmp_x0 = area->x0 + area->offset_i * area->xspace;
-    tmp_y0 = area->y0 + area->offset_j * area->yspace;
-    tmp_xspace = 1 / area->xspace / data_per_pixel;
-    tmp_yspace = 1 / area->yspace / data_per_pixel;
+    /* tmp_x0 is coordinate value, therefore offset is multiplied with coordinate interval, area->xunits_per_datum */
+    tmp_x0 = area->x0 + area->offset_i * area->xunits_per_datum;
+    tmp_y0 = area->y0 + area->offset_j * area->yunits_per_datum;
+    tmp_xpixels_per_unit = 1 / area->xunits_per_datum / data_per_pixel;
+    tmp_ypixels_per_unit = 1 / area->yunits_per_datum / data_per_pixel;
     double* coords = area->coasts;
-    SDL_Point* points = area->points;
     int* breaks = area->breaks;
 
     int ibreak = 0, ipoint = 0, ind_from = 0;
 
-#ifndef HAVE_WAYLAND
-    void (*coord_to_point_fun)(double, double, SDL_Point*) = 
-	globs.invert_y ? sdl_coord_to_point_inv_y : sdl_coord_to_point;
-#endif
+    point_t* points = area->points;
+    void (*coord_to_point_fun)(double, double, point_t*) = 
+	globs.invert_y ? coord_to_point_inv_y : coord_to_point;
 
     for(int e=0; e<coastl_nparts; e++) {
 	for(int ipoint_from=0; ipoint_from<coastl_lengths[e]; ipoint_from++) {
-	    if (!valid_point(coords + (ind_from+ipoint_from)*2)) {
-		if (ipoint-breaks[ibreak-1] >= 2)
-		    breaks[ibreak++] = ipoint;
-		else
-		    ipoint = breaks[ibreak-1]; // single point is omitted
-		continue;
-	    }
+	    if (!valid_point(coords + (ind_from+ipoint_from)*2))
+		goto not_valid_point; // coordinates cannot be presented in the used projection
 	    coord_to_point_fun(
-		    coords[(ind_from+ipoint_from)*2],
-		    coords[(ind_from+ipoint_from)*2+1],
-		    points+ipoint++);
+		coords[(ind_from+ipoint_from)*2],
+		coords[(ind_from+ipoint_from)*2+1],
+		points + ipoint);
+	    if (outside_window(points + ipoint)) // coordinates are not in the region
+		goto not_valid_point;
+	    if (ipoint && !memcmp(&points[ipoint], &points[ipoint-1], sizeof(points[0])))
+		continue;
+	    ipoint++;
+	    continue;
+not_valid_point:
+	    ibreak = line_break(breaks, ibreak, &ipoint);
 	}
-	breaks[ibreak++] = ipoint;
+	ibreak = line_break(breaks, ibreak, &ipoint);
 	ind_from += coastl_lengths[e];
     }
-
-    if (ipoint-breaks[ibreak-1] >= 2)
-	breaks[ibreak++] = ipoint;
+    for (int i=0; i<ipoint; i++)
+	check(points+i);
     area->nbreaks = ibreak;
 }
 
@@ -153,7 +171,7 @@ static void save_state(char* buff, const struct shown_area *area) {
 
 static void check_coastlines(struct shown_area *area) {
     if (!area->points) {
-	area->points = malloc(coastl_total * sizeof(SDL_Point));
+	area->points = malloc(coastl_total * sizeof(point_t));
 	area->breaks = malloc(coastl_total * sizeof(int));
 	make_coastlinepoints(area);
 	save_state(area->coastl_params, area);
@@ -170,19 +188,23 @@ static void check_coastlines(struct shown_area *area) {
 }
 
 static void draw_coastlines(struct shown_area *area) {
-    check_coastlines(area);
-    SDL_SetRenderDrawColor(rend, globs.color_fg[0], globs.color_fg[1], globs.color_fg[2], 255);
     int nib = area->nbreaks;
-    SDL_Point* points = area->points;
     int* breaks = area->breaks;
     int istart = 0;
+    check_coastlines(area);
+    set_color(globs.color_fg);
+    point_t* points = area->points;
     for (int ib=0; ib<nib; ib++) {
-	SDL_RenderDrawLines(rend, points+istart, breaks[ib]-istart);
+	for (int i=istart; i<breaks[ib]; i++)
+	    if (check(points+i))
+		printf("%i\n", i);
+	draw_lines(points+istart, breaks[ib]-istart);
 	istart = breaks[ib];
     }
 }
 
 #undef size_params
+#undef coastl_get_point
 
 static void free_coastlines() {
     coastl_lengths = (free(coastl_lengths), NULL);
