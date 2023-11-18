@@ -12,7 +12,7 @@ typedef struct {
     int x, y;
 } point_t; // for compatibility with SDL
 
-union point_u { // amerikan temppu
+union point_u { // access the struct as an array
     point_t p;
     int i[2];
 };
@@ -67,7 +67,9 @@ static void expand_row_to_yscale(int j) {
 /* This method is nice because it uses only integers. */
 static void draw_line_bresenham(const int *xy) {
     int nosteep = Abs(xy[3] - xy[1]) < Abs(xy[2] - xy[0]);
-    int m1=xy[2+nosteep], m0=xy[nosteep], n1=xy[2+!nosteep], n0=xy[!nosteep];
+    int backwards = xy[2+!nosteep] < xy[!nosteep]; // m1 < m0
+    int m1=xy[2*!backwards+!nosteep], m0=xy[2*backwards+!nosteep],
+	n1=xy[2*!backwards+nosteep],  n0=xy[2*backwards+nosteep];
 
     const int dm = m1 - m0;
     const int dn = n1 - n0;
@@ -89,23 +91,8 @@ static void draw_line_bresenham(const int *xy) {
 	}
 }
 
-static int check(const void *v) {
-    const union point_u *u = v;
-    int ret = 0;
-    if (ret+=(u[0].p.y >= win_h || u[0].p.y < 0))
-	;//asm("int $3");
-    else if ((ret+=u[0].p.x >= win_w || u[0].p.x < 0))
-	;//asm("int $3");
-    return ret;
-}
-
 static void draw_lines(const void *v, int n) {
     const union point_u *u = v;
-    for (int i=0; i<n; i++) {
-	check(u+i);
-	wlh.data[u[i].p.y * win_w + u[i].p.x] = wlh_color;
-    }
-    return;
     for (int i=0; i<n-1; i++)
 	draw_line_$method(u[i].i);
 }

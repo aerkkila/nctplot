@@ -105,18 +105,10 @@ static void coord_to_point_inv_y(double x, double y, point_t* point) {
     point->y = draw_h - round((y - tmp_y0) * tmp_ypixels_per_unit);
 }
 
-static int line_break(int *breaks, int ibreak, int *ipoint) {
+static int line_break(int *breaks, int ibreak, int ipoint) {
     int last_break = ibreak>0 ? breaks[ibreak-1] : 0;
-    if (ibreak==0) {
-	if (*ipoint >= 2)
-	    breaks[ibreak++] = *ipoint;
-	else
-	    *ipoint = 0;
-    }
-    if (*ipoint-last_break >= 2)
-	breaks[ibreak++] = *ipoint;
-    else
-	*ipoint = last_break; // single point is omitted
+    if (ipoint-last_break >= 2)
+	breaks[ibreak++] = ipoint;
     return ibreak;
 }
 
@@ -136,27 +128,30 @@ static void make_coastlinepoints(struct shown_area *area) {
 	globs.invert_y ? coord_to_point_inv_y : coord_to_point;
 
     for(int e=0; e<coastl_nparts; e++) {
+	int irun = 0;
 	for(int ipoint_from=0; ipoint_from<coastl_lengths[e]; ipoint_from++) {
 	    if (!valid_point(coords + (ind_from+ipoint_from)*2))
 		goto not_valid_point; // coordinates cannot be presented in the used projection
 	    coord_to_point_fun(
 		coords[(ind_from+ipoint_from)*2],
 		coords[(ind_from+ipoint_from)*2+1],
-		points + ipoint);
-	    if (outside_window(points + ipoint)) // coordinates are not in the region
+		points + ipoint + irun);
+	    if (outside_window(points + ipoint + irun)) // coordinates are not in the region
 		goto not_valid_point;
-	    if (ipoint && !memcmp(&points[ipoint], &points[ipoint-1], sizeof(points[0])))
+	    if (irun && !memcmp(&points[ipoint+irun], &points[ipoint+irun-1], sizeof(points[0]))) // same as before
 		continue;
-	    ipoint++;
+	    irun++; // temporarily accept the point
 	    continue;
 not_valid_point:
-	    ibreak = line_break(breaks, ibreak, &ipoint);
+	    ibreak = line_break(breaks, ibreak, ipoint+irun);
+	    ipoint = breaks[ibreak-1];
+	    irun = 0;
 	}
-	ibreak = line_break(breaks, ibreak, &ipoint);
+	ibreak = line_break(breaks, ibreak, ipoint+irun);
+	ipoint = breaks[ibreak-1];
+	irun = 0;
 	ind_from += coastl_lengths[e];
     }
-    for (int i=0; i<ipoint; i++)
-	check(points+i);
     area->nbreaks = ibreak;
 }
 
@@ -188,16 +183,13 @@ static void check_coastlines(struct shown_area *area) {
 }
 
 static void draw_coastlines(struct shown_area *area) {
+    check_coastlines(area); // must be before the assignment of the variables
     int nib = area->nbreaks;
     int* breaks = area->breaks;
     int istart = 0;
-    check_coastlines(area);
     set_color(globs.color_fg);
     point_t* points = area->points;
     for (int ib=0; ib<nib; ib++) {
-	for (int i=istart; i<breaks[ib]; i++)
-	    if (check(points+i))
-		printf("%i\n", i);
 	draw_lines(points+istart, breaks[ib]-istart);
 	istart = breaks[ib];
     }
