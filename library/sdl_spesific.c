@@ -2,7 +2,7 @@
 
 #define bindings_file "bindings.h"
 
-typedef point_t SDL_Point;
+typedef SDL_Point point_t;
 
 static SDL_Renderer* rend;
 static SDL_Window* window;
