@@ -4,7 +4,7 @@
 #include <wayland-client.h>
 #include <stdint.h>
 
-/* These enum is copied here from wlroots to avoid making that a dependency. */
+/* This enum is copied here from wlroots to avoid making that a dependency. */
 enum wlr_keyboard_modifier {
 	WLR_MODIFIER_SHIFT = 1 << 0,
 	WLR_MODIFIER_CAPS = 1 << 1,

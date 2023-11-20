@@ -70,13 +70,15 @@ static void draw_line_bresenham(const int *xy) {
     int backwards = xy[2+!nosteep] < xy[!nosteep]; // m1 < m0
     int m1=xy[2*!backwards+!nosteep], m0=xy[2*backwards+!nosteep],
 	n1=xy[2*!backwards+nosteep],  n0=xy[2*backwards+nosteep];
+    static int lasku = 0;
+    lasku++;
 
+    const int n_add = n1 > n0 ? 1 : -1;
     const int dm = m1 - m0;
-    const int dn = n1 - n0;
-    int D = 2*dn - dm;
+    const int dn = n1 > n0 ? n1 - n0 : n0 - n1;
     const int D_add0 = 2 * dn;
     const int D_add1 = 2 * (dn - dm);
-    const int n_add = dn >= 0 ? 1 : -1;
+    int D = 2*dn - dm;
     if (nosteep) // (m,n) = (x,y)
 	for (; m0<=m1; m0++) {
 	    wlh.data[n0*win_w + m0] = wlh_color;
