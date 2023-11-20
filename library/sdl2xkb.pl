@@ -20,6 +20,11 @@ while (<file_in>) {
 	    $kp_k =~ s/^./$char_now/;
 	    $_ =~ s/XKB_KEY_kp_\w*/XKB_KEY_KP_$kp_k/;
 	}
+	(my $key, my $mods) = ($_ =~ /XKB_KEY_([a-z]),(.*WLR_MODIFIER_SHIFT)/);
+	if ($mods and $mods ne "") {
+	    $key = uc $key;
+	    $_ =~ s/(XKB_KEY_).(.*)/$1$key$2/;
+	}
 	foreach my $word_now (@capital) {
 	    if ($_ =~ /XKB_KEY_$word_now/) {
 		$char_now = uc substr $word_now, 0, 1;
