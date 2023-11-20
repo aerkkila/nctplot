@@ -8,6 +8,7 @@ static SDL_Renderer* rend;
 static SDL_Window* window;
 static SDL_Texture* base;
 static SDL_Event event;
+static int call_resized;
 
 #define graphics_draw_point(i,j) SDL_RenderDrawPoint(rend, i, j)
 #define draw_lines(p, n) SDL_RenderDrawLines(rend, p, n)

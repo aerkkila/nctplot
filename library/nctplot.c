@@ -50,7 +50,7 @@ static unsigned sleeptime;
 static int win_w, win_h, xid, yid, zid, draw_w, draw_h, pending_varnum=-1, pending_cmapnum;
 static char stop, fill_on, play_on, play_inv, update_minmax=1, update_minmax_cur, too_small_to_draw;
 static int lines_echoed;
-static int cmappix=30, cmapspace=10, call_resized, call_redraw;
+static int cmappix=30, cmapspace=10, call_redraw;
 static float minshift_abs, maxshift_abs, zoom=1;
 static float data_per_pixel; // (n(data) / n(pixels)) in one direction
 static const char* echo_highlight = "\033[1;93m";
@@ -96,7 +96,7 @@ union Arg {
     int   i;
 };
 
-#define size_coastl_params (sizeof(int)*2 + sizeof(data_per_pixel) + sizeof(globs.invert_y))
+#define size_coastl_params (sizeof(int)*2 + sizeof(data_per_pixel) + sizeof(globs.invert_y) + sizeof(win_w)*2)
 
 struct shown_area {
     int offset_i, offset_j, znum, nusers, j_off_by_one; // nusers = 0, when 1 user

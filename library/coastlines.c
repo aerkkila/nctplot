@@ -161,6 +161,8 @@ static void save_state(char* buff, const struct shown_area *area) {
     putval(buff, area->offset_i);
     putval(buff, data_per_pixel);
     putval(buff, globs.invert_y); // huomio: onko tämä aina globaali?
+    putval(buff, win_w);
+    putval(buff, win_h);
 }
 #undef putval
 

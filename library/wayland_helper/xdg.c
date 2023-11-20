@@ -16,7 +16,7 @@ static struct xdg_wm_base_listener xdg_base_listener = {
 static struct wl_buffer* attach_imagebuffer(struct wayland_helper*); // from shm.c
 
 static char xdg_surface_changed = 0;
-static int pending_x, pending_y;
+static int pending_x, pending_y, first = 1;
 
 static void xdgconfigure(void* data, struct xdg_surface* surf, uint32_t serial) {
     struct wayland_helper *wlh = data;
@@ -31,9 +31,9 @@ static void xdgconfigure(void* data, struct xdg_surface* surf, uint32_t serial) 
     }
     if (!buffer)
 	buffer = attach_imagebuffer(data);
-    //wl_buffer_add_listener(buffer, &wl_buf_lis, NULL);
     wl_surface_attach(surface, buffer, 0, 0);
-    wl_surface_commit(surface);
+    if (first)
+	wl_surface_commit(surface), first = 0;
 }
 
 static struct xdg_surface_listener xdgsurflistener = {
