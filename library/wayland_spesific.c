@@ -70,8 +70,6 @@ static void draw_line_bresenham(const int *xy) {
     int backwards = xy[2+!nosteep] < xy[!nosteep]; // m1 < m0
     int m1=xy[2*!backwards+!nosteep], m0=xy[2*backwards+!nosteep],
 	n1=xy[2*!backwards+nosteep],  n0=xy[2*backwards+nosteep];
-    static int lasku = 0;
-    lasku++;
 
     const int n_add = n1 > n0 ? 1 : -1;
     const int dm = m1 - m0;
