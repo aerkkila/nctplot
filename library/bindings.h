@@ -113,10 +113,12 @@ static Binding keydown_bindings[] = {
     { SDLK_RIGHT,	0,			inc_znum,	{.i=1}			},
     { SDLK_LEFT,	0,			inc_znum,	{.i=-1}			},
     /* Move the zoom/view rectangle 7 steps. */
-    { SDLK_RIGHT,	KMOD_SHIFT,		inc_offset_i,	{.i=7}			},
-    { SDLK_LEFT,	KMOD_SHIFT,		inc_offset_i,	{.i=-7}			},
-    { SDLK_UP,		KMOD_SHIFT,		inc_offset_j,	{.i=-7}			},
-    { SDLK_DOWN,	KMOD_SHIFT,		inc_offset_j,	{.i=7}			},
+    { SDLK_RIGHT,	KMOD_ALT,		inc_offset_i,	{.i=7}			},
+    { SDLK_LEFT,	KMOD_ALT,		inc_offset_i,	{.i=-7}			},
+    { SDLK_UP,		KMOD_ALT,		inc_offset_j,	{.i=-7}			},
+    { SDLK_DOWN,	KMOD_ALT,		inc_offset_j,	{.i=7}			},
+    { SDLK_UP,		0,			inc_offset_j,	{.i=-7}			},
+    { SDLK_DOWN,	0,			inc_offset_j,	{.i=7}			},
     /* Move the zoom/view rectangle 1 step. */
     { SDLK_RIGHT,	KMOD_SHIFT|KMOD_ALT,	inc_offset_i,	{.i=1}			},
     { SDLK_LEFT,	KMOD_SHIFT|KMOD_ALT,	inc_offset_i,	{.i=-1}			},
