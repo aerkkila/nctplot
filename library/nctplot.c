@@ -803,12 +803,12 @@ static void multiply_zoom(Arg arg) {
 }
 
 static void jump_to(Arg _) {
-    printf("Enter a framemumber to jump to \033[K");
+    printf("Enter a framenumber to jump to \033[K");
     fflush(stdout);
     int arg0, month=0, day=1, hour=0, minute=0;
     float second=0;
     switch (scanf("%d-%d-%d[ *]%d:%d:%f", &arg0, &month, &day, &hour, &minute, &second)) {
-	case 1: plt.area->znum = arg0; break; // user entered a frame number
+	case 1: plt.area->znum = arg0-1; break; // user entered a frame number
 	case 0: break;
 	case -1: warn("scanf in %s", __func__); break;
 	default:
@@ -823,10 +823,8 @@ static void jump_to(Arg _) {
 		.tm_sec = second,
 	    };
 	    time_t target_time = mktime(&tm);
-	    time_t current_time = nct_mktime(plt.zvar, NULL, &plt.time0, plt.area->znum).a.t;
-	    int move = (target_time - current_time)*1000 / nct_get_interval_ms(plt.time0.d);
-	    // TODO milliseconds
-	    plt.area->znum += move;
+	    long long coordval = nct_convert_time_anyd(target_time, plt.time0);
+	    plt.area->znum = nct_find_sorted(plt.zvar, coordval);
 	    break;
     }
     if (plt.area->znum < 0)
