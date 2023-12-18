@@ -163,7 +163,7 @@ static int my_isnan_double(double f) {
     return (bits & exponent) == exponent;
 }
 
-static int recalloc_list(void* varr, int *has, int wants, int size1) {
+static int recalloc_list(void* varr, int *has, int wants, int size1, const void *fill) {
     void** arr = varr;
     if (*has >= wants)
 	return 0;
@@ -172,8 +172,12 @@ static int recalloc_list(void* varr, int *has, int wants, int size1) {
 	warn("realloc %i in %s: %i", wants*size1, __FILE__, __LINE__);
 	return -1;
     }
-    memset(*arr+*has*size1, 0, (wants-*has)*size1);
     *arr = tmp;
+    if (fill)
+	for (int i=0; i<wants-*has; i++)
+	    memcpy(*arr+(*has+i)*size1, fill, size1);
+    else
+	memset(*arr+*has*size1, 0, (wants-*has)*size1);
     *has = wants;
     return 1;
 }
@@ -517,7 +521,7 @@ static void set_dimids() {
     draw_funcptr = yid<0? draw1d: draw2d;
     if (zid < 0)
 	zid = -1;
-    if(zid>=0) {
+    if (zid >= 0) {
 	plt.zvar = var->super->dims[var->dimids[zid]];
 	plt.time0 = nct_mktime0_nofail(plt.zvar, NULL);
 	if(!plt.zvar->data && nct_iscoord(plt.zvar))
@@ -633,17 +637,18 @@ make_new:
 static void variable_changed() {
     if (var->ndims < 1)
 	return var_ichange((Arg){.i=_variable_changed_direction}); // 0-dimensional variables are not supported.
+
+    long wants = MAX(n_plottables, pltind);
+    recalloc_list(&globslist, &globslistlen, wants, sizeof(struct nctplot_globals), &default_globals);
+
+    /* Is previous was detached, take back the global state. */
     if (plt.globs_detached) {
-	long wants = MAX(n_plottables, pltind);
-	recalloc_list(&globslist, &globslistlen, wants, sizeof(struct nctplot_globals));
 	globslist[pltind] = globs;
 	globs = globs_mem;
     }
 
-    pltind = nct_varid(var);
-    if (!recalloc_list(&plottables, &n_plottables, pltind+1, sizeof(plottable)) && plt.globs_detached) {
-	if (pltind >= globslistlen)
-	    return variable_changed(); // Shouldn't happen. To allocate globslist.
+    pltind = nct_varid(var); // this is the core change
+    if (!recalloc_list(&plottables, &n_plottables, pltind+1, sizeof(plottable), NULL)) {
 	globs_mem = globs;
 	globs = globslist[pltind];
     }

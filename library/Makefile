@@ -52,7 +52,7 @@ libnctplot.so: $(objects)
 	$(CC) -o $@ -shared $^ $(libraries)
 
 nctplot.o: $(dependencies) config.mk
-	$(CC) $(CFLAGS) -o $@ -c ${@:o=c}
+	$(CC) $(CFLAGS) -O0 -o $@ -c ${@:o=c}
 
 nctplot_debug.o: $(dependencies) config.mk
 	$(CC) $(CFLAGS) -g3 -gdwarf-2 -O0 -DDEBUG -o $@ -c nctplot.c
