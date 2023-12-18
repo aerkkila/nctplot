@@ -641,17 +641,20 @@ static void variable_changed() {
     long wants = MAX(n_plottables, pltind);
     recalloc_list(&globslist, &globslistlen, wants, sizeof(struct nctplot_globals), &default_globals);
 
-    /* Is previous was detached, take back the global state. */
+    /* Is previous was detached, take back the global state and put its state to memory. */
     if (plt.globs_detached) {
 	globslist[pltind] = globs;
 	globs = globs_mem;
     }
 
     pltind = nct_varid(var); // this is the core change
-    if (!recalloc_list(&plottables, &n_plottables, pltind+1, sizeof(plottable), NULL)) {
+
+    if (plt.globs_detached) {
 	globs_mem = globs;
 	globs = globslist[pltind];
     }
+
+    recalloc_list(&plottables, &n_plottables, pltind+1, sizeof(plottable), NULL);
 
     /* Order matters here. */
     if (!plt.var) // using this variable for the first time
