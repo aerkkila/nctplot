@@ -49,7 +49,7 @@ static const unsigned default_sleep=8; // ms
 static unsigned sleeptime;
 static int win_w, win_h, xid, yid, zid, draw_w, draw_h, pending_varnum=-1, pending_cmapnum;
 static char stop, fill_on, play_on, play_inv, update_minmax=1, update_minmax_cur, too_small_to_draw;
-static int lines_echoed;
+static int lines_printed;
 static int cmappix=30, cmapspace=10, call_redraw;
 static float minshift_abs, maxshift_abs, zoom=1;
 static float data_per_pixel; // (n(data) / n(pixels)) in one direction
@@ -68,7 +68,7 @@ typedef struct Binding Binding;
 
 static int my_isnan_float(float f);
 static int my_isnan_double(double f);
-static void my_echo(void* minmax);
+static void printinfo(void* minmax);
 static void redraw(nct_var* var);
 static void multiply_zoom_fixed_point(float multiple, float xfraction, float yfraction);
 static void draw_colormap();
@@ -239,7 +239,7 @@ static void curses_write_cmaps() {
 }
 
 static void draw2d(const nct_var* var) {
-    my_echo(g_minmax);
+    printinfo(g_minmax);
     if (too_small_to_draw)
 	return;
 
@@ -290,21 +290,20 @@ static void draw_colormap() {
 	}
 }
 
-static void clear_echo() {
-    for(int i=0; i<lines_echoed; i++)
+static void clear_infoprint() {
+    for(int i=0; i<lines_printed; i++)
 	printf("\033[2K\n");		// clear the line
-    printf("\r\033[%iA", lines_echoed);	// move cursor to start
-    lines_echoed = 0;
+    printf("\r\033[%iA", lines_printed);	// move cursor to start
+    lines_printed = 0;
 }
 
 #define A echo_highlight
 #define B nct_default_color
-static void my_echo(void* minmax) {
+static void printinfo(void* minmax) {
     if (!(globs.echo && prog_mode > n_cursesmodes))
 	return;
     nct_var *zvar = plt.zvar;
     int size1 = nctypelen(var->dtype);
-    lines_echoed = echo_h;
     printf("%s%s%s%s: ", A, var->name, B, plt.globs_detached ? " (detached)" : "");
     printf("min %s", A);   nct_print_datum(var->dtype, minmax);       printf("%s", B);
     printf(", max %s", A); nct_print_datum(var->dtype, minmax+size1); printf("%s", B);
@@ -334,7 +333,10 @@ static void my_echo(void* minmax) {
 	    "colormap = %s%s%s%s\033[K\n",
 	    A,plt.minshift,B, A,plt.maxshift,B,
 	    A,data_per_pixel,B, A,cmh_colormaps[globs.cmapnum].name,B, globs.invert_c? " reversed": "");
-    printf("\r\033[%iA", echo_h); // move cursor to start
+    putchar('\n'); // room for mouseinfo
+    lines_printed = 6;
+    printf("\r\033[%iA", lines_printed); // move cursor to start
+    mousemotion(0, 0); // print mouseinfo
 }
 #undef A
 #undef B
@@ -373,16 +375,13 @@ static void _maybe_print_mousecoordinate(int vardimid, int at) {
 }
 
 static void mousemotion(int xrel, int yrel) {
-    static int count;
-    if(prog_mode < n_cursesmodes || !globs.echo)
-	return;
-    if(!count++)
+    if (prog_mode < n_cursesmodes || !globs.echo)// || !count++)
 	return;
     long pos = get_varpos_xy(mousex,mousey);
     if (pos < 0)
 	return;
-    if (lines_echoed)
-	printf("\033[%iB\r", lines_echoed-1); // overwrite the last echoed line
+    if (lines_printed)
+	printf("\033[%iB\r", lines_printed-1); // This is the last line in info
     nct_print_datum(var->dtype, var->data + pos*nctypelen(var->dtype));
     printf(" [%zu pos=(%i,%i) coords=(", pos, varpos_xy_j, varpos_xy_i);
     if (yid >= 0) {
@@ -391,7 +390,7 @@ static void mousemotion(int xrel, int yrel) {
     }
     _maybe_print_mousecoordinate(xid, varpos_xy_i);
     printf(")]\033[K\n");
-    printf("\033[%iA\r", lines_echoed);
+    printf("\033[%iA\r", lines_printed);
 }
 
 static void mousewheel(int num) {
@@ -706,7 +705,7 @@ static void ask_crs(Arg _) {
 	    if ((crs[i] = getchar()) == '\n')
 		break;
     crs[i] = 0;
-    lines_echoed--;
+    lines_printed--;
     free(plt.area->crs);
     plt.area->crs = strdup(crs);
     export_projection();
@@ -838,7 +837,7 @@ static void jump_to(Arg _) {
 	plt.area->znum = 0;
     else if (plt.area->znum >= plt.zvar->len)
 	plt.area->znum = plt.zvar->len-1;
-    lines_echoed--;
+    lines_printed--;
     fflush(stdout);
     call_redraw = 1;
 }
@@ -876,7 +875,7 @@ static void pending_map_inc(Arg _) {
 }
 
 static void print_var(Arg _) {
-    clear_echo();
+    clear_infoprint();
     nct_print(var->super);
 }
 
@@ -985,7 +984,7 @@ static void set_sleep(Arg _) {
     fflush(stdout);
     if(scanf("%i", &sleeptime) != 1)
 	sleeptime = default_sleep;
-    lines_echoed--;
+    lines_printed--;
     fflush(stdout);
 }
 
@@ -1005,9 +1004,9 @@ static void quit(Arg _) {
     stop = 1;
     if (prog_mode < n_cursesmodes)
 	end_curses((Arg){0});
-    if (lines_echoed > 0)
-	printf("\r\033[%iB", lines_echoed), fflush(stdout);	// move cursor past the echo region
-    lines_echoed = 0;
+    if (lines_printed > 0)
+	printf("\r\033[%iB", lines_printed), fflush(stdout);	// move cursor past the echo region
+    lines_printed = 0;
     if (mp_params.dlhandle)
 	dlclose(mp_params.dlhandle);
     free_coastlines();
@@ -1043,7 +1042,7 @@ static void convert_coord(Arg _) {
 	for (i=0; i<255; i++)
 	    if ((to[i] = getchar()) == '\n')
 		break;
-    lines_echoed -= 2;
+    lines_printed -= 2;
     to[i] = 0;
     var = nctproj_open_converted_var(var, plt.area->crs, to, NULL);
     variable_changed();
@@ -1137,11 +1136,11 @@ static void mp_set_action(Arg arg) {
     mp_params.dlhandle = dlopen(str, RTLD_LAZY);
     if(!mp_params.dlhandle) {
 	printf("dlopen %s: %s\033[K\n", str, dlerror());
-	lines_echoed--;
+	lines_printed--;
 	return; }
     if(!(mp_params.fun = dlsym(mp_params.dlhandle, "function"))) {
 	printf("dlsym(\"function\") failed %s\033[K\n", dlerror());
-	lines_echoed--;
+	lines_printed--;
 	return; }
     mp_params.mode = function_mp;
 }
@@ -1150,14 +1149,14 @@ static void mp_set_filename(Arg arg) {
     printf("set filename: \033[K");
     if(scanf("%255s", mp_params.filename) < 0)
 	warn("mp_set_filename, scanf");
-    lines_echoed--;
+    lines_printed--;
 }
 
 static int mp_set_fvalue(char str[256]) {
     printf("set floating point value or *.so with void* function(void* in, void* out): \033[K");
     if(scanf("%255s", str) != 1)
 	warn("scanf");
-    lines_echoed--;
+    lines_printed--;
     if(sscanf(str, "%f", &mp_params.value.f) == 1) {
 	mp_params.mode = fixed_mp;
 	return 0; }
@@ -1168,7 +1167,7 @@ static int mp_set_lfvalue(char str[256]) {
     printf("set floating point value or *.so with void* function(void* in, void* out): \033[K");
     if(scanf("%255s", str) != 1)
 	warn("scanf");
-    lines_echoed--;
+    lines_printed--;
     if(sscanf(str, "%lf", &mp_params.value.lf) == 1) {
 	mp_params.mode = fixed_mp;
 	return 0; }
@@ -1179,7 +1178,7 @@ static int mp_set_ivalue(char str[256]) {
     printf("set integer value or *.so with void* function(void* in, void* out): \033[K");
     if(scanf("%255s", str) != 1)
 	warn("scanf");
-    lines_echoed--;
+    lines_printed--;
     if(sscanf(str, "%lli", &mp_params.value.lli) == 1) {
 	mp_params.mode = fixed_mp;
 	return 0; }
@@ -1259,7 +1258,7 @@ variable_found:
     variable_changed();
 
     sleeptime = default_sleep;
-    stop = lines_echoed = play_on = play_inv = 0;
+    stop = lines_printed = play_on = play_inv = 0;
     update_minmax = 1;
     prev_pltind = pending_varnum = -1;
     mp_params = (struct Mp_params){0};

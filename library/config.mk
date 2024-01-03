@@ -7,16 +7,16 @@ pager = nvim\ -R vim\ -R $(PAGER) less more
 # shapelib/shplib is used in drawing coastlines. Comment out the following if you don't have shapelib installed.
 have_shapelib = 1
 
-# nctproj is used in coordinate transformations. Comment this out if nctietue3 was compiled without nctproj.
+# This is used in coordinate transformations. Comment this out if nctietue3 was compiled without proj library
 have_nctproj = 1
 
 # proj is used in coordinate transformations on coastlines. Comment this out if you don't have proj or coastlines are disabled.
 have_proj = 1
 
-# png library is used to generate figures. Comment this out if necessary.
+# png library is used to save figures. Comment this out if necessary.
 have_png = 1
 
-# Graphics works directly on wayland. Alternatively, SDL2 library can be used.
+# Graphics work directly on wayland. Alternatively, SDL2 library can be used.
 # Comment this out, if you don't have wayland or don't want direct wayland support.
 # If you use wayland, you should definitely not comment this out.
 have_wayland = 1

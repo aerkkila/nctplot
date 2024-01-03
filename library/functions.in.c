@@ -17,11 +17,6 @@
 void* nct_minmax_@nctype(const nct_var*, void* result); // a global but hidden function
 void* nct_minmax_nan_@nctype(const nct_var*, long nanval, void* result); // a global but hidden function
 
-#define NCTVARDIM(a,b) ((a)->super->dims[(a)->dimids[b]])
-#ifndef echo_h
-#define echo_h 5
-#endif
-
 static ctype* g_minmax_@nctype = (ctype*)g_minmax;
 
 /* max-min can be larger than a signed number can handle.
@@ -116,7 +111,7 @@ static void draw1d_@nctype(const nct_var* var) {
 	g_minmax_@nctype [1] += 1;
     if (prog_mode == variables_m)
 	curses_write_vars();
-    my_echo(g_minmax_@nctype);
+    printinfo(g_minmax_@nctype);
     set_color(globs.color_bg);
     clear_background();
 #if __nctype__ == NC_DOUBLE
