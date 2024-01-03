@@ -648,13 +648,12 @@ static void variable_changed() {
     }
 
     pltind = nct_varid(var); // this is the core change
+    recalloc_list(&plottables, &n_plottables, pltind+1, sizeof(plottable), NULL);
 
     if (plt.globs_detached) {
 	globs_mem = globs;
 	globs = globslist[pltind];
     }
-
-    recalloc_list(&plottables, &n_plottables, pltind+1, sizeof(plottable), NULL);
 
     /* Order matters here. */
     if (!plt.var) // using this variable for the first time
