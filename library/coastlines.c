@@ -144,11 +144,11 @@ static void make_coastlinepoints(struct shown_area *area) {
 	    continue;
 not_valid_point:
 	    ibreak = line_break(breaks, ibreak, ipoint+irun);
-	    ipoint = breaks[ibreak-1];
+	    ipoint = ibreak ? breaks[ibreak-1] : 0;
 	    irun = 0;
 	}
 	ibreak = line_break(breaks, ibreak, ipoint+irun);
-	ipoint = breaks[ibreak-1];
+	ipoint = ibreak ? breaks[ibreak-1] : 0;
 	irun = 0;
 	ind_from += coastl_lengths[e];
     }
