@@ -57,9 +57,6 @@ nctplot.o: $(dependencies) config.mk
 nctplot_debug.o: $(dependencies) config.mk
 	$(CC) $(CFLAGS) -g3 -gdwarf-2 -O0 -DDEBUG -o $@ -c nctplot.c
 
-bindings_xkb.h: sdl2xkb.pl bindings.h
-	./$<
-
 wayland_helper/wayland_helper.o: wayland_helper/*
 	cd wayland_helper && $(MAKE) wayland_helper.o --no-print-directory
 

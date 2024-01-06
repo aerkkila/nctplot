@@ -35,6 +35,8 @@ typedef struct {
     char minmax[8*2];
     size_t stepsize_z;
     float minshift, maxshift;
+    double threshold;
+    int use_threshold;
     char globs_detached;
     struct shown_area *area;
 } plottable;
@@ -254,18 +256,34 @@ static void draw2d(const nct_var* var) {
 
     float fdataj = plt.area->offset_j;
     int idataj = round(fdataj), j;
-    if (globs.invert_y)
-	for(j=draw_h-g_pixels_per_datum; j>=0; j-=g_pixels_per_datum) {
-	    draw_row(var->dtype, j,
+    if (plt.use_threshold) {
+	if (globs.invert_y)
+	    for(j=draw_h-g_pixels_per_datum; j>=0; j-=g_pixels_per_datum) {
+		draw_row_threshold(var->dtype, j,
+		    dataptr + g_size1*idataj*g_xlen, plt.threshold);
+		idataj = round(fdataj += g_data_per_step);
+	    }
+	else
+	    for(j=0; j<draw_h; j+=g_pixels_per_datum) {
+		draw_row_threshold(var->dtype, j,
+		    dataptr + g_size1*idataj*g_xlen, plt.threshold);
+		idataj = round(fdataj += g_data_per_step);
+	    }
+    }
+    else {
+	if (globs.invert_y)
+	    for(j=draw_h-g_pixels_per_datum; j>=0; j-=g_pixels_per_datum) {
+		draw_row(var->dtype, j,
 		    dataptr + g_size1*idataj*g_xlen);
-	    idataj = round(fdataj += g_data_per_step);
-	}
-    else
-	for(j=0; j<draw_h; j+=g_pixels_per_datum) {
-	    draw_row(var->dtype, j,
+		idataj = round(fdataj += g_data_per_step);
+	    }
+	else
+	    for(j=0; j<draw_h; j+=g_pixels_per_datum) {
+		draw_row(var->dtype, j,
 		    dataptr + g_size1*idataj*g_xlen);
-	    idataj = round(fdataj += g_data_per_step);
-	}
+		idataj = round(fdataj += g_data_per_step);
+	    }
+    }
     draw_colormap();
 }
 
@@ -979,13 +997,31 @@ static void set_prog_mode(Arg mode) {
 	curses_write_cmaps();
 }
 
+static double prompt_floating(double iffail, const char *msg, ...) {
+    va_list args;
+    va_start(args, msg);
+    vprintf(msg, args);
+    va_end(args);
+    fflush(stdout);
+    double val;
+    if (scanf("%lf", &val) != 1)
+	return iffail;
+    return val;
+}
+
 static void set_sleep(Arg _) {
     printf("Enter sleeptime in ms (default = %i): \033[K", default_sleep);
     fflush(stdout);
-    if(scanf("%i", &sleeptime) != 1)
+    if (scanf("%i", &sleeptime) != 1)
 	sleeptime = default_sleep;
     lines_printed--;
     fflush(stdout);
+}
+
+static void toggle_threshold(Arg _) {
+    if ((plt.use_threshold = !plt.use_threshold))
+	plt.threshold = prompt_floating(0, "Enter threshold value: ");
+    call_redraw = 1;
 }
 
 static void use_lastvar(Arg _) {

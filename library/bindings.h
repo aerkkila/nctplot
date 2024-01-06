@@ -71,6 +71,7 @@ static Binding keydown_bindings[] = {
     { SDLK_1,		KMOD_SHIFT|KMOD_ALT,	shift_max_abs,	{.f=-0.02}		},
     { SDLK_2,		KMOD_ALT,		shift_min_abs,	{.f=0.02}		},
     { SDLK_2,		KMOD_SHIFT|KMOD_ALT,	shift_max_abs,	{.f=0.02}		},
+    { SDLK_k,		0,			toggle_threshold,			},
     /* Choosing the colormap. */
     { SDLK_c,		0,			cmap_ichange,	{.i=1}			}, // Next colormap.
     { SDLK_c,		KMOD_SHIFT,		cmap_ichange,	{.i=-1}			}, // Previous colormap.

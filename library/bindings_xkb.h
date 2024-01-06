@@ -71,6 +71,7 @@ static Binding keydown_bindings[] = {
     { XKB_KEY_exclam,		WLR_MODIFIER_SHIFT|WLR_MODIFIER_ALT,	shift_max_abs,	{.f=-0.02}		},
     { XKB_KEY_2,		WLR_MODIFIER_ALT,		shift_min_abs,	{.f=0.02}		},
     { XKB_KEY_quotedbl,		WLR_MODIFIER_SHIFT|WLR_MODIFIER_ALT,	shift_max_abs,	{.f=0.02}		},
+    { XKB_KEY_k,		0,			toggle_threshold,					},
     /* Choosing the colormap. */
     { XKB_KEY_c,		0,			cmap_ichange,	{.i=1}			}, // Next colormap.
     { XKB_KEY_C,		WLR_MODIFIER_SHIFT,		cmap_ichange,	{.i=-1}			}, // Previous colormap.
