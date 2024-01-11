@@ -91,9 +91,10 @@ static Binding keydown_bindings[] = {
     { XKB_KEY_E,	SHIFT,		toggle_var,	{.v=&globs.exact}	},
     /* Toggle whether the largest y-coordinate is in the top or in the bottom. */
     { XKB_KEY_i,	0,		toggle_var,	{.v=&globs.invert_y}	},
-    /* Play a video, if the variable has third dimension. Use set_sleep to control the speed. */
-    { XKB_KEY_space,	0,		toggle_var,	{.v=&play_on}		},
-    { XKB_KEY_space,	SHIFT,		toggle_var,	{.v=&play_inv}		},
+    /* Play a video, if the variable has third dimension. Use fps to control the speed. */
+    { XKB_KEY_space,	0,		toggle_play,				},
+    { XKB_KEY_space,	SHIFT,		toggle_play_rev,			},
+    { XKB_KEY_s,	0,		ask_fps,				},
     /* Jump to some frame, if data has third dimension.
        The framenumber will be passed on the terminal. */
     { XKB_KEY_j,	0,		jump_to,				},
@@ -133,7 +134,7 @@ static Binding keydown_bindings[] = {
        The number will be passed on the terminal.
        Higher number makes time series go slower.
        If sleep time is zero, one core will be running 100 % CPU usage. */
-    { XKB_KEY_s,	0,		set_sleep,				},
+    { XKB_KEY_S,	SHIFT,		ask_sleep,				},
     { XKB_KEY_Return,	0,		use_pending,				},
     { XKB_KEY_KP_Enter,	0,		use_pending,				},
     { XKB_KEY_Escape,	0,		end_curses,				},

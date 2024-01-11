@@ -139,24 +139,44 @@ static void init_graphics(int xlen, int ylen) {
 }
 
 static void mainloop() {
+    long play_start_ms = 0;
+    int play_start_znum;
+
     while (wl_display_roundtrip(wlh.display) > 0 && !wlh.stop) {
 	if (wlh_key_should_repeat(&wlh))
 	    key_callback(&wlh);
-	if (zid < 0)	play_inv = play_on = 0;
-	if (play_inv)	{inc_znum((Arg){.i=-1}); play_on=0;}
-	if (play_on)	inc_znum((Arg){.i=1});
+
+	if (zid < 0) play_on = 0;
+
+	if (play_on) {
+	    if (!play_start_ms) {
+		play_start_ms = time_now_ms();
+		play_start_znum = plt.area->znum;
+	    }
+	    else {
+		double change_s = (time_now_ms() - play_start_ms) * 1e-3;
+		int new_znum = play_start_znum + fps * change_s;
+		if (new_znum != plt.area->znum)
+		    inc_znum((Arg){.i = new_znum - plt.area->znum});
+	    }
+	}
+	else
+	    play_start_ms = 0;
+
 	if (wlh.res_changed) {
 	    wlh.res_changed = 0;
 	    win_h = wlh.yres;
 	    win_w = wlh.xres;
 	    set_draw_params();
 	}
+
 	if ((wlh.redraw || call_redraw) && wlh.can_redraw) {
 	    redraw(var);
 	    wlh_commit(&wlh);
 	}
 	usleep(sleeptime*1000);
     }
+
     quit((Arg){0});
     wlh_destroy(&wlh);
 }

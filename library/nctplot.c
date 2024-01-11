@@ -47,10 +47,12 @@ static int pltind, prev_pltind, n_plottables;
 #define plt (plottables[pltind])
 static nct_var* var; // = plt.var
 static WINDOW *wnd;
-static const unsigned default_sleep=8; // ms
+static const unsigned default_sleep_ms=8;
+static const double default_fps=50;
 static unsigned sleeptime;
+static double fps;
 static int win_w, win_h, xid, yid, zid, draw_w, draw_h, pending_varnum=-1, pending_cmapnum;
-static char stop, fill_on, play_on, play_inv, update_minmax=1, update_minmax_cur, too_small_to_draw;
+static char stop, fill_on, play_on, update_minmax=1, update_minmax_cur, too_small_to_draw;
 static int lines_printed;
 static int cmappix=30, cmapspace=10, call_redraw;
 static float minshift_abs, maxshift_abs, zoom=1;
@@ -91,6 +93,8 @@ static void mousemotion(int xrel, int yrel);
 static void mousewheel(int num);
 static void mousemove(float xrel, float yrel);
 static void mousepaint();
+static double prompt_floating(double iffail, const char *msg, ...);
+static long long prompt_integer(long long iffail, const char *msg, ...);
 
 union Arg {
     void* v;
@@ -744,6 +748,16 @@ static void toggle_detached(Arg _) {
     call_redraw = 1;
 }
 
+static void toggle_play(Arg _) {
+    play_on = !play_on;
+    if (fps < 0) fps = -fps;
+}
+
+static void toggle_play_rev(Arg _) {
+    toggle_play(_);
+    fps = -fps;
+}
+
 static void invert_colors(Arg _) {
     typeof(globs.color_bg) mem;
     memcpy(mem,			globs.color_fg,	sizeof(globs.color_fg));
@@ -897,6 +911,32 @@ static void print_var(Arg _) {
     nct_print(var->super);
 }
 
+static double prompt_floating(double iffail, const char *msg, ...) {
+    va_list args;
+    va_start(args, msg);
+    vprintf(msg, args);
+    va_end(args);
+    fflush(stdout);
+    double val;
+    if (scanf("%lf", &val) != 1)
+	return iffail;
+    lines_printed--;
+    return val;
+}
+
+static long long prompt_integer(long long iffail, const char *msg, ...) {
+    va_list args;
+    va_start(args, msg);
+    vprintf(msg, args);
+    va_end(args);
+    fflush(stdout);
+    double val;
+    if (scanf("%lf", &val) != 1)
+	return iffail;
+    lines_printed--;
+    return val;
+}
+
 static void shift_max(Arg shift) {
     plt.maxshift += shift.f;
     g_only_nans = make_minmax(var->dtype);
@@ -997,30 +1037,17 @@ static void set_prog_mode(Arg mode) {
 	curses_write_cmaps();
 }
 
-static double prompt_floating(double iffail, const char *msg, ...) {
-    va_list args;
-    va_start(args, msg);
-    vprintf(msg, args);
-    va_end(args);
-    fflush(stdout);
-    double val;
-    if (scanf("%lf", &val) != 1)
-	return iffail;
-    return val;
+static void ask_fps(Arg _) {
+    fps = prompt_floating(default_fps, "Enter fps (default = %f): \033[K", default_fps);
 }
 
-static void set_sleep(Arg _) {
-    printf("Enter sleeptime in ms (default = %i): \033[K", default_sleep);
-    fflush(stdout);
-    if (scanf("%i", &sleeptime) != 1)
-	sleeptime = default_sleep;
-    lines_printed--;
-    fflush(stdout);
+static void ask_sleep(Arg _) {
+    prompt_integer(default_sleep_ms, "Enter sleeptime in ms (default = %i): \033[K", default_sleep_ms);
 }
 
 static void toggle_threshold(Arg _) {
     if ((plt.use_threshold = !plt.use_threshold))
-	plt.threshold = prompt_floating(0, "Enter threshold value: ");
+	plt.threshold = prompt_floating(0, "Enter threshold value: \033[K");
     call_redraw = 1;
 }
 
@@ -1293,8 +1320,9 @@ variable_found:
     init_graphics(xlen, ylen); // defined either in sdl_spesific.c or in wayland_spesific.c depending on the choice in config.mk
     variable_changed();
 
-    sleeptime = default_sleep;
-    stop = lines_printed = play_on = play_inv = 0;
+    sleeptime = default_sleep_ms;
+    fps = default_fps;
+    stop = lines_printed = play_on = 0;
     update_minmax = 1;
     prev_pltind = pending_varnum = -1;
     mp_params = (struct Mp_params){0};
