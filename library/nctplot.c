@@ -342,7 +342,7 @@ static void printinfo(void* minmax) {
 	printf(", z: %s%s(%i/%zu ", A, zvar->name, plt.area->znum+1, zvar->len);
 	if (plt.time0.d >= 0) {
 	    char help[128];
-	    strftime(help, 128, "%F %T", nct_localtime((long)nct_get_integer(zvar, plt.area->znum), plt.time0));
+	    strftime(help, 128, "%F %T", nct_gmtime((long)nct_get_integer(zvar, plt.area->znum), plt.time0));
 	    printf(" %s", help);
 	}
 	else if (nct_iscoord(zvar))
@@ -544,7 +544,7 @@ static void set_dimids() {
 	zid = -1;
     if (zid >= 0) {
 	plt.zvar = var->super->dims[var->dimids[zid]];
-	plt.time0 = nct_mktime0_nofail(plt.zvar, NULL);
+	plt.time0 = nct_timegm0_nofail(plt.zvar, NULL);
 	if(!plt.zvar->data && nct_iscoord(plt.zvar))
 	    nct_load(plt.zvar);
     }
@@ -860,7 +860,7 @@ static void jump_to(Arg _) {
 		.tm_min = minute,
 		.tm_sec = second,
 	    };
-	    time_t target_time = mktime(&tm);
+	    time_t target_time = timegm(&tm);
 	    long long coordval = nct_convert_time_anyd(target_time, plt.time0);
 	    plt.area->znum = nct_find_sorted(plt.zvar, coordval);
 	    break;
