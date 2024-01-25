@@ -24,9 +24,9 @@ int wlh_scalex = 1,
 
 static void set_color(unsigned char* c) {
     wlh_color = 
-	(c[0] << 0 ) |
+	(c[0] << 16 ) |
 	(c[1] << 8 ) |
-	(c[2] << 16) |
+	(c[2] << 0) |
 	(0xff << 24);
 }
 
