@@ -1,6 +1,6 @@
 #define ALT	WLR_MODIFIER_ALT
 #define SHIFT	WLR_MODIFIER_SHIFT
-#define CTRL	WLR_MODIFIER_CTRL
+#define CTRL_	WLR_MODIFIER_CTRL
 
 /* In mousepaint_m mode these override the default bindings.
    Drawing with mouse does not affect the original file.
@@ -144,7 +144,7 @@ static Binding keydown_bindings[] = {
        Otherwise this is useless. */
     { XKB_KEY_T,	SHIFT,		ask_crs,				},
 #ifdef HAVE_PNG
-    { XKB_KEY_s,	CTRL,		save_png,				},
+    { XKB_KEY_s,	CTRL_,		save_png,				},
 #endif
 #ifdef HAVE_NCTPROJ
     /* Convert this variable into different coordinates.
@@ -156,4 +156,4 @@ static Binding keydown_bindings[] = {
 
 #undef ALT
 #undef SHIFT
-#undef CTRL
+#undef CTRL_
