@@ -407,7 +407,8 @@ static void mousemotion(int xrel, int yrel) {
     if (lines_printed)
 	printf("\033[%iB\r", lines_printed-1); // This is the last line in info
     nct_print_datum(var->dtype, var->data + pos*nctypelen(var->dtype));
-    printf(" [%zu pos=(%i,%i) coords=(", pos, varpos_xy_j, varpos_xy_i);
+    int xlen = nct_get_vardim(var, xid)->len;
+    printf(" [%zu pos=(%i,%i: %i) coords=(", pos, varpos_xy_j, varpos_xy_i, varpos_xy_j*xlen + varpos_xy_i);
     if (yid >= 0) {
 	_maybe_print_mousecoordinate(yid, varpos_xy_j);
 	putchar(',');
