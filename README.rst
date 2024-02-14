@@ -8,15 +8,14 @@ and other information is shown on the command line.
 
 Features
 --------
-* Works well with tiling window managers / compositors.
+* Works well with tiling window compositors.
 * Mouse is not needed for basic use.
-* Zooming is possible.
 * Multiple files can be opened as if they were one file.
 * Files can be larger than RAM.
 * Coordinate transformations.
 * Files can be edited by drawing with mouse.
-* Shows just the image instead of some annoying control panel (compare to ncview).
-* Coastlines if user wants them.
+* Zooming
+* Coastlines
 
 Installation
 ------------
@@ -32,14 +31,14 @@ Compile time dependencies in addition to a C compiler:
 Dependencies:
     * nctietue3 (https://codeberg.org/aerkkila/nctietue3)
     * colormap-headers (https://codeberg.org/aerkkila/colormap-headers)
-    * wayland **OR** SDL2
+    * wayland (preferred) **OR** SDL2 (limited functionality)
     * ncurses
 
 Optional dependencies:
     * shapelib (for coastlines)
     * nctietue3 compiled with proj-library (for coordinate transformations)
     * proj (for coordinate transformations and coastlines)
-    * png (for saving the plotted figure, for now the coastlines can't be saved)
+    * png (for saving the plotted figure)
 
 See library/config.mk to disable optional dependencies.
 

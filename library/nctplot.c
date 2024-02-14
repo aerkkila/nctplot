@@ -145,6 +145,10 @@ static int iround(float f) {
     return ifloor + (f-ifloor >= 0.5) - (f-ifloor <= -0.5);
 }
 
+static inline int __attribute__((pure)) additional_height() {
+    return cmapspace + cmappix;
+}
+
 #ifdef HAVE_WAYLAND
 #include "wayland_spesific.c"
 #else
@@ -294,22 +298,22 @@ static void draw2d(const nct_var* var) {
 }
 
 static void draw_colormap() {
-    float cspace = 255.0f/win_w;
+    float cspace = 255.0f/draw_w;
     float di = 0;
     set_scale(1, 1);
     int j0 = draw_h + cmapspace - g_extended_y*g_pixels_per_datum;
     if(!globs.invert_c)
-	for(int i=0; i<win_w; i++, di+=cspace) {
+	for(int i=0; i<draw_w; i++, di+=cspace) {
 	    unsigned char* c = cmh_colorvalue(globs.cmapnum, (int)di);
 	    set_color(c);
-	    for(int j=j0; j<draw_h+cmapspace+cmappix; j++)
+	    for(int j=j0; j<draw_h+additional_height(); j++)
 		graphics_draw_point(i,j);
 	}
     else
-	for(int i=win_w-1; i>=0; i--, di+=cspace) {
+	for(int i=draw_w-1; i>=0; i--, di+=cspace) {
 	    unsigned char* c = cmh_colorvalue(globs.cmapnum, (int)di);
 	    set_color(c);
-	    for(int j=j0; j<draw_h+cmapspace+cmappix; j++)
+	    for(int j=j0; j<draw_h+additional_height(); j++)
 		graphics_draw_point(i,j);
 	}
 }
@@ -572,7 +576,7 @@ static void set_draw_params() {
     g_xlen = nct_get_vardim(var, xid)->len;
     if(yid>=0) {
 	g_ylen  = nct_get_vardim(var, yid)->len;
-	data_per_pixel = GET_SPACE(g_xlen, win_w, g_ylen, win_h-cmapspace-cmappix);
+	data_per_pixel = GET_SPACE(g_xlen, win_w, g_ylen, win_h - additional_height());
     } else {
 	data_per_pixel = (float)(g_xlen)/(win_w);
 	g_ylen  = win_h * data_per_pixel;
@@ -587,7 +591,7 @@ static void set_draw_params() {
     draw_w = round((g_xlen-offset_i) / data_per_pixel); // how many pixels data can reach
     draw_h = round((g_ylen-offset_j) / data_per_pixel);
     draw_w = MIN(win_w, draw_w);
-    draw_h = MIN(win_h-cmapspace-cmappix, draw_h);
+    draw_h = MIN(win_h-additional_height(), draw_h);
     too_small_to_draw = draw_h < 0;
     if (zid < 0) zid = -1;
     plt.stepsize_z = nct_get_len_from(var, zid+1); // works even if zid == -1
@@ -799,7 +803,7 @@ static void inc_offset_i(Arg arg) {
 static void inc_offset_j(Arg arg) {
     if (globs.invert_y)
 	arg.i = -arg.i;
-    int winh = win_h - cmappix - cmapspace;
+    int winh = win_h - additional_height();
     if (draw_h <= winh - g_pixels_per_datum && arg.i > 0)
 	return;
     plt.area->offset_j += arg.i;
