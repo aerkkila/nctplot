@@ -3,7 +3,7 @@ _nctplot() {
     shopt -s extglob
     local last=' '
     local binary=
-    compgenstr='!*.@(nc|hdf)?(.lz4)' # Default is to exclude the pattern. '!' negates this.
+    compgenstr='!*.@(nc|hdf|h5)?(.lz4)' # Default is to exclude the pattern. '!' negates this.
     binopts='-b --binary -x --x -y --y' # then any file matches
 
     for w in ${COMP_WORDS[@]}; do

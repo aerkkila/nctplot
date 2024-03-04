@@ -372,8 +372,8 @@ static void printinfo(void* minmax) {
 static int varpos_xy_i, varpos_xy_j;
 
 static long get_varpos_xy(int x, int y) {
-    int xlen = nct_get_vardim(var, xid)->len;
-    int ylen = yid < 0 ? 0 : nct_get_vardim(var, yid)->len;
+    long xlen = nct_get_vardim(var, xid)->len;
+    long ylen = yid < 0 ? 0 : nct_get_vardim(var, yid)->len;
 
     if (globs.invert_y)
 	y = draw_h / g_pixels_per_datum * g_pixels_per_datum - y;
@@ -410,7 +410,7 @@ static void mousemotion(int xrel, int yrel) {
 	return;
     if (lines_printed)
 	printf("\033[%iB\r", lines_printed-1); // This is the last line in info
-    nct_print_datum(var->dtype, var->data + pos*nctypelen(var->dtype));
+    nct_print_datum(var->dtype, var->data + (pos - var->startpos) * nctypelen(var->dtype));
     int xlen = nct_get_vardim(var, xid)->len;
     printf(" [%zu pos=(%i,%i: %i) coords=(", pos, varpos_xy_j, varpos_xy_i, varpos_xy_j*xlen + varpos_xy_i);
     if (yid >= 0) {
@@ -1330,6 +1330,11 @@ static void keydown_func(int keysym, unsigned mod) {
 void nctplot_(void* vobject, int isset) {
     if (isset) {
 	nct_foreach(vobject, varnow)
+	    if (varnow->ndims > 1) {
+		var = varnow;
+		goto variable_found;
+	    }
+	nct_foreach(vobject, varnow)
 	    if (varnow->ndims >= 1) {
 		var = varnow;
 		goto variable_found;
@@ -1354,7 +1359,7 @@ variable_found:
 	ylen = var->super->dims[var->dimids[yid]]->len;
     else
 	ylen = 400;
-  
+
     init_graphics(xlen, ylen); // defined either in sdl_spesific.c or in wayland_spesific.c depending on the choice in config.mk
     variable_changed();
 
