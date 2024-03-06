@@ -5,14 +5,14 @@
 #include <sys/mman.h>
 #include <math.h>
 
-static nct_set* read_binary(const char* name, long x, long y) {
+static nct_set* read_binary(const char* name, long x, long y, nc_type dtype) {
     int fd = open(name, O_RDONLY);
     if (fd < 0)
 	err(1, "Error, open %s", name);
     struct stat st;
     if (fstat(fd, &st))
 	err(1, "fstat");
-    long length = st.st_size;
+    long length = st.st_size / nctypelen(dtype);
 
     long z = 1;
     if (x > st.st_size) x = st.st_size;
@@ -33,13 +33,13 @@ static nct_set* read_binary(const char* name, long x, long y) {
 
     length = z*y*x;
 
-    void* data = mmap(NULL, length, PROT_READ, MAP_PRIVATE, fd, 0);
+    void* data = mmap(NULL, length*nctypelen(dtype), PROT_READ, MAP_PRIVATE, fd, 0);
     close(fd);
 
-    nct_set* set = nct_create_simple(data, NC_BYTE, z, y, x);
+    nct_set* set = nct_create_simple(data, dtype, z, y, x);
     nct_var* var = nct_firstvar(set);
     var->not_freeable = 1;
-    long varlen = var->len * nctypelen(var->dtype);
+    long varlen = var->len;
     if (varlen != length) {
 	warnx("Length calculated wrong for %s: %li (calculated) ≠ %li (obtained).", name, length, varlen);
 	if (varlen > length)

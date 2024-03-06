@@ -11,9 +11,10 @@ struct option longopts[] = {
     { "verbose",	no_argument,		NULL,	'v' },
     { "y",		required_argument,	NULL,	'y' },
     { "x",		required_argument,	NULL,	'x' },
+    { "datatype",	required_argument,	NULL,	't' },
     {0},
 };
-const char* opt_str = "bd:hvx:y:";
+const char* opt_str = "bd:hvx:y:t:";
 
 #include "usage.c" // print_usage
 #include "binary.c"
@@ -21,6 +22,24 @@ const char* opt_str = "bd:hvx:y:";
 const int concatbufflen = 64;
 
 enum {netcdf, binary} filetype = netcdf;
+
+#define match(str, type) if (!strcmp(str, #type)) return type
+nc_type str_to_nctype(const char *str) {
+    match(str, NC_BYTE);
+    match(str, NC_UBYTE);
+    match(str, NC_SHORT);
+    match(str, NC_USHORT);
+    match(str, NC_INT);
+    match(str, NC_UINT);
+    match(str, NC_INT64);
+    match(str, NC_UINT64);
+    match(str, NC_FLOAT);
+    match(str, NC_DOUBLE);
+    match(str, NC_CHAR);
+    fprintf(stderr, "Data type %s not recognized\n", str);
+    return NC_UBYTE;
+}
+#undef match
 
 int main(int argc, char** argv) {
     if (argc < 2)
@@ -32,6 +51,7 @@ int main(int argc, char** argv) {
     char* concat_arg = NULL;
     char concat_buff[concatbufflen];
     concat_buff[concatbufflen-1] = '\0';
+    nc_type bin_dtype = NC_UBYTE;
 
     while ((opt = getopt_long(argc, argv, opt_str, longopts, NULL)) >= 0) {
 	switch (opt) {
@@ -55,6 +75,10 @@ int main(int argc, char** argv) {
 		y = atoi(optarg);
 		filetype = binary;
 		break;
+	    case 't':
+		bin_dtype = str_to_nctype(optarg);
+		filetype = binary;
+		break;
 	}
     }
 
@@ -70,9 +94,9 @@ int main(int argc, char** argv) {
 	    warnx("Unknown filetype: %i. Using binary.", filetype);
 	    filetype = binary;
 	case binary:
-	    set = read_binary(argv[optind++], x, y);
+	    set = read_binary(argv[optind++], x, y, bin_dtype);
 	    for (int i=optind; i<argc; i++) {
-		nct_set* set1 = read_binary(argv[i], x, y);
+		nct_set* set1 = read_binary(argv[i], x, y, bin_dtype);
 		nct_concat(set, set1, concat_arg, argc-i-1);
 		nct_free1(set1);
 	    }

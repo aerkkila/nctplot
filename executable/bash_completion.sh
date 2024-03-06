@@ -4,7 +4,7 @@ _nctplot() {
     local last=' '
     local binary=
     compgenstr='!*.@(nc|hdf|h5)?(.lz4)' # Default is to exclude the pattern. '!' negates this.
-    binopts='-b --binary -x --x -y --y' # then any file matches
+    binopts='-b --binary -x --x -y --y -t --datatype' # then any file matches
 
     for w in ${COMP_WORDS[@]}; do
 	for opt in $binopts; do
