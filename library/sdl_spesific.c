@@ -136,13 +136,13 @@ start:
     if (play_on) {
 	if (!play_start_ms) {
 	    play_start_ms = time_now_ms();
-	    play_start_znum = plt.area->znum;
+	    play_start_znum = plt.area_z->znum;
 	}
 	else {
 	    double change_s = (time_now_ms() - play_start_ms) * 1e-3;
 	    int new_znum = play_start_znum + fps * change_s;
-	    if (new_znum != plt.area->znum)
-		inc_znum((Arg){.i = new_znum - plt.area->znum});
+	    if (new_znum != plt.area_z->znum)
+		inc_znum((Arg){.i = new_znum - plt.area_z->znum});
 	}
     }
     else

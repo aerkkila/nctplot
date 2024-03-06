@@ -78,7 +78,7 @@ static int __attribute__((pure)) outside_window(const point_t *point) {
     return point->x < 0 || point->y < 0 || point->x >= win_w || point->y >= win_h;
 }
 
-static void init_coastlines(struct shown_area* area, void* funptr) {
+static void init_coastlines(struct shown_area_xy* area, void* funptr) {
     if (yid < 0)
 	return;
     area->coasts = make_coastlines(area->crs, funptr);
@@ -112,7 +112,7 @@ static int line_break(int *breaks, int ibreak, int ipoint) {
     return ibreak;
 }
 
-static void make_coastlinepoints(struct shown_area *area) {
+static void make_coastlinepoints(struct shown_area_xy *area) {
     /* tmp_x0 is coordinate value, therefore offset is multiplied with coordinate interval, area->xunits_per_datum */
     tmp_x0 = area->x0 + area->offset_i * area->xunits_per_datum;
     tmp_y0 = area->y0 + area->offset_j * area->yunits_per_datum;
@@ -124,7 +124,7 @@ static void make_coastlinepoints(struct shown_area *area) {
     int ibreak = 0, ipoint = 0, ind_from = 0;
 
     point_t* points = area->points;
-    void (*coord_to_point_fun)(double, double, point_t*) = 
+    void (*coord_to_point_fun)(double, double, point_t*) =
 	globs.invert_y ? coord_to_point_inv_y : coord_to_point;
 
     for(int e=0; e<coastl_nparts; e++) {
@@ -156,7 +156,7 @@ not_valid_point:
 }
 
 #define putval(buff, val) (buff += (memcpy(buff, &(val), sizeof(val)), sizeof(val)))
-static void save_state(char* buff, const struct shown_area *area) {
+static void save_state(char* buff, const struct shown_area_xy *area) {
     putval(buff, area->offset_j);
     putval(buff, area->offset_i);
     putval(buff, data_per_pixel);
@@ -166,7 +166,7 @@ static void save_state(char* buff, const struct shown_area *area) {
 }
 #undef putval
 
-static void check_coastlines(struct shown_area *area) {
+static void check_coastlines(struct shown_area_xy *area) {
     if (!area->points) {
 	area->points = malloc(coastl_total * sizeof(point_t));
 	area->breaks = malloc(coastl_total * sizeof(int));
@@ -184,7 +184,7 @@ static void check_coastlines(struct shown_area *area) {
     }
 }
 
-static void draw_coastlines(struct shown_area *area) {
+static void draw_coastlines(struct shown_area_xy *area) {
     check_coastlines(area); // must be before the assignment of the variables
     int nib = area->nbreaks;
     int* breaks = area->breaks;

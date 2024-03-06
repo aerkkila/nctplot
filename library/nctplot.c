@@ -28,7 +28,12 @@ static struct nctplot_globals globs_mem;
 static struct nctplot_globals* globslist;
 int globslistlen;
 
-struct shown_area;
+struct shown_area_xy;
+
+struct shown_area_z {
+    int nusers, znum; // nusers = 0, when 1 user
+    nct_var *zdim;
+};
 
 typedef struct {
     nct_var *var, *zvar;
@@ -39,7 +44,8 @@ typedef struct {
     double threshold;
     int use_threshold;
     char globs_detached;
-    struct shown_area *area;
+    struct shown_area_xy *area_xy;
+    struct shown_area_z *area_z;
 } plottable;
 
 /* Static variables. Global in the context of this library. */
@@ -106,9 +112,9 @@ union Arg {
 
 #define size_coastl_params (sizeof(int)*2 + sizeof(data_per_pixel) + sizeof(globs.invert_y) + sizeof(win_w)*2)
 
-struct shown_area {
-    int offset_i, offset_j, znum, nusers, j_off_by_one; // nusers = 0, when 1 user
-    nct_var *xdim, *ydim, *zdim;
+struct shown_area_xy {
+    int offset_i, offset_j, nusers, j_off_by_one; // nusers = 0, when 1 user
+    nct_var *xdim, *ydim;
     /* for coastlines */
     double* coasts;	// coordinates of coastlines
     void* points;	// pixelcoordinates of coastlines
@@ -262,9 +268,9 @@ static void draw2d(const nct_var* var) {
 
     if (g_only_nans) return;
 
-    void* dataptr = var->data + (plt.area->znum*plt.stepsize_z*(zid>=0) - var->startpos) * g_size1;
+    void* dataptr = var->data + (plt.area_z->znum*plt.stepsize_z*(zid>=0) - var->startpos) * g_size1;
 
-    float fdataj = plt.area->offset_j;
+    float fdataj = plt.area_xy->offset_j;
     int idataj = round(fdataj), j;
     if (plt.use_threshold) {
 	if (globs.invert_y)
@@ -345,14 +351,14 @@ static void printinfo(void* minmax) {
 	printf(", y: %s%s(%zu)%s", A, ydim->name, ydim->len, B);
     }
     if (zvar) {
-	printf(", z: %s%s(%i/%zu ", A, zvar->name, plt.area->znum+1, zvar->len);
+	printf(", z: %s%s(%i/%zu ", A, zvar->name, plt.area_z->znum+1, zvar->len);
 	if (plt.time0.d >= 0) {
 	    char help[128];
-	    strftime(help, 128, "%F %T", nct_gmtime((long)nct_get_integer(zvar, plt.area->znum), plt.time0));
+	    strftime(help, 128, "%F %T", nct_gmtime((long)nct_get_integer(zvar, plt.area_z->znum), plt.time0));
 	    printf(" %s", help);
 	}
 	else if (nct_iscoord(zvar))
-	    nct_print_datum(zvar->dtype, zvar->data+plt.area->znum*nctypelen(zvar->dtype));
+	    nct_print_datum(zvar->dtype, zvar->data+plt.area_z->znum*nctypelen(zvar->dtype));
 	printf(")%s", B);
     }
     printf("\033[K\n"
@@ -379,8 +385,8 @@ static long get_varpos_xy(int x, int y) {
 	y = draw_h / g_pixels_per_datum * g_pixels_per_datum - y;
     int i = x / g_pixels_per_datum;
     int j = y / g_pixels_per_datum;
-    float idata_f = plt.area->offset_i + i*g_data_per_step;
-    float jdata_f = plt.area->offset_j + j*g_data_per_step;
+    float idata_f = plt.area_xy->offset_i + i*g_data_per_step;
+    float jdata_f = plt.area_xy->offset_j + j*g_data_per_step;
     int idata = round(idata_f);
     int jdata = round(jdata_f);
 
@@ -389,7 +395,7 @@ static long get_varpos_xy(int x, int y) {
 
     if (idata>=xlen || (jdata>=ylen && yid >= 0))
 	return -1;
-    return (zid>=0)*xlen*ylen*plt.area->znum + (yid>=0)*xlen*jdata + idata;
+    return (zid>=0)*xlen*ylen*plt.area_z->znum + (yid>=0)*xlen*jdata + idata;
 }
 
 static void _maybe_print_mousecoordinate(int vardimid, int at) {
@@ -457,7 +463,7 @@ struct {
 } memory;
 
 static void manage_memory() {
-    long startpos = plt.area->znum * plt.stepsize_z;
+    long startpos = plt.area_z->znum * plt.stepsize_z;
     if (var->startpos <= startpos && var->endpos >= startpos+plt.stepsize_z)
 	return;
     if (!nct_loadable(var))
@@ -499,7 +505,7 @@ static void update_minmax_fun() {
     long end = var->endpos - var->startpos;
 
     if (update_minmax_cur) {
-	start = (zid>=0) * plt.stepsize_z * plt.area->znum;
+	start = (zid>=0) * plt.stepsize_z * plt.area_z->znum;
 	end = start + plt.stepsize_z;
 	update_minmax_cur = 0;
     }
@@ -533,9 +539,9 @@ static void redraw(nct_var* var) {
 #endif
     draw_funcptr(var);
     if (globs.coastlines) {
-	if (!plt.area->coasts)
-	    init_coastlines(plt.area, NULL);
-	draw_coastlines(plt.area);
+	if (!plt.area_xy->coasts)
+	    init_coastlines(plt.area_xy, NULL);
+	draw_coastlines(plt.area_xy);
     }
 #ifndef HAVE_WAYLAND
     SDL_SetRenderTarget(rend, NULL);
@@ -566,9 +572,9 @@ static void set_dimids() {
 #define GET_SPACE(a,b,c,d) (fill_on? GET_SPACE_FILL(a,b,c,d): GET_SPACE_NONFILL(a,b,c,d))
 
 static void set_draw_params() {
-    int offset_j = plt.area->offset_j + plt.area->j_off_by_one;
-    plt.area->j_off_by_one = 0;
-    int offset_i = plt.area->offset_i;
+    int offset_j = plt.area_xy->offset_j + plt.area_xy->j_off_by_one;
+    plt.area_xy->j_off_by_one = 0;
+    int offset_i = plt.area_xy->offset_i;
 
     g_only_nans = make_minmax(var->dtype);
 
@@ -585,8 +591,8 @@ static void set_draw_params() {
     if (globs.exact)
 	data_per_pixel = data_per_pixel >= 1 ? ceil(data_per_pixel) :
 	    1.0 / floor(1.0/data_per_pixel);
-    if (offset_i < 0) offset_i = plt.area->offset_i = 0;
-    if (offset_j < 0) offset_j = plt.area->offset_j = 0;
+    if (offset_i < 0) offset_i = plt.area_xy->offset_i = 0;
+    if (offset_j < 0) offset_j = plt.area_xy->offset_j = 0;
 
     draw_w = round((g_xlen-offset_i) / data_per_pixel); // how many pixels data can reach
     draw_h = round((g_ylen-offset_j) / data_per_pixel);
@@ -612,8 +618,8 @@ static void set_draw_params() {
     if (globs.invert_y) {
 	if_add_1 = draw_h / g_pixels_per_datum < g_ylen - offset_j && draw_h < win_h && offset_j;
 	offset_j -= if_add_1;
-	plt.area->offset_j = offset_j;
-	plt.area->j_off_by_one = if_add_1;
+	plt.area_xy->offset_j = offset_j;
+	plt.area_xy->j_off_by_one = if_add_1;
     }
     else
 	if_add_1 = draw_h / g_pixels_per_datum < g_ylen - offset_j && draw_h < win_h;
@@ -628,7 +634,7 @@ static uint_fast64_t time_now_ms() {
     return t.tv_sec*1000 + t.tv_usec/1000;
 }
 
-static void unlink_area(struct shown_area *area) {
+static void unlink_area_xy(struct shown_area_xy *area) {
     if (!area || area->nusers--)
 	return;
     free(area->coasts);
@@ -638,26 +644,49 @@ static void unlink_area(struct shown_area *area) {
     free(area);
 }
 
-static struct shown_area* get_ref_shown_area() {
+static void unlink_area_z(struct shown_area_z *area) {
+    if (area && !area->nusers--)
+	free(area);
+}
+
+static struct shown_area_xy* get_ref_shown_area_xy() {
     nct_var* xdim = nct_get_vardim(plt.var, xid);
     nct_var* ydim = yid >= 0 ? nct_get_vardim(plt.var, yid) : NULL;
-    nct_var* zdim = zid >= 0 ? nct_get_vardim(plt.var, zid) : NULL;
     if (plt.var->ndims < 2)
 	goto make_new;
     for (int ip=0; ip<n_plottables; ip++) {
 	nct_var* var1 = plottables[ip].var;
-	struct shown_area *a = plottables[ip].area;
+	struct shown_area_xy *a = plottables[ip].area_xy;
 	if (!var1 || !a || var1->ndims < 2)
 	    continue;
-	if (a->xdim == xdim && a->ydim == ydim && a->zdim == zdim) {
+	if (a->xdim == xdim && a->ydim == ydim) {
 	    a->nusers++;
 	    return a;
 	}
     }
 make_new:
-    struct shown_area* area = calloc(1, sizeof(struct shown_area));
+    struct shown_area_xy* area = calloc(1, sizeof(struct shown_area_xy));
     area->xdim = xdim;
     area->ydim = ydim;
+    return area;
+}
+
+static struct shown_area_z* get_ref_shown_area_z() {
+    nct_var* zdim = zid >= 0 ? nct_get_vardim(plt.var, zid) : NULL;
+    if (plt.var->ndims < 2)
+	goto make_new;
+    for (int ip=0; ip<n_plottables; ip++) {
+	nct_var* var1 = plottables[ip].var;
+	struct shown_area_z *a = plottables[ip].area_z;
+	if (!var1 || !a || var1->ndims < 2 )
+	    continue;
+	if (a->zdim == zdim) {
+	    a->nusers++;
+	    return a;
+	}
+    }
+make_new:
+    struct shown_area_z* area = calloc(1, sizeof(struct shown_area_z));
     area->zdim = zdim;
     return area;
 }
@@ -688,8 +717,10 @@ static void variable_changed() {
 	update_minmax = 1;
     plt.var = var;
     set_dimids();
-    if (!plt.area)
-	plt.area = get_ref_shown_area(pltind);
+    if (!plt.area_xy)
+	plt.area_xy = get_ref_shown_area_xy(pltind);
+    if (!plt.area_z)
+	plt.area_z = get_ref_shown_area_z(pltind);
     set_draw_params(); // sets stepsize_z needed in manage_memory
     manage_memory();
 
@@ -730,11 +761,11 @@ static void ask_crs(Arg _) {
     call_redraw = 1;
     if (prompt_string(crs, 256, "coordinate system: "))
 	return;
-    free(plt.area->crs);
-    plt.area->crs = strdup(crs);
+    free(plt.area_xy->crs);
+    plt.area_xy->crs = strdup(crs);
     export_projection();
-    free(plt.area->coasts);
-    plt.area->coasts = NULL;
+    free(plt.area_xy->coasts);
+    plt.area_xy->coasts = NULL;
 }
 
 static void cmap_ichange(Arg jump) {
@@ -790,11 +821,11 @@ static void show_bindings(Arg _) {
 static void inc_offset_i(Arg arg) {
     if (draw_w <= win_w - g_pixels_per_datum && arg.i > 0)
 	return;
-    plt.area->offset_i += arg.i;
+    plt.area_xy->offset_i += arg.i;
     set_draw_params();
     int too_much = floor((win_w - draw_w) * data_per_pixel + 1e-10);
     if (too_much > 0) {
-	plt.area->offset_i -= too_much;
+	plt.area_xy->offset_i -= too_much;
 	set_draw_params();
     }
     call_redraw = 1;
@@ -806,11 +837,11 @@ static void inc_offset_j(Arg arg) {
     int winh = win_h - additional_height();
     if (draw_h <= winh - g_pixels_per_datum && arg.i > 0)
 	return;
-    plt.area->offset_j += arg.i;
+    plt.area_xy->offset_j += arg.i;
     set_draw_params();
     int too_much = floor((winh - draw_h) * data_per_pixel + 1e-10);
     if (too_much > 0) {
-	plt.area->offset_j -= too_much;
+	plt.area_xy->offset_j -= too_much;
 	set_draw_params();
     }
     call_redraw = 1;
@@ -821,18 +852,18 @@ static void inc_znum(Arg intarg) {
 	return;
     size_t zlen = plt.zvar->len;
     /* below: znum + intarg.i, but goes around when zlen or a negative number is reached. */
-    plt.area->znum = (plt.area->znum + zlen + intarg.i) % zlen;
+    plt.area_z->znum = (plt.area_z->znum + zlen + intarg.i) % zlen;
     call_redraw = 1;
 }
 
 static void multiply_zoom_fixed_point(float multiple, float xfraction, float yfraction) {
     yfraction = (float[]){yfraction, 1-yfraction}[!!globs.invert_y];
-    float fixed_datax = draw_w*data_per_pixel * xfraction + plt.area->offset_i;
-    float fixed_datay = draw_h*data_per_pixel * yfraction + plt.area->offset_j;
+    float fixed_datax = draw_w*data_per_pixel * xfraction + plt.area_xy->offset_i;
+    float fixed_datay = draw_h*data_per_pixel * yfraction + plt.area_xy->offset_j;
     zoom *= multiple;
     set_draw_params();
-    plt.area->offset_i = iround(fixed_datax - draw_w*data_per_pixel * xfraction);
-    plt.area->offset_j = iround(fixed_datay - draw_h*data_per_pixel * yfraction);
+    plt.area_xy->offset_i = iround(fixed_datax - draw_w*data_per_pixel * xfraction);
+    plt.area_xy->offset_j = iround(fixed_datay - draw_h*data_per_pixel * yfraction);
     set_draw_params();
     call_redraw = 1;
 }
@@ -847,7 +878,7 @@ static void jump_to(Arg _) {
     int arg0, month=0, day=1, hour=0, minute=0;
     float second=0;
     switch (scanf("%d-%d-%d[ *]%d:%d:%f", &arg0, &month, &day, &hour, &minute, &second)) {
-	case 1: plt.area->znum = arg0-1; break; // user entered a frame number
+	case 1: plt.area_z->znum = arg0-1; break; // user entered a frame number
 	case 0: break;
 	case -1: warn("scanf in %s", __func__); break;
 	default:
@@ -863,13 +894,13 @@ static void jump_to(Arg _) {
 	    };
 	    time_t target_time = timegm(&tm);
 	    long long coordval = nct_convert_time_anyd(target_time, plt.time0);
-	    plt.area->znum = nct_find_sorted(plt.zvar, coordval);
+	    plt.area_z->znum = nct_find_sorted(plt.zvar, coordval);
 	    break;
     }
-    if (plt.area->znum < 0)
-	plt.area->znum = 0;
-    else if (plt.area->znum >= plt.zvar->len)
-	plt.area->znum = plt.zvar->len-1;
+    if (plt.area_z->znum < 0)
+	plt.area_z->znum = 0;
+    else if (plt.area_z->znum >= plt.zvar->len)
+	plt.area_z->znum = plt.zvar->len-1;
     lines_printed--;
     fflush(stdout);
     call_redraw = 1;
@@ -1112,7 +1143,8 @@ static void use_lastvar(Arg _) {
 }
 
 static void free_plottable(plottable* plott) {
-    unlink_area(plott->area);
+    unlink_area_xy(plott->area_xy);
+    unlink_area_z(plott->area_z);
 }
 
 static void quit(Arg _) {
@@ -1139,18 +1171,18 @@ static void quit(Arg _) {
 static void convert_coord(Arg _) {
     char from[256], to[256];
     printf("from: ");
-    if (plt.area->crs)
-	printf("%s\033[K\n", plt.area->crs);
+    if (plt.area_xy->crs)
+	printf("%s\033[K\n", plt.area_xy->crs);
     else if (prompt_string(from, sizeof(from), ""))
 	return;
     else
-	plt.area->crs = strdup(from);
+	plt.area_xy->crs = strdup(from);
     export_projection();
     if (prompt_string(to, sizeof(to), "to: "))
 	return;
-    var = nctproj_open_converted_var(var, plt.area->crs, to, NULL);
+    var = nctproj_open_converted_var(var, plt.area_xy->crs, to, NULL);
     variable_changed();
-    plt.area->crs = strdup(to); // not before variable_changed()
+    plt.area_xy->crs = strdup(to); // not before variable_changed()
 }
 #endif
 
@@ -1214,7 +1246,7 @@ static void mp_save_frame(Arg) {
     len *= out.dims[id++]->len;
 
     void* data = var->data;
-    data += ((zid >= 0) * plt.area->znum * plt.stepsize_z - var->startpos) * nctypelen(var->dtype);
+    data += ((zid >= 0) * plt.area_z->znum * plt.stepsize_z - var->startpos) * nctypelen(var->dtype);
     nct_ensure_unique_name(nct_add_var_alldims(&out, data, var->dtype, "data"))
 	-> not_freeable = 1;
 
