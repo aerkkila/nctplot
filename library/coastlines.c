@@ -5,13 +5,13 @@
 #include "shpname.h"
 
 #ifdef HAVE_PROJ
-#include "coastlines_proj.c"
+#include "proj.c"
 #endif
 
 static int* coastl_lengths = NULL;
 static int coastl_nparts = 0, coastl_total = 0;
 
-void no_conversion(float x, float y, double out[2]) {
+void no_conversion(void* _, float x, float y, double out[2]) {
     out[0] = x;
     out[1] = y;
 }
@@ -21,10 +21,11 @@ void no_conversion(float x, float y, double out[2]) {
    Variable 'coordinates' is the string to pass to proj library, e.g. "+proj=laea lat_0=90".
    Alternatively, a custom conversion function, latlon2other, can be passed as an argument.
    It is not useful to give both arguments. */
-static double* make_coastlines(const char* coordinates, void (*conversion)(float,float,double[2])) {
+static double* make_coastlines(const char* coordinates, void (*conversion)(void*,float,float,double[2])) {
+    void *cookie = NULL;
     if (coordinates) {
-	coastl_init_proj(coordinates);
-	conversion = coastl_proj_convert;
+	cookie = init_proj(coordinates, "+proj=lonlat");
+	conversion = convert_proj;
     }
     else if (!conversion)
 	conversion = no_conversion;
@@ -57,15 +58,15 @@ static double* make_coastlines(const char* coordinates, void (*conversion)(float
 	    for(int v=obj->panPartStart[p], p=0; v<end; v++, p++) {
 		float x = obj->padfX[v];
 		float y = obj->padfY[v];
-		conversion(x, y, coords+point_ind*2);
+		conversion(cookie, x, y, coords+point_ind*2);
 		point_ind++;
 	    }
 	}
 	obj = (SHPDestroyObject(obj), NULL);
     }
 
-    if (conversion == coastl_proj_convert)
-	coastl_proj_destroy();
+    if (cookie)
+	cookie = (destroy_proj(cookie), NULL);
     SHPClose(shp);
     return coords;
 }

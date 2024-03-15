@@ -9,7 +9,7 @@ ifdef have_shapelib
 	CFLAGS += -DHAVE_SHPLIB
 	libraries += -lshp -lm
 	alltarget += ne_10m_coastline
-	dependencies += coastlines.c coastlines_proj.c
+	dependencies += coastlines.c proj.c
 endif
 ifdef have_nctproj
 	CFLAGS += -DHAVE_NCTPROJ
