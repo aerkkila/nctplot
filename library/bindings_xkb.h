@@ -152,6 +152,9 @@ static Binding keydown_bindings[] = {
        See e.g. 'man proj' for how to express the coordinate systems. */
     { XKB_KEY_t,	0,		convert_coord,				},
 #endif
+#ifdef HAVE_TTRA
+    { XKB_KEY_P,	SHIFT,		toggle_var,	{.v=&use_ttra}		},
+#endif
 };
 
 #undef ALT

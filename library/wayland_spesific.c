@@ -6,6 +6,20 @@
 #define Abs(a) ((a)<0 ? -(a) : (a))
 #endif
 
+#ifdef HAVE_TTRA
+#include <ttra.h>
+struct ttra ttra;
+int use_ttra = 1;
+int fontheight_ttra = 20;
+const int ttra_space = 8;
+#define Printf(...) do { if (use_ttra) ttra_printf(&ttra, __VA_ARGS__); else printf(__VA_ARGS__); } while (0)
+#define Nct_print_datum(dtype, datum) do {						\
+    if (use_ttra) nct_fprint_datum(dtype, (nct_fprint_t)ttra_printf, &ttra, datum);	\
+    else nct_print_datum(dtype, datum);							\
+} while (0)
+#define update_printarea() (call_redraw = 1)
+#endif
+
 #define bindings_file "bindings_xkb.h"
 
 typedef struct {
@@ -134,8 +148,19 @@ static void init_graphics(int xlen, int ylen) {
 	.wheel_callback = wheel_callback,
     };
     wlh_init(&wlh);
+    ttra_init(&ttra);
+    ttra_set_fontheight(&ttra, fontheight_ttra);
     win_h = 1;
     win_w = 1;
+}
+
+static void set_ttra() {
+    ttra.canvas = wlh.data;
+    ttra_set_xy0(&ttra, 0, draw_h + cmapspace + cmappix + ttra_space);
+    ttra.w = win_w;
+    ttra.h = win_h - ttra.y0;
+    ttra.realh = win_h;
+    ttra.realw = win_w;
 }
 
 static void mainloop() {
@@ -168,6 +193,9 @@ static void mainloop() {
 	    win_h = wlh.yres;
 	    win_w = wlh.xres;
 	    set_draw_params();
+#ifdef HAVE_TTRA
+	    set_ttra();
+#endif
 	}
 
 	if ((wlh.redraw || call_redraw) && wlh.can_redraw) {
@@ -179,4 +207,6 @@ static void mainloop() {
 
     quit((Arg){0});
     wlh_destroy(&wlh);
+    ttra_destroy(&ttra);
+    ttra_fini();
 }

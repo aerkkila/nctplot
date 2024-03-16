@@ -5,6 +5,8 @@ library/function_wrappers.c
 library/ne_10m_coastline*
 library/shpname.h
 executable/nctplot
+core
+vgcore.*
 *xdg-shell*
 *.out
 *.so

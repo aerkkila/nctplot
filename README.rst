@@ -3,8 +3,6 @@ Viewing netcdf and binary files
 ===============================
 
 This program shows netcdf files as color images.
-The window contains only the plot and a colorbar
-and other information is shown on the command line.
 
 Features
 --------
@@ -39,6 +37,7 @@ Optional dependencies:
     * nctietue3 compiled with proj-library (for coordinate transformations)
     * proj (for coordinate transformations and coastlines)
     * png (for saving the plotted figure)
+    * ttra (https://codeberg.org/aerkkila/ttra) (wayland only, for printing text to the window instead of terminal)
 
 See library/config.mk to disable optional dependencies.
 

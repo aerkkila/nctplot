@@ -11,24 +11,32 @@ ifdef have_shapelib
 	alltarget += ne_10m_coastline
 	dependencies += coastlines.c proj.c
 endif
+
 ifdef have_nctproj
 	CFLAGS += -DHAVE_NCTPROJ
 endif
+
 ifdef have_proj
 	CFLAGS += -DHAVE_PROJ
 	libraries += -lproj
 endif
+
 ifdef have_png
 	CFLAGS += -DHAVE_PNG
 	libraries += -lpng
 	dependencies += png.c
 endif
+
 ifdef have_wayland
 	CFLAGS += -DHAVE_WAYLAND
 	objects += wayland_helper/wayland_helper.o
 	libraries += -lwayland-client -lxkbcommon
 	dependencies += bindings_xkb.h wayland_spesific.c wayland_helper/wayland_helper.o
 	objects_test = nctplot_debug.o test.o wayland_helper/wayland_helper.o
+ifdef have_ttra
+	CFLAGS += -DHAVE_TTRA
+	libraries += -lttra
+endif
 else
 	libraries += -lSDL2
 	dependencies += bindings.h sdl_spesific.c

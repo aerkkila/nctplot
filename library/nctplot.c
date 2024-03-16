@@ -60,6 +60,7 @@ static unsigned sleeptime;
 static double fps;
 static int win_w, win_h, xid, yid, zid, draw_w, draw_h, pending_varnum=-1, pending_cmapnum;
 static char stop, fill_on, play_on, update_minmax=1, update_minmax_cur, too_small_to_draw;
+static const int printinfo_nlines = 6;
 static int lines_printed;
 static int cmappix=30, cmapspace=10, call_redraw;
 static float minshift_abs, maxshift_abs, zoom=1;
@@ -151,15 +152,38 @@ static int iround(float f) {
     return ifloor + (f-ifloor >= 0.5) - (f-ifloor <= -0.5);
 }
 
-static inline int __attribute__((pure)) additional_height() {
-    return cmapspace + cmappix;
-}
-
 #ifdef HAVE_WAYLAND
 #include "wayland_spesific.c"
 #else
 #include "sdl_spesific.c"
 #endif
+
+#ifndef Printf
+#define Printf printf
+#define Nct_print_datum nct_print_datum
+#define update_printarea() fflush(stdout)
+#endif
+
+static int __attribute__((pure)) colormap_top() {
+    return draw_h + cmapspace - g_extended_y*g_pixels_per_datum;
+}
+
+static int __attribute__((pure)) colormap_bottom() {
+    return colormap_top() + cmappix;
+}
+
+static inline int __attribute__((pure)) total_height() {
+    int height = colormap_bottom();
+#ifdef HAVE_TTRA
+    if (use_ttra)
+	height += ttra_space + ttra.fontheight * printinfo_nlines;
+#endif
+    return height;
+}
+
+static inline int __attribute__((pure)) additional_height() {
+    return total_height() - draw_h;
+}
 
 #include "functions.c" // draw1d, draw_row, make_minmax; automatically generated from functions.in.c
 #include "coastlines.c"
@@ -257,7 +281,6 @@ static void curses_write_cmaps() {
 }
 
 static void draw2d(const nct_var* var) {
-    printinfo(g_minmax);
     if (too_small_to_draw)
 	return;
 
@@ -307,69 +330,74 @@ static void draw_colormap() {
     float cspace = 255.0f/draw_w;
     float di = 0;
     set_scale(1, 1);
-    int j0 = draw_h + cmapspace - g_extended_y*g_pixels_per_datum;
+    int j0 = colormap_top();
+    int j1 = colormap_bottom();
     if(!globs.invert_c)
 	for(int i=0; i<draw_w; i++, di+=cspace) {
 	    unsigned char* c = cmh_colorvalue(globs.cmapnum, (int)di);
 	    set_color(c);
-	    for(int j=j0; j<draw_h+additional_height(); j++)
+	    for(int j=j0; j<j1; j++)
 		graphics_draw_point(i,j);
 	}
     else
 	for(int i=draw_w-1; i>=0; i--, di+=cspace) {
 	    unsigned char* c = cmh_colorvalue(globs.cmapnum, (int)di);
 	    set_color(c);
-	    for(int j=j0; j<draw_h+additional_height(); j++)
+	    for(int j=j0; j<j1; j++)
 		graphics_draw_point(i,j);
 	}
 }
 
 static void clear_infoprint() {
     for(int i=0; i<lines_printed; i++)
-	printf("\033[2K\n");		// clear the line
-    printf("\r\033[%iA", lines_printed);	// move cursor to start
+	Printf("\033[2K\n");		// clear the line
+    Printf("\r\033[%iA", lines_printed);	// move cursor to start
     lines_printed = 0;
 }
 
 #define A echo_highlight
 #define B nct_default_color
 static void printinfo(void* minmax) {
+#ifdef HAVE_TTRA
+    if (use_ttra)
+	set_ttra();
+#endif
     if (!(globs.echo && prog_mode > n_cursesmodes))
 	return;
     nct_var *zvar = plt.zvar;
     int size1 = nctypelen(var->dtype);
-    printf("%s%s%s%s: ", A, var->name, B, plt.globs_detached ? " (detached)" : "");
-    printf("min %s", A);   nct_print_datum(var->dtype, minmax);       printf("%s", B);
-    printf(", max %s", A); nct_print_datum(var->dtype, minmax+size1); printf("%s", B);
-    printf("\033[K\n");
+    Printf("%s%s%s%s: ", A, var->name, B, plt.globs_detached ? " (detached)" : "");
+    Printf("min %s", A);   Nct_print_datum(var->dtype, minmax);       Printf("%s", B);
+    Printf(", max %s", A); Nct_print_datum(var->dtype, minmax+size1); Printf("%s", B);
+    Printf("\033[K\n");
     {
 	nct_var* xdim = nct_get_vardim(var, xid);
-	printf("x: %s%s(%zu)%s", A, xdim->name, xdim->len, B);
+	Printf("x: %s%s(%zu)%s", A, xdim->name, xdim->len, B);
     }
     if (yid >= 0) {
 	nct_var* ydim = nct_get_vardim(var, yid);
-	printf(", y: %s%s(%zu)%s", A, ydim->name, ydim->len, B);
+	Printf(", y: %s%s(%zu)%s", A, ydim->name, ydim->len, B);
     }
     if (zvar) {
-	printf(", z: %s%s(%i/%zu ", A, zvar->name, plt.area_z->znum+1, zvar->len);
+	Printf(", z: %s%s(%i/%zu ", A, zvar->name, plt.area_z->znum+1, zvar->len);
 	if (plt.time0.d >= 0) {
 	    char help[128];
 	    strftime(help, 128, "%F %T", nct_gmtime((long)nct_get_integer(zvar, plt.area_z->znum), plt.time0));
-	    printf(" %s", help);
+	    Printf(" %s", help);
 	}
 	else if (nct_iscoord(zvar))
-	    nct_print_datum(zvar->dtype, zvar->data+plt.area_z->znum*nctypelen(zvar->dtype));
-	printf(")%s", B);
+	    Nct_print_datum(zvar->dtype, zvar->data+plt.area_z->znum*nctypelen(zvar->dtype));
+	Printf(")%s", B);
     }
-    printf("\033[K\n"
+    Printf("\033[K\n"
 	    "minshift %s%.4f%s, maxshift %s%.4f%s\033[K\n"
 	    "data/pixel = %s%.4f%s\033[K\n"
 	    "colormap = %s%s%s%s\033[K\n",
 	    A,plt.minshift,B, A,plt.maxshift,B,
 	    A,data_per_pixel,B, A,cmh_colormaps[globs.cmapnum].name,B, globs.invert_c? " reversed": "");
-    putchar('\n'); // room for mouseinfo
-    lines_printed = 6;
-    printf("\r\033[%iA", lines_printed); // move cursor to start
+    Printf("\n"); // room for mouseinfo
+    lines_printed = printinfo_nlines;
+    Printf("\r\033[%iA", lines_printed); // move cursor to start
     mousemotion(0, 0); // print mouseinfo
 }
 #undef A
@@ -402,30 +430,33 @@ static void _maybe_print_mousecoordinate(int vardimid, int at) {
     nct_var* coord = nct_get_vardim(var, vardimid);
     if (coord->data) {
 	void* val = coord->data + at*nctypelen(coord->dtype);
-	nct_print_datum(coord->dtype, val);
+	Nct_print_datum(coord->dtype, val);
     }
     else
-	printf("Ø");
+	Printf("Ø");
 }
 
 static void mousemotion(int xrel, int yrel) {
     if (prog_mode < n_cursesmodes || !globs.echo)// || !count++)
 	return;
+    if (mousex >= draw_w || mousey >= draw_h)
+	return;
     long pos = get_varpos_xy(mousex,mousey);
     if (pos < 0)
 	return;
     if (lines_printed)
-	printf("\033[%iB\r", lines_printed-1); // This is the last line in info
-    nct_print_datum(var->dtype, var->data + (pos - var->startpos) * nctypelen(var->dtype));
+	Printf("\033[%iB\r", lines_printed-1); // This is the last line in info
+    Nct_print_datum(var->dtype, var->data + (pos - var->startpos) * nctypelen(var->dtype));
     int xlen = nct_get_vardim(var, xid)->len;
-    printf(" [%zu pos=(%i,%i: %i) coords=(", pos, varpos_xy_j, varpos_xy_i, varpos_xy_j*xlen + varpos_xy_i);
+    Printf(" [%zu pos=(%i,%i: %i) coords=(", pos, varpos_xy_j, varpos_xy_i, varpos_xy_j*xlen + varpos_xy_i);
     if (yid >= 0) {
 	_maybe_print_mousecoordinate(yid, varpos_xy_j);
-	putchar(',');
+	Printf(",");
     }
     _maybe_print_mousecoordinate(xid, varpos_xy_i);
-    printf(")]\033[K\n");
-    printf("\033[%iA\r", lines_printed);
+    Printf(")]\033[K\n");
+    Printf("\033[%iA\r", lines_printed);
+    update_printarea();
 }
 
 static void mousewheel(int num) {
@@ -543,6 +574,7 @@ static void redraw(nct_var* var) {
 	    init_coastlines(plt.area_xy, NULL);
 	draw_coastlines(plt.area_xy);
     }
+    printinfo(g_minmax);
 #ifndef HAVE_WAYLAND
     SDL_SetRenderTarget(rend, NULL);
 #endif
@@ -1151,8 +1183,8 @@ static void quit(Arg _) {
     stop = 1;
     if (prog_mode < n_cursesmodes)
 	end_curses((Arg){0});
-    if (lines_printed > 0)
-	printf("\r\033[%iB", lines_printed), fflush(stdout);	// move cursor past the echo region
+    if (lines_printed > 0) {
+	Printf("\r\033[%iB", lines_printed); fflush(stdout); }	// move cursor past the echo region
     lines_printed = 0;
     if (mp_params.dlhandle)
 	dlclose(mp_params.dlhandle);

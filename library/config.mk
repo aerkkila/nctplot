@@ -21,6 +21,10 @@ have_png = 1
 # If you use wayland, you should definitely not comment this out.
 have_wayland = 1
 
+# To print text to the window rather than to terminal when using wayland.
+# Without wayland, text can only be printed to terminal.
+have_ttra = 1
+
 CFLAGS = -Wall -g -fPIC -Ofast
 CC = gcc
 
