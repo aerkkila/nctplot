@@ -17,7 +17,10 @@ const int ttra_space = 8;
     if (use_ttra) nct_fprint_datum(dtype, (nct_fprint_t)ttra_printf, &ttra, datum);	\
     else nct_print_datum(dtype, datum);							\
 } while (0)
-#define update_printarea() (call_redraw = 1)
+#define update_printarea() do {		\
+    if (use_ttra) call_redraw = 1;	\
+    else fflush(stdout);		\
+} while (0)
 #endif
 
 #define bindings_file "bindings_xkb.h"
