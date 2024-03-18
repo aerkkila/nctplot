@@ -151,12 +151,15 @@ static void init_graphics(int xlen, int ylen) {
 	.wheel_callback = wheel_callback,
     };
     wlh_init(&wlh);
+#ifdef HAVE_TTRA
     ttra_init(&ttra);
     ttra_set_fontheight(&ttra, fontheight_ttra);
+#endif
     win_h = 1;
     win_w = 1;
 }
 
+#ifdef HAVE_TTRA
 static void set_ttra() {
     ttra.canvas = wlh.data;
     ttra_set_xy0(&ttra, 0, draw_h + cmapspace + cmappix + ttra_space);
@@ -165,6 +168,7 @@ static void set_ttra() {
     ttra.realh = win_h;
     ttra.realw = win_w;
 }
+#endif
 
 static void mainloop() {
     long play_start_ms = 0;
@@ -209,7 +213,9 @@ static void mainloop() {
     }
 
     quit((Arg){0});
+#ifdef HAVE_TTRA
     wlh_destroy(&wlh);
     ttra_destroy(&ttra);
     ttra_fini();
+#endif
 }

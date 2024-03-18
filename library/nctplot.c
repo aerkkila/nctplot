@@ -926,7 +926,7 @@ static void jump_to(Arg _) {
 	    };
 	    time_t target_time = timegm(&tm);
 	    long long coordval = nct_convert_time_anyd(target_time, plt.time0);
-	    plt.area_z->znum = nct_find_sorted(plt.zvar, coordval);
+	    plt.area_z->znum = nct_bsearch(plt.zvar, coordval);
 	    break;
     }
     if (plt.area_z->znum < 0)
