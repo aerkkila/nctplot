@@ -87,7 +87,7 @@ int main(int argc, char** argv) {
 
     switch (filetype) {
 	case netcdf:
-	    nct_readflags = nct_ratt | nct_rcoord | nct_rkeep*(argc-optind < 11);
+	    nct_readflags = nct_ratt | nct_rcoord | nct_rcoordall | nct_rkeep*(argc-optind < 11);
 	    set = nct_read_mfnc_ptrptr(argv+optind, argc-optind, concat_arg);
 	    break;
 	default:
