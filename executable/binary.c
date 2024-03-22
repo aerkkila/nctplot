@@ -15,17 +15,17 @@ static nct_set* read_binary(const char* name, long x, long y, nc_type dtype) {
     long length = st.st_size / nctypelen(dtype);
 
     long z = 1;
-    if (x > st.st_size) x = st.st_size;
-    if (y > st.st_size) y = st.st_size;
+    if (x > length) x = length;
+    if (y > length) y = length;
     if (x && y) {
-	if (x*y > st.st_size)
-	    y = st.st_size / x;
-	z = st.st_size / (x*y);
+	if (x*y > length)
+	    y = length / x;
+	z = length / (x*y);
     }
     else if (x)
-	y = st.st_size / x;
+	y = length / x;
     else if (y)
-	x = st.st_size / y;
+	x = length / y;
     else {
 	x = round(sqrt(length));
 	y = length / x;
