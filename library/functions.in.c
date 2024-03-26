@@ -36,7 +36,7 @@ static void draw_row_threshold_@nctype(int jpixel, const void* vrowptr, double d
 	ctype val = ((const ctype*)vrowptr)[ind];
 #if __nctype__ == NC_DOUBLE
 	if (my_isnan_double(val)) continue;
-#else
+#elif __nctype__ == NC_FLOAT
 	if (my_isnan_float(val)) continue;
 #endif
 	if (globs.usenan && val==globs.nanval)
@@ -64,7 +64,7 @@ static void draw_row_@nctype(int jpixel, const void* vrowptr) {
 	ctype val = ((const ctype*)vrowptr)[ind];
 #if __nctype__ == NC_DOUBLE
 	if (my_isnan_double(val)) continue;
-#else
+#elif __nctype__ == NC_FLOAT
 	if (my_isnan_float(val)) continue;
 #endif
 	if (globs.usenan && val==globs.nanval)
@@ -98,7 +98,7 @@ static void draw_row_buffer_@nctype(const void* vrowptr, void* buff) {
 	ctype val = ((const ctype*)vrowptr)[ind];
 #if __nctype__ == NC_DOUBLE
 	if (my_isnan_double(val)) continue;
-#else
+#elif __nctype__ == NC_FLOAT
 	if (my_isnan_float(val)) continue;
 #endif
 	if (globs.usenan && val==globs.nanval)
@@ -146,7 +146,7 @@ static void draw1d_@nctype(const nct_var* var) {
     clear_background();
 #if __nctype__ == NC_DOUBLE
 	if (my_isnan_double(g_minmax_@nctype[0])) return;
-#else
+#elif __nctype__ == NC_FLOAT
 	if (my_isnan_float(g_minmax_@nctype[0])) return;
 #endif
     double di=0;
