@@ -185,6 +185,11 @@ static inline int __attribute__((pure)) additional_height() {
     return total_height() - draw_h;
 }
 
+static void get_zoombox(long *xlen, long *ylen) {
+    *xlen = draw_w * data_per_pixel;
+    *ylen = draw_h * data_per_pixel;
+}
+
 #include "functions.c" // draw1d, draw_row, make_minmax; automatically generated from functions.in.c
 #include "coastlines.c"
 #include "png.c"
@@ -493,6 +498,12 @@ struct {
     long sum_of_variables, used_memory;
 } memory;
 
+static long get_allowed_bytes() {
+    double memory_fraction = (double)var->len * nct_typelen[var->dtype] / memory.sum_of_variables;
+    long allowed_bytes = globs.cache_size * memory_fraction;
+    return allowed_bytes;
+}
+
 static void manage_memory() {
     long startpos = plt.area_z->znum * plt.stepsize_z;
     if (var->startpos <= startpos && var->endpos >= startpos+plt.stepsize_z)
@@ -504,9 +515,8 @@ static void manage_memory() {
 	nct_foreach(var->super, v)
 	    memory.sum_of_variables += v->len * nctypelen(v->dtype);
 
-    long thisbytes = var->len * nctypelen(var->dtype);
-    double memory_fraction = (double)thisbytes / memory.sum_of_variables;
-    long allowed_bytes = globs.cache_size * memory_fraction;
+    long thisbytes = var->len * nct_typelen[var->dtype];
+    long allowed_bytes = get_allowed_bytes();
 
     if (thisbytes <= allowed_bytes) {
 	nct_load(var);
@@ -514,9 +524,30 @@ static void manage_memory() {
 	return;
     }
 
-    long thislen = allowed_bytes / nctypelen(var->dtype) / plt.stepsize_z * plt.stepsize_z;
-    if (thislen == 0)
-	thislen = plt.stepsize_z;
+    nct_var *xdim = nct_get_vardim(var, xid);
+    nct_var *ydim = nct_get_vardim(var, yid);
+
+    long thislen = allowed_bytes / nct_typelen[var->dtype] / plt.stepsize_z * plt.stepsize_z;
+    if (thislen == 0) {
+	/* zoom to an area which fits into memory */
+	long xlen, ylen;
+	get_zoombox(&xlen, &ylen);
+	ylen += ylen == 0;
+	while (xlen * ylen * nct_typelen[var->dtype] > allowed_bytes) {
+	    zoom *= 0.8;
+	    set_draw_params();
+	    get_zoombox(&xlen, &ylen);
+	    ylen += ylen == 0;
+	}
+	thislen = xlen * ylen;
+	/* Load only the zoom area and not the whole frame. */
+	nct_set_start(xdim, xdim->len/2 - 0.5*xlen);
+	nct_set_length(xdim, xlen);
+	if (ydim) {
+	    nct_set_start(ydim, ydim->len/2 - 0.5*ylen);
+	    nct_set_length(ydim, ylen);
+	}
+    }
     long endpos = startpos + thislen;
     int frames_behind = thislen / plt.stepsize_z / 5;
     startpos -= frames_behind * plt.stepsize_z;
@@ -612,7 +643,7 @@ static void set_draw_params() {
 
     g_size1 = nctypelen(var->dtype);
     g_xlen = nct_get_vardim(var, xid)->len;
-    if(yid>=0) {
+    if (yid>=0) {
 	g_ylen  = nct_get_vardim(var, yid)->len;
 	data_per_pixel = GET_SPACE(g_xlen, win_w, g_ylen, win_h - additional_height());
     } else {
@@ -630,6 +661,7 @@ static void set_draw_params() {
     draw_h = round((g_ylen-offset_j) / data_per_pixel);
     draw_w = MIN(win_w, draw_w);
     draw_h = MIN(win_h-additional_height(), draw_h);
+    draw_h = MAX(draw_h, 0);
     too_small_to_draw = draw_h < 0;
     if (zid < 0) zid = -1;
     plt.stepsize_z = nct_get_len_from(var, zid+1); // works even if zid == -1
@@ -643,6 +675,7 @@ static void set_draw_params() {
     draw_h = draw_h / g_pixels_per_datum * g_pixels_per_datum;
 
 #ifndef HAVE_WAYLAND
+    /* The last virtual pixel fits only partly to the screen and is truncated. */
     int if_add_1;
     if_add_1 = draw_w / g_pixels_per_datum < g_xlen - offset_i && draw_w < win_w;
     draw_w += if_add_1 * g_pixels_per_datum; // may be larger than win_w which is not a problem in SDL
