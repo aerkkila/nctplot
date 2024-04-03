@@ -43,7 +43,7 @@ static int write_png(unsigned char* rgb, const char* name) {
     for (int j=0; j<height; j++)
 	png_free(png_p, pngdata[j]);
     png_free(png_p, pngdata);
-  
+
     fclose(file);
     png_destroy_write_struct(&png_p, &info_p);
 
@@ -70,7 +70,7 @@ static void draw2d_buffer(void* buff, int offset_j) {
 	memcpy(buff+i*3, globs.color_bg, 3);
     if (g_only_nans) return;
 
-    void* dataptr = var->data + (plt.area->znum*plt.stepsize_z*(zid>=0) - var->startpos) * g_size1;
+    void* dataptr = var->data + (plt.area_z->znum*plt.stepsize_z*(zid>=0) - var->startpos) * g_size1;
 
     float fdataj = offset_j;
     int idataj = round(fdataj), j;
@@ -96,7 +96,7 @@ static void save_png(Arg _) {
 #ifdef HAVE_WAYLAND
     rgba_to_rgb(buffer);
 #else
-    draw2d_buffer(buffer, plt.area->offset_j);
+    draw2d_buffer(buffer, plt.area_xy->offset_j);
 #endif
     char name[100];
     sprintf(name, "nctplot_%li.png", (long)time(NULL));

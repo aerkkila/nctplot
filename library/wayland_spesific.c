@@ -8,10 +8,10 @@
 
 #ifdef HAVE_TTRA
 #include <ttra.h>
-struct ttra ttra;
-int use_ttra = 1;
-int fontheight_ttra = 20;
-const int ttra_space = 8;
+static struct ttra ttra;
+static int use_ttra = 1;
+static int fontheight_ttra = 20;
+static const int ttra_space = 8;
 #define Printf(...) do { if (use_ttra) ttra_printf(&ttra, __VA_ARGS__); else printf(__VA_ARGS__); } while (0)
 #define Nct_print_datum(dtype, datum) do {						\
     if (use_ttra) nct_fprint_datum(dtype, (nct_fprint_t)ttra_printf, &ttra, datum);	\
@@ -40,7 +40,7 @@ int wlh_scalex = 1,
     wlh_scaley = 1;
 
 static void set_color(unsigned char* c) {
-    wlh_color = 
+    wlh_color =
 	(c[0] << 16 ) |
 	(c[1] << 8 ) |
 	(c[2] << 0) |
@@ -117,6 +117,13 @@ static void draw_lines(const void *v, int n) {
 static void key_callback(struct wayland_helper *wlh) {
     if (!wlh->keydown)
 	return;
+
+    if (typingmode) {
+	char c[32];
+	xkb_state_key_get_utf8(wlh->xkbstate, wlh->last_key, c, sizeof(c));
+	return typing_input(c);
+    }
+
     const xkb_keysym_t* syms;
     int nsyms = wlh_get_keysyms(wlh, &syms);
     for (int isym=0; isym<nsyms; isym++)

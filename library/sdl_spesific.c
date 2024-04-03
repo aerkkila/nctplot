@@ -92,6 +92,20 @@ static void resized() {
 
 static int mousex, mousey;
 
+static void key_callback(SDL_Keycode sym, unsigned mod) {
+    if (!typingmode || (get_modstate() & (KMOD_GUI | KMOD_ALT | KMOD_CTRL)))
+	return keydown_func(event.key.keysym.sym, get_modstate());
+
+    /* SDL_Textmode doesn't automatically turn backspaces into '\b' and so on */
+    switch (sym) {
+	case SDLK_RETURN:
+	case SDLK_KP_ENTER:	typing_input("\r"); break;
+	case SDLK_BACKSPACE:	typing_input("\b"); break;
+	case SDLK_ESCAPE:	typing_input("\e"); break;
+	default: break;
+    }
+}
+
 static void mainloop() {
     int mouse_pressed=0;
     long play_start_ms = 0;
@@ -102,15 +116,19 @@ start:
 	case SDL_QUIT:
 	    quit((Arg){0}); break;
 	case SDL_WINDOWEVENT:
-	    if(event.window.event==SDL_WINDOWEVENT_RESIZED)
+	    if (event.window.event==SDL_WINDOWEVENT_RESIZED)
 		call_resized = 1;
 	    break;
 	case SDL_KEYDOWN:
-	    keydown_func(event.key.keysym.sym, get_modstate()); break;
+	    key_callback(event.key.keysym.sym, get_modstate()); break;
+	case SDL_TEXTINPUT:
+	    if (!(get_modstate() & (KMOD_GUI | KMOD_ALT | KMOD_CTRL)))
+		typing_input(event.text.text);
+	    break;
 	case SDL_MOUSEMOTION:
 	    mousex = event.motion.x;
 	    mousey = event.motion.y;
-	    if(mouse_pressed) {
+	    if (mouse_pressed) {
 		if (prog_mode==mousepaint_m) {
 		    mousepaint();
 		    call_redraw = 1;
@@ -127,7 +145,7 @@ start:
 	case SDL_MOUSEWHEEL:
 	    mousewheel(event.wheel.y);
 	}
-	if(stop) return;
+	if (stop) return;
     }
 
     if (stop)		return;
