@@ -220,8 +220,8 @@ static void mainloop() {
     }
 
     quit((Arg){0});
-#ifdef HAVE_TTRA
     wlh_destroy(&wlh);
+#ifdef HAVE_TTRA
     ttra_destroy(&ttra);
     ttra_fini();
 #endif
