@@ -223,6 +223,5 @@ static void mainloop() {
     wlh_destroy(&wlh);
 #ifdef HAVE_TTRA
     ttra_destroy(&ttra);
-    ttra_fini();
 #endif
 }
