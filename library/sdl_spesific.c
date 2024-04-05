@@ -1,6 +1,6 @@
 #include <SDL2/SDL.h>
 
-#define bindings_file "bindings.h"
+#define bindings_file "bindings_sdl.h"
 
 typedef SDL_Point point_t;
 
