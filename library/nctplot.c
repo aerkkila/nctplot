@@ -36,6 +36,7 @@ struct shown_area_z {
 
 typedef struct {
     nct_var *var, *zvar;
+    int truncated;
     nct_anyd time0;
     char minmax[8*2];
     size_t stepsize_z;
@@ -413,7 +414,7 @@ static void printinfo(void* minmax) {
 	return;
     nct_var *zvar = plt.zvar;
     int size1 = nctypelen(var->dtype);
-    Printf("%s%s%s%s: ", A, var->name, B, plt.globs_detached ? " (detached)" : "");
+    Printf("%s%s%s%s%s: ", A, var->name, B, plt.globs_detached ? " (detached)" : "", plt.truncated ? " (truncated)" : "");
     Printf("min %s", A);   Nct_print_datum(var->dtype, minmax);       Printf("%s", B);
     Printf(", max %s", A); Nct_print_datum(var->dtype, minmax+size1); Printf("%s", B);
     Printf("\033[K\n");
@@ -592,6 +593,7 @@ static void manage_memory() {
 	    nct_set_start(ydim, ydim->len/2 - 0.5*ylen);
 	    nct_set_length(ydim, ylen);
 	}
+	plt.truncated = 1;
     }
     long endpos = startpos + thislen;
     int frames_behind = thislen / plt.stepsize_z / 5;
