@@ -63,11 +63,11 @@ static char stop, fill_on, play_on, update_minmax=1, update_minmax_cur, too_smal
 static const int printinfo_nlines = 6;
 static int lines_printed;
 static int cmappix=30, cmapspace=10, call_redraw;
-static float minshift_abs, maxshift_abs, zoom=1;
+static float minshift_abs, maxshift_abs;
 static float data_per_pixel; // (n(data) / n(pixels)) in one direction
 static const char* echo_highlight = "\033[1;93m";
 static void (*draw_funcptr)(const nct_var*);
-static enum {no_m, variables_m=-100, colormaps_m, n_cursesmodes, mousepaint_m} prog_mode = no_m;
+static enum {no_m, variables_m=-100, colormaps_m, n_cursesmodes/*not a mode*/, mousepaint_m} prog_mode = no_m;
 /* drawing parameters */
 static float g_data_per_step;
 static int g_pixels_per_datum, g_xlen, g_ylen, g_size1, g_only_nans, g_extended_y;
@@ -140,6 +140,7 @@ union Arg {
 
 struct shown_area_xy {
     int offset_i, offset_j, nusers, j_off_by_one; // nusers = 0, when 1 user
+    float zoom;
     nct_var *xdim, *ydim;
     /* for coastlines */
     double* coasts;	// coordinates of coastlines
@@ -580,7 +581,7 @@ static void manage_memory() {
 	get_zoombox(&xlen, &ylen);
 	ylen += ylen == 0;
 	while (xlen * ylen * nct_typelen[var->dtype] > allowed_bytes) {
-	    zoom *= 0.8;
+	    plt.area_xy->zoom *= 0.8;
 	    set_draw_params();
 	    get_zoombox(&xlen, &ylen);
 	    ylen += ylen == 0;
@@ -697,7 +698,7 @@ static void set_draw_params() {
 	data_per_pixel = (float)(g_xlen)/(win_w);
 	g_ylen  = win_h * data_per_pixel;
     }
-    data_per_pixel *= zoom;
+    data_per_pixel *= plt.area_xy->zoom;
     if (globs.exact)
 	data_per_pixel = data_per_pixel >= 1 ? ceil(data_per_pixel) :
 	    1.0 / floor(1.0/data_per_pixel);
@@ -780,6 +781,7 @@ make_new:
     struct shown_area_xy* area = calloc(1, sizeof(struct shown_area_xy));
     area->xdim = xdim;
     area->ydim = ydim;
+    area->zoom = 1;
     return area;
 }
 
@@ -968,7 +970,7 @@ static void multiply_zoom_fixed_point(float multiple, float xfraction, float yfr
     yfraction = (float[]){yfraction, 1-yfraction}[!!globs.invert_y];
     float fixed_datax = draw_w*data_per_pixel * xfraction + plt.area_xy->offset_i;
     float fixed_datay = draw_h*data_per_pixel * yfraction + plt.area_xy->offset_j;
-    zoom *= multiple;
+    plt.area_xy->zoom *= multiple;
     set_draw_params();
     plt.area_xy->offset_i = iround(fixed_datax - draw_w*data_per_pixel * xfraction);
     plt.area_xy->offset_j = iround(fixed_datay - draw_h*data_per_pixel * yfraction);
