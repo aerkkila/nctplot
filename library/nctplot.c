@@ -64,13 +64,16 @@ static const int printinfo_nlines = 6;
 static int lines_printed;
 static int cmappix=30, cmapspace=10, call_redraw;
 static float minshift_abs, maxshift_abs;
-static float data_per_pixel; // (n(data) / n(pixels)) in one direction
+typedef float float2 __attribute__((vector_size(2*sizeof(float))));
+static float2 data_per_pixel; // (n(data) / n(pixels)) in one direction
 static const char* echo_highlight = "\033[1;93m";
 static void (*draw_funcptr)(const nct_var*);
 static enum {no_m, variables_m=-100, colormaps_m, n_cursesmodes/*not a mode*/, mousepaint_m} prog_mode = no_m;
 /* drawing parameters */
-static float g_data_per_step;
-static int g_pixels_per_datum, g_xlen, g_ylen, g_size1, g_only_nans, g_extended_y;
+static float2 g_data_per_step;
+typedef int int2 __attribute__((vector_size(2*sizeof(int))));
+static int2 g_pixels_per_datum;
+static int g_xlen, g_ylen, g_size1, g_only_nans, g_extended_y;
 static char g_minmax[2*8]; // a buffer, which is used with a g_minmax_@nctype pointer
 /* When coming backwards to a 0-dimensional variable, we want to jump to previous and not to next. */
 static char _variable_changed_direction = 1;
@@ -82,7 +85,7 @@ static int my_isnan_float(float f);
 static int my_isnan_double(double f);
 static void printinfo(void* minmax);
 static void redraw(nct_var* var);
-static void multiply_zoom_fixed_point(float multiple, float xfraction, float yfraction);
+static void multiply_zoom_fixed_point(float2 multiple, float xfraction, float yfraction);
 static void draw_colormap();
 static void set_dimids();
 static void set_draw_params();
@@ -140,7 +143,7 @@ union Arg {
 
 struct shown_area_xy {
     int offset_i, offset_j, nusers, j_off_by_one; // nusers = 0, when 1 user
-    float zoom;
+    float2 zoom;
     nct_var *xdim, *ydim;
     /* for coastlines */
     double* coasts;	// coordinates of coastlines
@@ -193,7 +196,7 @@ static int iround(float f) {
 static void nop() {}
 
 static int __attribute__((pure)) colormap_top() {
-    return draw_h + cmapspace - g_extended_y*g_pixels_per_datum;
+    return draw_h + cmapspace - g_extended_y*g_pixels_per_datum[1];
 }
 
 static int __attribute__((pure)) colormap_bottom() {
@@ -214,8 +217,8 @@ static inline int __attribute__((pure)) additional_height() {
 }
 
 static void get_zoombox(long *xlen, long *ylen) {
-    *xlen = draw_w * data_per_pixel;
-    *ylen = draw_h * data_per_pixel;
+    *xlen = draw_w * data_per_pixel[0];
+    *ylen = draw_h * data_per_pixel[1];
 }
 
 #include "functions.c" // draw1d, draw_row, make_minmax; automatically generated from functions.in.c
@@ -336,7 +339,7 @@ static void draw2d(const nct_var* var) {
     /* defined either ind sdl_spesific or wayland_spesific depending on the choice in config.mk */
     set_color(globs.color_bg);
     clear_background();
-    set_scale(g_pixels_per_datum, g_pixels_per_datum);
+    set_scale(g_pixels_per_datum[0], g_pixels_per_datum[1]);
 
     if (g_only_nans) return;
 
@@ -346,30 +349,30 @@ static void draw2d(const nct_var* var) {
     int idataj = round(fdataj), j;
     if (plt.use_threshold) {
 	if (globs.invert_y)
-	    for(j=draw_h-g_pixels_per_datum; j>=0; j-=g_pixels_per_datum) {
+	    for(j=draw_h-g_pixels_per_datum[1]; j>=0; j-=g_pixels_per_datum[1]) {
 		draw_row_threshold(var->dtype, j,
 		    dataptr + g_size1*idataj*g_xlen, plt.threshold);
-		idataj = round(fdataj += g_data_per_step);
+		idataj = round(fdataj += g_data_per_step[1]);
 	    }
 	else
-	    for(j=0; j<draw_h; j+=g_pixels_per_datum) {
+	    for(j=0; j<draw_h; j+=g_pixels_per_datum[1]) {
 		draw_row_threshold(var->dtype, j,
 		    dataptr + g_size1*idataj*g_xlen, plt.threshold);
-		idataj = round(fdataj += g_data_per_step);
+		idataj = round(fdataj += g_data_per_step[1]);
 	    }
     }
     else {
 	if (globs.invert_y)
-	    for(j=draw_h-g_pixels_per_datum; j>=0; j-=g_pixels_per_datum) {
+	    for(j=draw_h-g_pixels_per_datum[1]; j>=0; j-=g_pixels_per_datum[1]) {
 		draw_row(var->dtype, j,
 		    dataptr + g_size1*idataj*g_xlen);
-		idataj = round(fdataj += g_data_per_step);
+		idataj = round(fdataj += g_data_per_step[1]);
 	    }
 	else
-	    for(j=0; j<draw_h; j+=g_pixels_per_datum) {
+	    for(j=0; j<draw_h; j+=g_pixels_per_datum[1]) {
 		draw_row(var->dtype, j,
 		    dataptr + g_size1*idataj*g_xlen);
-		idataj = round(fdataj += g_data_per_step);
+		idataj = round(fdataj += g_data_per_step[1]);
 	    }
     }
     draw_colormap();
@@ -440,10 +443,10 @@ static void printinfo(void* minmax) {
     }
     Printf("\033[K\n"
 	    "minshift %s%.4f%s, maxshift %s%.4f%s\033[K\n"
-	    "data/pixel = %s%.4f%s\033[K\n"
+	    "data/pixel = %s(%.4f, %.4f)%s\033[K\n"
 	    "colormap = %s%s%s%s\033[K\n",
 	    A,plt.minshift,B, A,plt.maxshift,B,
-	    A,data_per_pixel,B, A,cmh_colormaps[globs.cmapnum].name,B, globs.invert_c? " reversed": "");
+	    A,data_per_pixel[0],data_per_pixel[1],B, A,cmh_colormaps[globs.cmapnum].name,B, globs.invert_c? " reversed": "");
     Printf("\n"); // room for mouseinfo
     lines_printed = printinfo_nlines + !!typingmode;
     Printf("\r\033[%iA", lines_printed - !!typingmode); // move cursor to start
@@ -462,11 +465,11 @@ static long get_varpos_xy(int x, int y) {
     long ylen = yid < 0 ? 0 : nct_get_vardim(var, yid)->len;
 
     if (globs.invert_y)
-	y = draw_h / g_pixels_per_datum * g_pixels_per_datum - y;
-    int i = x / g_pixels_per_datum;
-    int j = y / g_pixels_per_datum;
-    float idata_f = plt.area_xy->offset_i + i*g_data_per_step;
-    float jdata_f = plt.area_xy->offset_j + j*g_data_per_step;
+	y = draw_h / g_pixels_per_datum[1] * g_pixels_per_datum[1] - y;
+    int i = x / g_pixels_per_datum[0];
+    int j = y / g_pixels_per_datum[1];
+    float idata_f = plt.area_xy->offset_i + i*g_data_per_step[0];
+    float jdata_f = plt.area_xy->offset_j + j*g_data_per_step[1];
     int idata = round(idata_f);
     int jdata = round(jdata_f);
 
@@ -521,17 +524,17 @@ static void mousewheel(int num) {
 	multiple = 1 / multiple;
 	num = -num;
     }
-    while(num) {
+    while (num) {
 	multiple *= multiple;
 	num--;
     }
-    multiply_zoom_fixed_point(multiple, x/draw_w, y/draw_h);
+    multiply_zoom_fixed_point((float2){multiple, multiple}, x/draw_w, y/draw_h);
 }
 
 static void mousemove(float xrel, float yrel) {
     static float move_datax, move_datay;
-    move_datax += xrel * data_per_pixel;
-    move_datay += yrel * data_per_pixel;
+    move_datax += xrel * data_per_pixel[0];
+    move_datay += yrel * data_per_pixel[1];
     int xmove, ymove;
     move_datax -= (xmove = iround(move_datax));
     move_datay -= (ymove = iround(move_datay));
@@ -581,7 +584,7 @@ static void manage_memory() {
 	get_zoombox(&xlen, &ylen);
 	ylen += ylen == 0;
 	while (xlen * ylen * nct_typelen[var->dtype] > allowed_bytes) {
-	    plt.area_xy->zoom *= 0.8;
+	    plt.area_xy->zoom[0] *= 0.8;
 	    set_draw_params();
 	    get_zoombox(&xlen, &ylen);
 	    ylen += ylen == 0;
@@ -693,20 +696,23 @@ static void set_draw_params() {
     g_xlen = nct_get_vardim(var, xid)->len;
     if (yid>=0) {
 	g_ylen  = nct_get_vardim(var, yid)->len;
-	data_per_pixel = GET_SPACE(g_xlen, win_w, g_ylen, win_h - additional_height());
+	float a = GET_SPACE(g_xlen, win_w, g_ylen, win_h - additional_height());
+	data_per_pixel = (float2){a, a};
     } else {
-	data_per_pixel = (float)(g_xlen)/(win_w);
-	g_ylen  = win_h * data_per_pixel;
+	float a = (float)(g_xlen)/(win_w);
+	data_per_pixel = (float2){a, a};
+	g_ylen  = win_h * data_per_pixel[1];
     }
     data_per_pixel *= plt.area_xy->zoom;
     if (globs.exact)
-	data_per_pixel = data_per_pixel >= 1 ? ceil(data_per_pixel) :
-	    1.0 / floor(1.0/data_per_pixel);
+	for (int i=0; i<2; i++)
+	    data_per_pixel[i] = data_per_pixel[i] >= 1 ? ceil(data_per_pixel[i]) :
+		1.0 / floor(1.0/data_per_pixel[i]);
     if (offset_i < 0) offset_i = plt.area_xy->offset_i = 0;
     if (offset_j < 0) offset_j = plt.area_xy->offset_j = 0;
 
-    draw_w = round((g_xlen-offset_i) / data_per_pixel); // how many pixels data can reach
-    draw_h = round((g_ylen-offset_j) / data_per_pixel);
+    draw_w = round((g_xlen-offset_i) / data_per_pixel[0]); // how many pixels data can reach
+    draw_h = round((g_ylen-offset_j) / data_per_pixel[1]);
     draw_w = MIN(win_w, draw_w);
     draw_h = MIN(win_h-additional_height(), draw_h);
     draw_h = MAX(draw_h, 0);
@@ -715,28 +721,30 @@ static void set_draw_params() {
     plt.stepsize_z = nct_get_len_from(var, zid+1); // works even if zid == -1
     plt.stepsize_z += plt.stepsize_z == 0; // length must be at least 1
 
-    g_pixels_per_datum = globs.exact ? round(1.0 / data_per_pixel) : 1.0 / data_per_pixel;
-    g_pixels_per_datum += !g_pixels_per_datum;
-    g_data_per_step = g_pixels_per_datum * data_per_pixel; // step is a virtual pixel >= physical pixel
+    for (int i=0; i<2; i++) {
+	g_pixels_per_datum[i] = globs.exact ? round(1.0 / data_per_pixel[i]) : 1.0 / data_per_pixel[i];
+	g_pixels_per_datum[i] += !g_pixels_per_datum[i];
+	g_data_per_step[i] = g_pixels_per_datum[i] * data_per_pixel[i]; // step is a virtual pixel >= physical pixel
+    }
 
-    draw_w = draw_w / g_pixels_per_datum * g_pixels_per_datum;
-    draw_h = draw_h / g_pixels_per_datum * g_pixels_per_datum;
+    draw_w = draw_w / g_pixels_per_datum[0] * g_pixels_per_datum[0];
+    draw_h = draw_h / g_pixels_per_datum[1] * g_pixels_per_datum[1];
 
 #ifndef HAVE_WAYLAND
     /* The last virtual pixel fits only partly to the screen and is truncated. */
     int if_add_1;
-    if_add_1 = draw_w / g_pixels_per_datum < g_xlen - offset_i && draw_w < win_w;
-    draw_w += if_add_1 * g_pixels_per_datum; // may be larger than win_w which is not a problem in SDL
+    if_add_1 = draw_w / g_pixels_per_datum[0] < g_xlen - offset_i && draw_w < win_w;
+    draw_w += if_add_1 * g_pixels_per_datum[0]; // may be larger than win_w which is not a problem in SDL
 
     if (globs.invert_y) {
-	if_add_1 = draw_h / g_pixels_per_datum < g_ylen - offset_j && draw_h < win_h && offset_j;
+	if_add_1 = draw_h / g_pixels_per_datum[1] < g_ylen - offset_j && draw_h < win_h && offset_j;
 	offset_j -= if_add_1;
 	plt.area_xy->offset_j = offset_j;
 	plt.area_xy->j_off_by_one = if_add_1;
     }
     else
-	if_add_1 = draw_h / g_pixels_per_datum < g_ylen - offset_j && draw_h < win_h;
-    draw_h += if_add_1 * g_pixels_per_datum; // may be larger than win_h which is not a problem in SDL
+	if_add_1 = draw_h / g_pixels_per_datum[1] < g_ylen - offset_j && draw_h < win_h;
+    draw_h += if_add_1 * g_pixels_per_datum[1]; // may be larger than win_h which is not a problem in SDL
     g_extended_y = if_add_1;
 #endif
 }
@@ -781,7 +789,7 @@ make_new:
     struct shown_area_xy* area = calloc(1, sizeof(struct shown_area_xy));
     area->xdim = xdim;
     area->ydim = ydim;
-    area->zoom = 1;
+    area->zoom[0] = area->zoom[1] = 1;
     return area;
 }
 
@@ -929,11 +937,11 @@ static void show_bindings(Arg _) {
 }
 
 static void inc_offset_i(Arg arg) {
-    if (draw_w <= win_w - g_pixels_per_datum && arg.i > 0)
+    if (draw_w <= win_w - g_pixels_per_datum[0] && arg.i > 0)
 	return;
     plt.area_xy->offset_i += arg.i;
     set_draw_params();
-    int too_much = floor((win_w - draw_w) * data_per_pixel + 1e-10);
+    int too_much = floor((win_w - draw_w) * data_per_pixel[0] + 1e-10);
     if (too_much > 0) {
 	plt.area_xy->offset_i -= too_much;
 	set_draw_params();
@@ -945,11 +953,11 @@ static void inc_offset_j(Arg arg) {
     if (globs.invert_y)
 	arg.i = -arg.i;
     int winh = win_h - additional_height();
-    if (draw_h <= winh - g_pixels_per_datum && arg.i > 0)
+    if (draw_h <= winh - g_pixels_per_datum[1] && arg.i > 0)
 	return;
     plt.area_xy->offset_j += arg.i;
     set_draw_params();
-    int too_much = floor((winh - draw_h) * data_per_pixel + 1e-10);
+    int too_much = floor((winh - draw_h) * data_per_pixel[1] + 1e-10);
     if (too_much > 0) {
 	plt.area_xy->offset_j -= too_much;
 	set_draw_params();
@@ -966,20 +974,28 @@ static void inc_znum(Arg intarg) {
     call_redraw = 1;
 }
 
-static void multiply_zoom_fixed_point(float multiple, float xfraction, float yfraction) {
+static void multiply_zoom_fixed_point(float2 multiple, float xfraction, float yfraction) {
     yfraction = (float[]){yfraction, 1-yfraction}[!!globs.invert_y];
-    float fixed_datax = draw_w*data_per_pixel * xfraction + plt.area_xy->offset_i;
-    float fixed_datay = draw_h*data_per_pixel * yfraction + plt.area_xy->offset_j;
+    float fixed_datax = draw_w*data_per_pixel[0] * xfraction + plt.area_xy->offset_i;
+    float fixed_datay = draw_h*data_per_pixel[1] * yfraction + plt.area_xy->offset_j;
     plt.area_xy->zoom *= multiple;
     set_draw_params();
-    plt.area_xy->offset_i = iround(fixed_datax - draw_w*data_per_pixel * xfraction);
-    plt.area_xy->offset_j = iround(fixed_datay - draw_h*data_per_pixel * yfraction);
+    plt.area_xy->offset_i = iround(fixed_datax - draw_w*data_per_pixel[0] * xfraction);
+    plt.area_xy->offset_j = iround(fixed_datay - draw_h*data_per_pixel[1] * yfraction);
     set_draw_params();
     call_redraw = 1;
 }
 
 static void multiply_zoom(Arg arg) {
-    multiply_zoom_fixed_point(arg.f, 0.5, 0.5);
+    multiply_zoom_fixed_point((float2){arg.f, arg.f}, 0.5, 0.5);
+}
+
+static void multiply_zoomx(Arg arg) {
+    multiply_zoom_fixed_point((float2){arg.f, 1}, 0.5, 0.5);
+}
+
+static void multiply_zoomy(Arg arg) {
+    multiply_zoom_fixed_point((float2){1, arg.f}, 0.5, 0.5);
 }
 
 static void end_typing_goto() {

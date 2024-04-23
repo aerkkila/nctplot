@@ -109,6 +109,10 @@ static Binding keydown_bindings[] = {
     { SDLK_f,		0,			toggle_var,	{.v=&fill_on}		},
     { SDLK_PLUS,	0,			multiply_zoom,	{.f=0.85}		}, // smaller number is more zoom
     { SDLK_MINUS,	0,			multiply_zoom,	{.f=1/0.85}		}, // larger number is less zoom
+    { SDLK_x,		KMOD_SHIFT,		multiply_zoomx,	{.f=0.85}		},
+    { SDLK_x,		0,			multiply_zoomx,	{.f=1/0.85}		},
+    { SDLK_y,		KMOD_SHIFT,		multiply_zoomy,	{.f=0.85}		},
+    { SDLK_y,		0,			multiply_zoomy,	{.f=1/0.85}		},
     { SDLK_RIGHT,	0,			inc_znum,	{.i=1}			},
     { SDLK_LEFT,	0,			inc_znum,	{.i=-1}			},
     /* Move the zoom/view rectangle 7 steps. */

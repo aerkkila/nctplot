@@ -117,8 +117,8 @@ static void make_coastlinepoints(struct shown_area_xy *area) {
     /* tmp_x0 is coordinate value, therefore offset is multiplied with coordinate interval, area->xunits_per_datum */
     tmp_x0 = area->x0 + area->offset_i * area->xunits_per_datum;
     tmp_y0 = area->y0 + area->offset_j * area->yunits_per_datum;
-    tmp_xpixels_per_unit = 1 / area->xunits_per_datum / data_per_pixel;
-    tmp_ypixels_per_unit = 1 / area->yunits_per_datum / data_per_pixel;
+    tmp_xpixels_per_unit = 1 / area->xunits_per_datum / data_per_pixel[0];
+    tmp_ypixels_per_unit = 1 / area->yunits_per_datum / data_per_pixel[1];
     double* coords = area->coasts;
     int* breaks = area->breaks;
 

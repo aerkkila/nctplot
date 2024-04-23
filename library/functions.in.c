@@ -29,7 +29,7 @@ static void draw_row_threshold_@nctype(int jpixel, const void* vrowptr, double d
     float idata_f = plt.area_xy->offset_i;
     const ctype thr = dthr;
     const int cvals[] = {255*1/10, 255*9/10, 255*1/10};
-    for (int ipixel=0; ipixel<draw_w; ipixel+=g_pixels_per_datum, idata_f+=g_data_per_step) {
+    for (int ipixel=0; ipixel<draw_w; ipixel+=g_pixels_per_datum[0], idata_f+=g_data_per_step[0]) {
 	long ind = (size_t)round(idata_f);
 	if (ind >= g_xlen)
 	    return;
@@ -45,19 +45,19 @@ static void draw_row_threshold_@nctype(int jpixel, const void* vrowptr, double d
 	unsigned char* c = cmh_colorvalue(globs.cmapnum,value);
 	set_color(c);
 #ifdef HAVE_WAYLAND // the #else would also work but this is more optimal
-	draw_point_in_xscale(ipixel/g_pixels_per_datum, jpixel/g_pixels_per_datum);
+	draw_point_in_xscale(ipixel/g_pixels_per_datum[0], jpixel/g_pixels_per_datum[1]);
 #else
-	graphics_draw_point(ipixel/g_pixels_per_datum, jpixel/g_pixels_per_datum);
+	graphics_draw_point(ipixel/g_pixels_per_datum[0], jpixel/g_pixels_per_datum[1]);
 #endif
     }
 #ifdef HAVE_WAYLAND // same comment as above
-    expand_row_to_yscale(jpixel/g_pixels_per_datum);
+    expand_row_to_yscale(jpixel/g_pixels_per_datum[1]);
 #endif
 }
 
 static void draw_row_@nctype(int jpixel, const void* vrowptr) {
     float idata_f = plt.area_xy->offset_i;
-    for (int ipixel=0; ipixel<draw_w; ipixel+=g_pixels_per_datum, idata_f+=g_data_per_step) {
+    for (int ipixel=0; ipixel<draw_w; ipixel+=g_pixels_per_datum[0], idata_f+=g_data_per_step[0]) {
 	long ind = (size_t)round(idata_f);
 	if (ind >= g_xlen)
 	    return;
@@ -74,13 +74,13 @@ static void draw_row_@nctype(int jpixel, const void* vrowptr) {
 	unsigned char* c = cmh_colorvalue(globs.cmapnum,value);
 	set_color(c);
 #ifdef HAVE_WAYLAND // the #else would also work but this is more optimal
-	draw_point_in_xscale(ipixel/g_pixels_per_datum, jpixel/g_pixels_per_datum);
+	draw_point_in_xscale(ipixel/g_pixels_per_datum[0], jpixel/g_pixels_per_datum[1]);
 #else
-	graphics_draw_point(ipixel/g_pixels_per_datum, jpixel/g_pixels_per_datum);
+	graphics_draw_point(ipixel/g_pixels_per_datum[0], jpixel/g_pixels_per_datum[1]);
 #endif
     }
 #ifdef HAVE_WAYLAND // same comment as above
-    expand_row_to_yscale(jpixel/g_pixels_per_datum);
+    expand_row_to_yscale(jpixel/g_pixels_per_datum[1]);
 #endif
 }
 
@@ -88,9 +88,9 @@ static void draw_row_buffer_@nctype(const void* vrowptr, void* buff) {
     float idata_f = plt.area_xy->offset_i;
     void* ptr = buff;
     for (int ipixel=0; ipixel<draw_w;
-	    ipixel	+= g_pixels_per_datum,
-	    idata_f	+= g_data_per_step,
-	    ptr		+= 3*g_pixels_per_datum)
+	    ipixel	+= g_pixels_per_datum[0],
+	    idata_f	+= g_data_per_step[0],
+	    ptr		+= 3*g_pixels_per_datum[0])
     {
 	long ind = (size_t)round(idata_f);
 	if (ind >= g_xlen)
@@ -107,10 +107,10 @@ static void draw_row_buffer_@nctype(const void* vrowptr, void* buff) {
 	if (globs.invert_c) value = 0xff-value;
 	unsigned char* c = cmh_colorvalue(globs.cmapnum, value);
 	/* put value */
-	for(int i=0; i<g_pixels_per_datum; i++)
+	for(int i=0; i<g_pixels_per_datum[0]; i++)
 	    memcpy(ptr+i*3, c, 3);
     }
-    for (int j=1; j<g_pixels_per_datum; j++, ptr+=draw_w*3)
+    for (int j=1; j<g_pixels_per_datum[1]; j++, ptr+=draw_w*3)
 	memcpy(ptr, buff, draw_w*3);
 }
 #undef CVAL
@@ -152,7 +152,7 @@ static void draw1d_@nctype(const nct_var* var) {
     double di=0;
     set_color(globs.color_fg);
     ctype* dataptr = (ctype*)var->data - var->startpos;
-    for(int i=0; i<win_w; i++, di+=data_per_pixel) {
+    for(int i=0; i<win_w; i++, di+=data_per_pixel[0]) {
 	int y = (dataptr[(int)di] - g_minmax_@nctype[0]) * win_h / (g_minmax_@nctype[1]-g_minmax_@nctype[0]);
 	graphics_draw_point(i, y);
     }
