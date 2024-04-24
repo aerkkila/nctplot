@@ -1244,7 +1244,8 @@ static void quit(Arg _) {
 
 #ifdef HAVE_NCTPROJ
 static void end_typing_coord_from() {
-    plt.area_xy->crs = strdup(prompt_input);
+    if (prompt_input[0])
+	plt.area_xy->crs = strdup(prompt_input);
     export_projection();
     set_typingmode((union Arg){.i=typing_coord_to});
 }
