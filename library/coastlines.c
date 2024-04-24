@@ -24,7 +24,7 @@ void no_conversion(void* _, float x, float y, double out[2]) {
 static double* make_coastlines(const char* coordinates, void (*conversion)(void*,float,float,double[2])) {
     void *cookie = NULL;
     if (coordinates) {
-	cookie = init_proj(coordinates, "+proj=lonlat");
+	cookie = init_proj("+proj=lonlat", coordinates);
 	conversion = convert_proj;
     }
     else if (!conversion)
@@ -83,6 +83,7 @@ static void init_coastlines(struct shown_area_xy* area, void* funptr) {
     if (yid < 0)
 	return;
     area->coasts = make_coastlines(area->crs, funptr);
+    free(area->points); area->points = NULL;
     nct_var* var1;
     var1 = nct_get_vardim(plt.var, xid);
     area->x0 = nct_getg_floating(var1, 0);
