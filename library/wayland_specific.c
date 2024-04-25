@@ -6,6 +6,7 @@
 #define Abs(a) ((a)<0 ? -(a) : (a))
 #endif
 
+enum redraw_type {commit_only_e=2};
 #ifdef HAVE_TTRA
 #include <ttra.h>
 static struct ttra ttra;
@@ -17,9 +18,9 @@ static const int ttra_space = 8;
     if (use_ttra) nct_fprint_datum(dtype, (nct_fprint_t)ttra_printf, &ttra, datum);	\
     else nct_print_datum(dtype, datum);							\
 } while (0)
-#define update_printarea() do {		\
-    if (use_ttra) call_redraw = 1;	\
-    else fflush(stdout);		\
+#define update_printarea() do {			\
+    if (use_ttra) call_redraw = commit_only_e;	\
+    else fflush(stdout);			\
 } while (0)
 #endif
 
@@ -177,6 +178,12 @@ static void set_ttra() {
 }
 #endif
 
+static void clear_unused_bottom() {
+    for (int j=total_height(); j<win_h; j++)
+	for (int i=0; i<win_w; i++)
+	    wlh.data[j*win_w+i] = wlh_color;
+}
+
 static void mainloop() {
     long play_start_ms = 0;
     int play_start_znum;
@@ -213,8 +220,12 @@ static void mainloop() {
 	}
 
 	if ((wlh.redraw || call_redraw) && wlh.can_redraw) {
-	    redraw(var);
+	    switch (call_redraw) {
+		case 1: redraw(var); break;
+		case commit_only_e: break;
+	    }
 	    wlh_commit(&wlh);
+	    call_redraw = 0;
 	}
 	usleep(sleeptime*1000);
     }

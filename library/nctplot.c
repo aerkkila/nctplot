@@ -181,6 +181,11 @@ static int iround(float f) {
     return ifloor + (f-ifloor >= 0.5) - (f-ifloor <= -0.5);
 }
 
+static int __attribute__((pure)) colormap_top();
+static int __attribute__((pure)) colormap_bottom();
+static inline int __attribute__((pure)) total_height();
+static inline int __attribute__((pure)) additional_height();
+
 #ifdef HAVE_WAYLAND
 #include "wayland_specific.c"
 #else
@@ -1074,12 +1079,17 @@ static void set_typingmode(Arg arg) {
     printinfo(g_minmax);
 #ifndef HAVE_WAYLAND
     SDL_StartTextInput();
+#elif defined HAVE_TTRA
+    set_color(globs.color_bg);
+    clear_unused_bottom();
 #endif
 }
 
 static void end_typingmode() {
     void (*fun)() = typingmode_fun[typingmode];
     typingmode = typing_none;
+    Printf("\r\033[%iB\033[K\033[%iA", printinfo_nlines, printinfo_nlines);
+    update_printarea();
 #ifndef HAVE_WAYLAND
     SDL_StopTextInput();
 #endif
