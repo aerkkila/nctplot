@@ -18,9 +18,10 @@ static const int ttra_space = 8;
     if (use_ttra) nct_fprint_datum(dtype, (nct_fprint_t)ttra_printf, &ttra, datum);	\
     else nct_print_datum(dtype, datum);							\
 } while (0)
-#define update_printarea() do {			\
-    if (use_ttra) call_redraw = commit_only_e;	\
-    else fflush(stdout);			\
+#define update_printarea() do {					\
+    if (use_ttra) { 						\
+	if (!call_redraw) call_redraw = commit_only_e; }	\
+    else fflush(stdout);					\
 } while (0)
 #endif
 

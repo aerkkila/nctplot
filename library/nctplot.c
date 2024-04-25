@@ -112,11 +112,11 @@ static void end_typing_crs();
 static void end_typing_coord_from();
 static void end_typing_coord_to();
 static void end_typing_mp_filename();
-static void end_typingmode();
 static void end_typing_nan();
 static void end_typing_fps();
 static void end_typing_threshold();
 static void end_typing_goto();
+static void end_typingmode();
 static int len_prompt_input;
 static char prompt_input[512];
 enum typingmode {
