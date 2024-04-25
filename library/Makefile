@@ -31,7 +31,7 @@ ifdef have_wayland
 	CFLAGS += -DHAVE_WAYLAND
 	objects += wayland_helper/wayland_helper.o
 	libraries += -lwayland-client -lxkbcommon
-	dependencies += wayland_spesific.c wayland_helper/wayland_helper.o
+	dependencies += wayland_specific.c wayland_helper/wayland_helper.o
 	objects_test = nctplot_debug.o test.o wayland_helper/wayland_helper.o
 	bindings_file = bindings_xkb.h
 ifdef have_ttra
@@ -40,7 +40,7 @@ ifdef have_ttra
 endif
 else
 	libraries += -lSDL2
-	dependencies += sdl_spesific.c
+	dependencies += sdl_specific.c
 	objects_test = nctplot_debug.o test.o
 	bindings_file = bindings_sdl.h
 endif

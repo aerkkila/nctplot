@@ -182,9 +182,9 @@ static int iround(float f) {
 }
 
 #ifdef HAVE_WAYLAND
-#include "wayland_spesific.c"
+#include "wayland_specific.c"
 #else
-#include "sdl_spesific.c"
+#include "sdl_specific.c"
 #endif
 
 #ifndef Printf
@@ -336,7 +336,7 @@ static void draw2d(const nct_var* var) {
     if (too_small_to_draw)
 	return;
 
-    /* defined either ind sdl_spesific or wayland_spesific depending on the choice in config.mk */
+    /* defined either ind sdl_specific or wayland_specific depending on the choice in config.mk */
     set_color(globs.color_bg);
     clear_background();
     set_scale(g_pixels_per_datum[0], g_pixels_per_datum[1]);
@@ -1488,7 +1488,7 @@ variable_found:
     else
 	ylen = 400;
 
-    init_graphics(xlen, ylen); // defined either in sdl_spesific.c or in wayland_spesific.c depending on the choice in config.mk
+    init_graphics(xlen, ylen); // defined either in sdl_specific.c or in wayland_specific.c depending on the choice in config.mk
     variable_changed();
 
     sleeptime = default_sleep_ms;

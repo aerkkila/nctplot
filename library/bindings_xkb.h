@@ -106,7 +106,7 @@ static Binding keydown_bindings[] = {
     /* Set a value which will handled such as NAN values.
        The value which to use will be asked in terminal. */
     { XKB_KEY_n,	0,		set_typingmode,	{.i=typing_nan},	},
-    /* Toggle whether there is a spesific fill value which is handled such as NAN values. */
+    /* Toggle whether there is a specific fill value which is handled such as NAN values. */
     { XKB_KEY_N,	SHIFT,		toggle_var,	{.v=&globs.usenan}	},
     /* Toggle whether the figure fills the whole window
        meaning that all data are not seen unless the aspect ratio is exactly right. */
