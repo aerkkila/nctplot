@@ -59,6 +59,8 @@ static Binding keydown_bindings[] = {
     { XKB_KEY_V,	SHIFT,		var_ichange,	{.i=-1}			}, // Previous variable.
     { XKB_KEY_v,	ALT,		set_prog_mode,	{.i=variables_m}	}, // see keydown_bindings_variables_m for info
     { XKB_KEY_w,	0,		use_lastvar,				}, // switch to that variable which was shown previously
+    { XKB_KEY_colon,	0,		set_typingmode,	{.i=typing_command}	}, // commands are not documented
+    { XKB_KEY_colon,	SHIFT,		set_typingmode,	{.i=typing_command}	}, // commands are not documented
     /* Whether globals such as colormap, invert_y, etc. are detached from other variables. */
     { XKB_KEY_d,	0,		toggle_detached,			},
     /* Colorscale adjustment.

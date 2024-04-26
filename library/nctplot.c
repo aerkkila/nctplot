@@ -116,20 +116,21 @@ static void end_typing_nan();
 static void end_typing_fps();
 static void end_typing_threshold();
 static void end_typing_goto();
+static void end_typing_command();
 static void end_typingmode();
 static int len_prompt_input;
 static char prompt_input[512];
 enum typingmode {
     typing_none, typing_crs, typing_coord_from, typing_coord_to, typing_mp_filename,
-    typing_nan, typing_fps, typing_threshold, typing_goto,
+    typing_nan, typing_fps, typing_threshold, typing_goto, typing_command,
 } typingmode;
 static char *typingmode_msg[] = {
     NULL, "coordinate system: ", "from: ", "to: ", "set filename: ",
-    "Enter NAN: ", "Enter fps: ", "Enter threshold: ", "Enter a framenumber or a time string: ",
+    "Enter NAN: ", "Enter fps: ", "Enter threshold: ", "Enter a framenumber or a time string: ", ": ",
 };
 static void (*typingmode_fun[])() = {
     nop, end_typing_crs, end_typing_coord_from, end_typing_coord_to, end_typing_mp_filename,
-    end_typing_nan, end_typing_fps, end_typing_threshold, end_typing_goto,
+    end_typing_nan, end_typing_fps, end_typing_threshold, end_typing_goto, end_typing_command,
 };
 static const int maxlen_prompt_input = sizeof(prompt_input)-1;
 
@@ -1108,6 +1109,10 @@ static void shift_max_abs(Arg shift) {
     call_redraw = 1;
 }
 
+static void setmax(double num) {
+    shift_max_abs((Arg){.f = num - get_max(var->dtype)});
+}
+
 static void shift_min(Arg shift) {
     plt.minshift += shift.f;
     g_only_nans = make_minmax(var->dtype);
@@ -1118,6 +1123,10 @@ static void shift_min_abs(Arg shift) {
     minshift_abs += shift.f;
     g_only_nans = make_minmax(var->dtype);
     call_redraw = 1;
+}
+
+static void setmin(double num) {
+    shift_min_abs((Arg){.f = num - get_min(var->dtype)});
 }
 
 static void toggle_var(Arg intptr) {
@@ -1412,6 +1421,22 @@ static void mousepaint() {
 	    mp_replace_val((void*)&mp_params.value); return;
 	case function_mp:
 	    mp_replace_fun(); return;
+    }
+}
+
+static void end_typing_command() {
+    char *str = strtok(prompt_input, " \t");
+    if (!strcmp(str, "max")) {
+	str = strtok(NULL, " \t");
+	float num = 0;
+	sscanf(str, "%g", &num);
+	setmax(num);
+    }
+    else if (!strcmp(str, "min")) {
+	str = strtok(NULL, " \t");
+	float num = 0;
+	sscanf(str, "%g", &num);
+	setmin(num);
     }
 }
 
