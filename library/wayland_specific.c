@@ -215,6 +215,7 @@ static void mainloop() {
 	    win_h = wlh.yres;
 	    win_w = wlh.xres;
 	    set_draw_params();
+	    call_redraw = 1;
 #ifdef HAVE_TTRA
 	    set_ttra();
 #endif
