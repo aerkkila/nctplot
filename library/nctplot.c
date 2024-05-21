@@ -42,7 +42,7 @@ typedef struct {
     size_t stepsize_z;
     float minshift, maxshift;
     double threshold;
-    int use_threshold;
+    int use_threshold, n_threshold;
     char globs_detached;
     struct shown_area_xy *area_xy;
     struct shown_area_z *area_z;
@@ -61,7 +61,7 @@ static double fps;
 static int win_w, win_h, xid, yid, zid, draw_w, draw_h, pending_varnum=-1, pending_cmapnum;
 static char stop, fill_on, play_on, update_minmax=1, update_minmax_cur, too_small_to_draw;
 static const int printinfo_nlines = 6;
-static int lines_printed;
+static int lines_printed, line_mouseinfo;
 static int cmappix=30, cmapspace=10, call_redraw;
 static float minshift_abs, maxshift_abs;
 typedef float float2 __attribute__((vector_size(2*sizeof(float))));
@@ -213,7 +213,7 @@ static inline int __attribute__((pure)) total_height() {
     int height = colormap_bottom();
 #ifdef HAVE_TTRA
     if (use_ttra)
-	height += ttra_space + ttra.fontheight * (printinfo_nlines + !!typingmode);
+	height += ttra_space + ttra.fontheight * lines_printed;
 #endif
     return height;
 }
@@ -354,18 +354,20 @@ static void draw2d(const nct_var* var) {
     float fdataj = plt.area_xy->offset_j;
     int idataj = round(fdataj), j;
     if (plt.use_threshold) {
+	int count = 0;
 	if (globs.invert_y)
 	    for(j=draw_h-g_pixels_per_datum[1]; j>=0; j-=g_pixels_per_datum[1]) {
-		draw_row_threshold(var->dtype, j,
+		count += draw_row_threshold(var->dtype, j,
 		    dataptr + g_size1*idataj*g_xlen, plt.threshold);
 		idataj = round(fdataj += g_data_per_step[1]);
 	    }
 	else
 	    for(j=0; j<draw_h; j+=g_pixels_per_datum[1]) {
-		draw_row_threshold(var->dtype, j,
+		count += draw_row_threshold(var->dtype, j,
 		    dataptr + g_size1*idataj*g_xlen, plt.threshold);
 		idataj = round(fdataj += g_data_per_step[1]);
 	    }
+	plt.n_threshold = count;
     }
     else {
 	if (globs.invert_y)
@@ -407,8 +409,8 @@ static void draw_colormap() {
 }
 
 static void clear_infoprint() {
-    for(int i=0; i<lines_printed; i++)
-	Printf("\033[2K\n");		// clear the line
+    for (int i=0; i<lines_printed; i++)
+	Printf("\033[2K\n");			// clear the line
     Printf("\r\033[%iA", lines_printed);	// move cursor to start
     lines_printed = 0;
 }
@@ -453,12 +455,18 @@ static void printinfo(void* minmax) {
 	    "colormap = %s%s%s%s\033[K\n",
 	    A,plt.minshift,B, A,plt.maxshift,B,
 	    A,data_per_pixel[0],data_per_pixel[1],B, A,cmh_colormaps[globs.cmapnum].name,B, globs.invert_c? " reversed": "");
-    Printf("\n"); // room for mouseinfo
-    lines_printed = printinfo_nlines + !!typingmode;
-    Printf("\r\033[%iA", lines_printed - !!typingmode); // move cursor to start
+    lines_printed = printinfo_nlines; // mouseinfoline is already counted
+    if (plt.use_threshold) {
+	Printf("threshold = %g, n(points) = %i\n", plt.threshold, plt.n_threshold);
+	lines_printed++;
+    }
+    line_mouseinfo = lines_printed - 1;
+    if (typingmode) {
+	Printf("\n%s%s\033[K", typingmode_msg[typingmode], prompt_input);
+	lines_printed++;
+    }
+    Printf("\r\033[%iA", lines_printed-1);
     mousemotion(0, 0); // print mouseinfo
-    if (typingmode)
-	Printf("\r\033[%iB%s%s\033[K\r\033[%iA", lines_printed-1, typingmode_msg[typingmode], prompt_input, lines_printed-1);
     update_printarea();
 }
 #undef A
@@ -505,8 +513,7 @@ static void mousemotion(int xrel, int yrel) {
     long pos = get_varpos_xy(mousex,mousey);
     if (pos < 0)
 	return;
-    if (lines_printed)
-	Printf("\033[%iB\r", lines_printed - 1 - !!typingmode); // This is the last line in info
+    Printf("\033[%iB\r", line_mouseinfo);
     Nct_print_datum(var->dtype, var->data + (pos - var->startpos) * nctypelen(var->dtype));
     int xlen = nct_get_vardim(var, xid)->len;
     Printf(" [%zu pos=(%i,%i: %i) coords=(", pos, varpos_xy_j, varpos_xy_i, varpos_xy_j*xlen + varpos_xy_i);
@@ -515,8 +522,7 @@ static void mousemotion(int xrel, int yrel) {
 	Printf(",");
     }
     _maybe_print_mousecoordinate(xid, varpos_xy_i);
-    Printf(")]\033[K\n");
-    Printf("\033[%iA\r", lines_printed - !!typingmode);
+    Printf(")]\033[K\033[%iA\r", line_mouseinfo);
     update_printarea();
 }
 
@@ -1089,7 +1095,7 @@ static void set_typingmode(Arg arg) {
 static void end_typingmode() {
     void (*fun)() = typingmode_fun[typingmode];
     typingmode = typing_none;
-    Printf("\r\033[%iB\033[K\033[%iA", printinfo_nlines, printinfo_nlines);
+    Printf("\r\033[%iB\033[K\033[%iA", lines_printed-1, lines_printed-1);
     update_printarea();
 #ifndef HAVE_WAYLAND
     SDL_StopTextInput();

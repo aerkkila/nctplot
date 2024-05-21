@@ -22,14 +22,15 @@ static ctype* g_minmax_@nctype = (ctype*)g_minmax;
 			  (val) >= (minmax)[1] ? 255 :			\
 			  (@uctype)((val)-(minmax)[0])*255 / (@uctype)((minmax)[1]-(minmax)[0]) )
 
-static void draw_row_threshold_@nctype(int jpixel, const void* vrowptr, double dthr) {
+static int draw_row_threshold_@nctype(int jpixel, const void* vrowptr, double dthr) {
     float idata_f = plt.area_xy->offset_i;
     const ctype thr = dthr;
     const int cvals[] = {255*1/10, 255*9/10, 255*1/10};
+    int count = 0;
     for (int ipixel=0; ipixel<draw_w; ipixel+=g_pixels_per_datum[0], idata_f+=g_data_per_step[0]) {
 	long ind = (size_t)round(idata_f);
 	if (ind >= g_xlen)
-	    return;
+	    return 0;
 	ctype val = ((const ctype*)vrowptr)[ind];
 #if __nctype__ == NC_DOUBLE
 	if (my_isnan_double(val)) continue;
@@ -38,6 +39,7 @@ static void draw_row_threshold_@nctype(int jpixel, const void* vrowptr, double d
 #endif
 	if (globs.usenan && val==globs.nanval)
 	    continue;
+	count += val >= thr;
 	int value = cvals[(val >= thr) + globs.invert_c];
 	unsigned char* c = cmh_colorvalue(globs.cmapnum,value);
 	set_color(c);
@@ -50,6 +52,7 @@ static void draw_row_threshold_@nctype(int jpixel, const void* vrowptr, double d
 #ifdef HAVE_WAYLAND // same comment as above
     expand_row_to_yscale(jpixel/g_pixels_per_datum[1]);
 #endif
+    return count;
 }
 
 static void draw_row_@nctype(int jpixel, const void* vrowptr) {
