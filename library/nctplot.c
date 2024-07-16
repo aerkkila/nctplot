@@ -1496,7 +1496,7 @@ static void keydown_func(int keysym, unsigned mod) {
 
 /* Only following functions should be called from programs. */
 
-void nctplot_(void* vobject, int isset) {
+void* nctplot_(void* vobject, int isset) {
     if (isset) {
 	nct_foreach(vobject, varnow)
 	    if (varnow->ndims > 1) {
@@ -1509,11 +1509,11 @@ void nctplot_(void* vobject, int isset) {
 		goto variable_found;
 	    }
 	nct_puterror("Only 0-dimensional variables\n");
-	return;
+	return vobject;
     }
     else if (!(var = vobject)) {
 	nct_puterror("No variable to plot\n");
-	return;
+	return vobject;
     }
 
 variable_found:
@@ -1540,6 +1540,7 @@ variable_found:
     mp_params = (struct Mp_params){0};
 
     mainloop();
+    return vobject;
 }
 
 struct nctplot_globals* nctplot_get_globals() {

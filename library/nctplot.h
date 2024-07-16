@@ -12,7 +12,7 @@ struct nctplot_globals {
     size_t cache_size;
 };
 
-void nctplot_(void* set_or_var, int isset);
+void* nctplot_(void* set_or_var, int isset); // returns the input pointer
 struct nctplot_globals* nctplot_get_globals();
 
 #endif
