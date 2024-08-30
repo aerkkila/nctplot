@@ -47,7 +47,7 @@ int main(int argc, char** argv) {
 
     nct_set* set;
     int opt;
-    int x=0,y=0;
+    int x=0, y=0;
     char* concat_arg = NULL;
     char concat_buff[concatbufflen];
     concat_buff[concatbufflen-1] = '\0';
