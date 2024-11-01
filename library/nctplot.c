@@ -1030,7 +1030,7 @@ static void end_typing_goto() {
 	    };
 	    time_t target_time = timegm(&tm);
 	    long long coordval = nct_convert_time_anyd(target_time, plt.time0);
-	    plt.area_z->znum = nct_bsearch(plt.zvar, coordval);
+	    plt.area_z->znum = nct_bsearch(plt.zvar, coordval, nct_geq);
 	    break;
     }
     if (plt.area_z->znum < 0)
@@ -1435,13 +1435,13 @@ static void end_typing_command() {
     if (!strcmp(str, "max")) {
 	str = strtok(NULL, " \t");
 	float num = 0;
-	sscanf(str, "%g", &num);
+	if (str) sscanf(str, "%g", &num);
 	setmax(num);
     }
     else if (!strcmp(str, "min")) {
 	str = strtok(NULL, " \t");
 	float num = 0;
-	sscanf(str, "%g", &num);
+	if (str) sscanf(str, "%g", &num);
 	setmin(num);
     }
 }

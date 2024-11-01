@@ -73,7 +73,7 @@ static Binding keydown_bindings[] = {
     /* Shift the colorscale as above but different step size. */
     { XKB_KEY_1,	ALT,		shift_min_abs,	{.f=-0.02}		},
     { XKB_KEY_exclam,	SHIFT|ALT,	shift_max_abs,	{.f=-0.02}		},
-    { XKB_KEY_2,		ALT,		shift_min_abs,	{.f=0.02}		},
+    { XKB_KEY_2,	ALT,		shift_min_abs,	{.f=0.02}		},
     { XKB_KEY_quotedbl,	SHIFT|ALT,	shift_max_abs,	{.f=0.02}		},
     { XKB_KEY_k,	0,		toggle_threshold,			},
     /* Choosing the colormap. */
