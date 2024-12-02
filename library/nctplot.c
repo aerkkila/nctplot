@@ -618,9 +618,22 @@ static void* get_data(size_t start, size_t *Len) {
 	    }
     }
 found1:
+    memory.ichunk = ichunk;
     ndata = Min(wanted, memory.chunksize/nct_typelen[var->dtype]);
     if (memory.used - memory.bytes[ichunk] + ndata*nct_typelen[var->dtype] >= memory.totsize)
 	ndata = (memory.totsize - (memory.used - memory.bytes[ichunk])) / nct_typelen[var->dtype];
+
+    /* Säädetään latauspituutta niin, ettei turhan montaa ulottuvuutta katkaista. */
+    size_t len1 = 1, wholelen = ndata;
+    for (int i=0; i<var->ndims; i++) {
+	len1 *= nct_get_vardim(var, var->ndims-1-i)->len;
+	size_t try = ndata / len1 * len1;
+	if (!try)
+	    break;
+	wholelen = try;
+    }
+    if (wholelen > 4096)
+	ndata = wholelen;
 
     free(memory.chunks[ichunk]);
     memory.used -= memory.bytes[ichunk];
@@ -630,6 +643,7 @@ found1:
     memory.istart[ichunk] = start;
     memory.iend[ichunk] = start + ndata;
     memory.ivar[ichunk] = nct_pltind;
+
     *Len = ndata = var->capacity = ndata;
     nct_load_partially(var, start, start+ndata);
     if (var->data != memory.chunks[ichunk])
