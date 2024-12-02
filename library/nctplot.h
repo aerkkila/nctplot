@@ -15,4 +15,21 @@ struct nctplot_globals {
 void* nctplot_(void* set_or_var, int isset); // returns the input pointer
 struct nctplot_globals* nctplot_get_globals();
 
+typedef struct {
+    nct_var *var, *zvar;
+    int truncated;
+    nct_anyd time0;
+    char minmax[8*2];
+    size_t stepsize_z;
+    float minshift, maxshift;
+    double threshold;
+    int use_threshold, n_threshold;
+    char globs_detached;
+    struct shown_area_xy *area_xy;
+    struct shown_area_z *area_z;
+} nct_plottable;
+
+extern nct_plottable *nct_plottables;
+extern int nct_pltind, nct_prev_pltind, nct_nplottables;
+
 #endif

@@ -34,24 +34,11 @@ struct shown_area_z {
     nct_var *zdim;
 };
 
-typedef struct {
-    nct_var *var, *zvar;
-    int truncated;
-    nct_anyd time0;
-    char minmax[8*2];
-    size_t stepsize_z;
-    float minshift, maxshift;
-    double threshold;
-    int use_threshold, n_threshold;
-    char globs_detached;
-    struct shown_area_xy *area_xy;
-    struct shown_area_z *area_z;
-} plottable;
+nct_plottable *nct_plottables;
+int nct_pltind, nct_prev_pltind, nct_nplottables;
 
 /* Static variables. Global in the context of this library. */
-static plottable* plottables;
-static int pltind, prev_pltind, n_plottables;
-#define plt (plottables[pltind])
+#define plt (nct_plottables[nct_pltind])
 static nct_var* var; // = plt.var
 static WINDOW *wnd;
 static const unsigned default_sleep_ms=8;
@@ -787,9 +774,9 @@ static struct shown_area_xy* get_ref_shown_area_xy() {
     nct_var* ydim = yid >= 0 ? nct_get_vardim(plt.var, yid) : NULL;
     if (plt.var->ndims < 2)
 	goto make_new;
-    for (int ip=0; ip<n_plottables; ip++) {
-	nct_var* var1 = plottables[ip].var;
-	struct shown_area_xy *a = plottables[ip].area_xy;
+    for (int ip=0; ip<nct_nplottables; ip++) {
+	nct_var* var1 = nct_plottables[ip].var;
+	struct shown_area_xy *a = nct_plottables[ip].area_xy;
 	if (!var1 || !a || var1->ndims < 2)
 	    continue;
 	if (a->xdim == xdim && a->ydim == ydim) {
@@ -809,9 +796,9 @@ static struct shown_area_z* get_ref_shown_area_z() {
     nct_var* zdim = zid >= 0 ? nct_get_vardim(plt.var, zid) : NULL;
     if (plt.var->ndims < 2)
 	goto make_new;
-    for (int ip=0; ip<n_plottables; ip++) {
-	nct_var* var1 = plottables[ip].var;
-	struct shown_area_z *a = plottables[ip].area_z;
+    for (int ip=0; ip<nct_nplottables; ip++) {
+	nct_var* var1 = nct_plottables[ip].var;
+	struct shown_area_z *a = nct_plottables[ip].area_z;
 	if (!var1 || !a || var1->ndims < 2 )
 	    continue;
 	if (a->zdim == zdim) {
@@ -829,21 +816,21 @@ static void variable_changed() {
     if (var->ndims < 1)
 	return var_ichange((Arg){.i=_variable_changed_direction}); // 0-dimensional variables are not supported.
 
-    long wants = MAX(n_plottables, pltind);
+    long wants = MAX(nct_nplottables, nct_pltind);
     recalloc_list(&globslist, &globslistlen, wants, sizeof(struct nctplot_globals), &default_globals);
 
     /* Is previous was detached, take back the global state and put its state to memory. */
     if (plt.globs_detached) {
-	globslist[pltind] = globs;
+	globslist[nct_pltind] = globs;
 	globs = globs_mem;
     }
 
-    pltind = nct_varid(var); // this is the core change
-    recalloc_list(&plottables, &n_plottables, pltind+1, sizeof(plottable), NULL);
+    nct_pltind = nct_varid(var); // this is the core change
+    recalloc_list(&nct_plottables, &nct_nplottables, nct_pltind+1, sizeof(nct_plottable), NULL);
 
     if (plt.globs_detached) {
 	globs_mem = globs;
-	globs = globslist[pltind];
+	globs = globslist[nct_pltind];
     }
 
     /* Order matters here. */
@@ -852,9 +839,9 @@ static void variable_changed() {
     plt.var = var;
     set_dimids();
     if (!plt.area_xy)
-	plt.area_xy = get_ref_shown_area_xy(pltind);
+	plt.area_xy = get_ref_shown_area_xy(nct_pltind);
     if (!plt.area_z)
-	plt.area_z = get_ref_shown_area_z(pltind);
+	plt.area_z = get_ref_shown_area_z(nct_pltind);
     set_draw_params(); // sets stepsize_z needed in manage_memory
     manage_memory();
 
@@ -875,16 +862,16 @@ static void export_projection() {
     int ndims0 = plt.var->ndims;
     if (ndims0 < 2)
 	return;
-    /* Variables don't have to be yet added to plottables. */
+    /* Variables don't have to be yet added to nct_plottables. */
     nct_foreach(plt.var->super, var1) {
 	int ndims1 = var1->ndims;
 	int iplt = nct_varid(var1);
-	if (ndims1 < 2 || iplt == pltind)
+	if (ndims1 < 2 || iplt == nct_pltind)
 	    continue;
 	int* ids1 = var1->dimids;
 	if (ids0[ndims0-1] == ids1[ndims1-1] && ids0[ndims0-2] == ids1[ndims1-2]) {
-	    free(plottables[iplt].crs);
-	    plottables[iplt].crs = strdup(plt.crs);
+	    free(nct_plottables[iplt].crs);
+	    nct_plottables[iplt].crs = strdup(plt.crs);
 	}
     }
 #endif
@@ -1150,7 +1137,7 @@ static void end_typing_nan() {
 }
 
 static void use_pending(Arg _) {
-    prev_pltind = pltind;
+    nct_prev_pltind = nct_pltind;
     if (pending_varnum >= 0) {
 	var = var->super->vars[pending_varnum];
 	pending_varnum = -1;
@@ -1235,14 +1222,14 @@ static void end_typing_threshold() {
 }
 
 static void use_lastvar(Arg _) {
-    if (prev_pltind < 0) return;
-    int tmp = pltind;
-    var = var->super->vars[prev_pltind];
-    prev_pltind = tmp;
+    if (nct_prev_pltind < 0) return;
+    int tmp = nct_pltind;
+    var = var->super->vars[nct_prev_pltind];
+    nct_prev_pltind = tmp;
     variable_changed();
 }
 
-static void free_plottable(plottable* plott) {
+static void free_plottable(nct_plottable* plott) {
     unlink_area_xy(plott->area_xy);
     unlink_area_z(plott->area_z);
 }
@@ -1257,10 +1244,10 @@ static void quit(Arg _) {
     if (mp_params.dlhandle)
 	dlclose(mp_params.dlhandle);
     free_coastlines();
-    for(int i=0; i<n_plottables; i++)
-	free_plottable(plottables+i);
-    plottables = (free(plottables), NULL);
-    n_plottables = 0;
+    for(int i=0; i<nct_nplottables; i++)
+	free_plottable(nct_plottables+i);
+    nct_plottables = (free(nct_plottables), NULL);
+    nct_nplottables = 0;
     free(globslist); globslist = NULL; globslistlen = 0;
     mp_params = (struct Mp_params){0};
     memset(&memory, 0, sizeof(memory));
@@ -1430,6 +1417,24 @@ static void mousepaint() {
     }
 }
 
+static void execute_cfile(const char *filename) {
+    char *libname = "/tmp/nctplot_ext.so";
+    int len = snprintf(NULL, 0, "cc %s -fpic -shared -o %s %s", getenv("CFLAGS"), libname, filename);
+    char *cmd = malloc(len+1);
+    snprintf(cmd, len+1, "cc %s -fpic -shared -o %s %s", getenv("CFLAGS"), libname, filename);
+    if (system(cmd) < 0) warn("system %s", cmd);
+    free(cmd);
+
+    void* dlhandle = dlopen(libname, RTLD_LAZY);
+    void (*fun)() = dlsym(dlhandle, "function");
+    printf("%p\n", fun);
+    dlclose(dlhandle);
+
+    char help[strlen(libname) + 10];
+    sprintf(help, "rm %s", libname);
+    if (system(help) < 0) warn("system %s", help);
+}
+
 static void end_typing_command() {
     char *str = strtok(prompt_input, " \t");
     if (!strcmp(str, "max")) {
@@ -1443,6 +1448,10 @@ static void end_typing_command() {
 	float num = 0;
 	if (str) sscanf(str, "%g", &num);
 	setmin(num);
+    }
+    else if (!strcmp(str, "c")) {
+	str = strtok(NULL, " \t");
+	execute_cfile(str);
     }
 }
 
@@ -1518,10 +1527,10 @@ void* nctplot_(void* vobject, int isset) {
 
 variable_found:
     globs = default_globals; // must be early because globals may be modified or needed by functions
-    n_plottables = var->super->nvars;
-    plottables = calloc(n_plottables, sizeof(plottable));
-    pltind = nct_varid(var);
-    plottables[pltind].var = var;
+    nct_nplottables = var->super->nvars;
+    nct_plottables = calloc(nct_nplottables, sizeof(nct_plottable));
+    nct_pltind = nct_varid(var);
+    nct_plottables[nct_pltind].var = var;
     set_dimids();
     int xlen = var->super->dims[var->dimids[xid]]->len, ylen;
     if (yid>=0)
@@ -1536,7 +1545,7 @@ variable_found:
     fps = default_fps;
     stop = lines_printed = play_on = 0;
     update_minmax = 1;
-    prev_pltind = pending_varnum = -1;
+    nct_prev_pltind = pending_varnum = -1;
     mp_params = (struct Mp_params){0};
 
     mainloop();
