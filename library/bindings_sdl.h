@@ -57,7 +57,7 @@ static Binding keydown_bindings[] = {
     { SDLK_w,		0,			use_lastvar,				}, // switch to that variable which was shown previously
     { SDLK_colon,	0,			set_typingmode,	{.i=typing_command}	}, // commands are not documented
     { SDLK_colon,	KMOD_SHIFT,		set_typingmode,	{.i=typing_command}	}, // commands are not documented
-    /* Whether globals such as colormap, invert_y, etc. are detached from other variables. */
+    /* Whether shared variables such as colormap, invert_y, etc. are not shared with other variables. */
     { SDLK_d,		0,			toggle_detached,			},
     /* Colorscale adjustment.
        For example, if a few values are much higher than other, one may want to make the largest value smaller. */
@@ -75,18 +75,18 @@ static Binding keydown_bindings[] = {
     /* Choosing the colormap. */
     { SDLK_c,		0,			cmap_ichange,	{.i=1}			}, // Next colormap.
     { SDLK_c,		KMOD_SHIFT,		cmap_ichange,	{.i=-1}			}, // Previous colormap.
-    { SDLK_c,		KMOD_ALT,		toggle_var,	{.v=&globs.invert_c}	}, // Invert (reverse) the colormap.
+    { SDLK_c,		KMOD_ALT,		toggle_var,	{.v=&shared.invert_c}	}, // Invert (reverse) the colormap.
     { SDLK_c,		KMOD_SHIFT|KMOD_ALT,	set_prog_mode,	{.i=colormaps_m}	}, // see keydown_bindings_colormaps_m
     /* Swap foreground and background colors. */
     { SDLK_i,		KMOD_SHIFT,		invert_colors,				},
     /* Print information about the dataset which is being plotted. */
     { SDLK_p,		0,			print_var,				},
     /* Toggle whether information such as the current variable is printed into the terminal. */
-    { SDLK_e,		0,			toggle_var,	{.v=&globs.echo}	},
+    { SDLK_e,		0,			toggle_var,	{.v=&shared.echo}	},
     /* If enabled, virtual pixels correspond exactly to data. This disables the chance for stepless zoom. */
-    { SDLK_e,		KMOD_SHIFT,		toggle_var,	{.v=&globs.exact}	},
+    { SDLK_e,		KMOD_SHIFT,		toggle_var,	{.v=&shared.exact}	},
     /* Toggle whether the largest y-coordinate is in the top or in the bottom. */
-    { SDLK_i,		0,			toggle_var,	{.v=&globs.invert_y}	},
+    { SDLK_i,		0,			toggle_var,	{.v=&shared.invert_y}	},
     /* Play a video, if the variable has third dimension. Use fps to control the speed. */
     { SDLK_SPACE,	0,			toggle_play,				},
     { SDLK_SPACE,	KMOD_SHIFT,		toggle_play_rev,			},
@@ -97,7 +97,7 @@ static Binding keydown_bindings[] = {
        By default, the fastet changing coordinates are handled as longitudes
        and the second fastest changing as latitudes.
        For other options, see ask_crs. */
-    { SDLK_l,		0,			toggle_var,	{.v=&globs.coastlines}	},
+    { SDLK_l,		0,			toggle_var,	{.v=&shared.coastlines}	},
     /* In mousepaint mode, the file can be edited by drawing to it with mouse.
        Further documentation and the keybindings are listed in keydown_bindings_mousepaint_m. */
     { SDLK_m,		0,			set_prog_mode,	{.i=mousepaint_m}	},
@@ -105,7 +105,7 @@ static Binding keydown_bindings[] = {
        The value which to use will be asked in terminal. */
     { SDLK_n,		0,			set_typingmode,	{.i=typing_nan}		},
     /* Toggle whether there is a specific fill value which is handled such as NAN values. */
-    { SDLK_n,		KMOD_SHIFT,		toggle_var,	{.v=&globs.usenan}	},
+    { SDLK_n,		KMOD_SHIFT,		toggle_var,	{.v=&shared.usenan}	},
     /* Toggle whether the figure fills the whole window
        meaning that all data are not seen unless the aspect ratio is exactly right. */
     { SDLK_f,		0,			toggle_var,	{.v=&fill_on}		},

@@ -41,11 +41,11 @@ static int draw_row_threshold_@nctype(int jpixel, const void* vrowptr, double dt
 #elif __nctype__ == NC_FLOAT
 	if (my_isnan_float(val)) continue;
 #endif
-	if (globs.usenan && val==globs.nanval)
+	if (shared.usenan && val==shared.nanval)
 	    continue;
 	count += val >= thr;
-	int value = cvals[(val >= thr) + globs.invert_c];
-	unsigned char* c = cmh_colorvalue(globs.cmapnum,value);
+	int value = cvals[(val >= thr) + shared.invert_c];
+	unsigned char* c = cmh_colorvalue(shared.cmapnum,value);
 	set_color(c);
 #ifdef HAVE_WAYLAND // the #else would also work but this is more optimal
 	draw_point_in_xscale(ipixel/g_pixels_per_datum[0], jpixel/g_pixels_per_datum[1]);
@@ -71,11 +71,11 @@ static void draw_row_@nctype(int jpixel, const void* vrowptr) {
 #elif __nctype__ == NC_FLOAT
 	if (my_isnan_float(val)) continue;
 #endif
-	if (globs.usenan && val==globs.nanval)
+	if (shared.usenan && val==shared.nanval)
 	    continue;
 	int value = CVAL(val, g_minmax_@nctype);
-	if (globs.invert_c) value = 0xff-value;
-	unsigned char* c = cmh_colorvalue(globs.cmapnum,value);
+	if (shared.invert_c) value = 0xff-value;
+	unsigned char* c = cmh_colorvalue(shared.cmapnum,value);
 	set_color(c);
 #ifdef HAVE_WAYLAND // the #else would also work but this is more optimal
 	draw_point_in_xscale(ipixel/g_pixels_per_datum[0], jpixel/g_pixels_per_datum[1]);
@@ -100,7 +100,7 @@ static void draw_row_cmapfun_@nctype(int jpixel, const void* vrowptr, cmapfun_t 
 #elif __nctype__ == NC_FLOAT
 	if (my_isnan_float(*val)) continue;
 #endif
-	if (globs.usenan && *val==globs.nanval)
+	if (shared.usenan && *val==shared.nanval)
 	    continue;
 	unsigned char c[4];
 	cmapfun(c, val);
@@ -133,11 +133,11 @@ static void __attribute__((unused)) draw_row_buffer_@nctype(const void* vrowptr,
 #elif __nctype__ == NC_FLOAT
 	if (my_isnan_float(val)) continue;
 #endif
-	if (globs.usenan && val==globs.nanval)
+	if (shared.usenan && val==shared.nanval)
 	    continue;
 	int value = CVAL(val, g_minmax_@nctype);
-	if (globs.invert_c) value = 0xff-value;
-	unsigned char* c = cmh_colorvalue(globs.cmapnum, value);
+	if (shared.invert_c) value = 0xff-value;
+	unsigned char* c = cmh_colorvalue(shared.cmapnum, value);
 	/* put value */
 	for(int i=0; i<g_pixels_per_datum[0]; i++)
 	    memcpy(ptr+i*3, c, 3);
@@ -182,7 +182,7 @@ static void draw1d_@nctype(const nct_var* var) {
     if (prog_mode == variables_m)
 	curses_write_vars();
     printinfo(g_minmax_@nctype);
-    set_color(globs.color_bg);
+    set_color(shared.color_bg);
     clear_background();
 #if __nctype__ == NC_DOUBLE
 	if (my_isnan_double(g_minmax_@nctype[0])) return;
@@ -190,7 +190,7 @@ static void draw1d_@nctype(const nct_var* var) {
 	if (my_isnan_float(g_minmax_@nctype[0])) return;
 #endif
     double di=0;
-    set_color(globs.color_fg);
+    set_color(shared.color_fg);
     ctype* dataptr = (ctype*)var->data - var->startpos;
     for(int i=0; i<win_w; i++, di+=data_per_pixel[0]) {
 	int y = (dataptr[(int)di] - g_minmax_@nctype[0]) * win_h / (g_minmax_@nctype[1]-g_minmax_@nctype[0]);

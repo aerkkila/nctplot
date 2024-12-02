@@ -127,7 +127,7 @@ static void make_coastlinepoints(struct shown_area_xy *area) {
 
     point_t* points = area->points;
     void (*coord_to_point_fun)(double, double, point_t*) =
-	globs.invert_y ? coord_to_point_inv_y : coord_to_point;
+	shared.invert_y ? coord_to_point_inv_y : coord_to_point;
 
     for(int e=0; e<coastl_nparts; e++) {
 	int irun = 0;
@@ -162,7 +162,7 @@ static void save_state(char* buff, const struct shown_area_xy *area) {
     putval(buff, area->offset_j);
     putval(buff, area->offset_i);
     putval(buff, data_per_pixel);
-    putval(buff, globs.invert_y); // huomio: onko tämä aina globaali?
+    putval(buff, shared.invert_y); // huomio: onko tämä aina globaali?
     putval(buff, win_w);
     putval(buff, win_h);
 }
@@ -191,7 +191,7 @@ static void draw_coastlines(struct shown_area_xy *area) {
     int nib = area->nbreaks;
     int* breaks = area->breaks;
     int istart = 0;
-    set_color(globs.color_fg);
+    set_color(shared.color_fg);
     point_t* points = area->points;
     for (int ib=0; ib<nib; ib++) {
 	draw_lines(points+istart, breaks[ib]-istart);

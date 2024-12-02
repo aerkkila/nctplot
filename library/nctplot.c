@@ -13,7 +13,7 @@
 #include <nctproj.h>
 #endif
 
-static const struct nctplot_globals default_globals = {
+static const struct nctplot_shared default_shared = {
     .color_fg = {255, 255, 255},
     .echo = 1,
     .invert_y = 1,
@@ -22,10 +22,10 @@ static const struct nctplot_globals default_globals = {
     .cmapnum = cmh_jet_e,
 };
 
-static struct nctplot_globals globs;
-static struct nctplot_globals globs_mem;
-static struct nctplot_globals* globslist;
-int globslistlen;
+static struct nctplot_shared shared;
+static struct nctplot_shared shared_mem;
+static struct nctplot_shared* sharedlist;
+int sharedlistlen;
 static void *dl_cmapfun_handle,
 	    (*dl_cmapfun)(unsigned char* rgb_out, const void* datum_in);
 
@@ -129,7 +129,7 @@ union Arg {
     int   i;
 };
 
-#define size_coastl_params (sizeof(int)*2 + sizeof(data_per_pixel) + sizeof(globs.invert_y) + sizeof(win_w)*2)
+#define size_coastl_params (sizeof(int)*2 + sizeof(data_per_pixel) + sizeof(shared.invert_y) + sizeof(win_w)*2)
 
 struct shown_area_xy {
     int offset_i, offset_j, nusers, j_off_by_one; // nusers = 0, when 1 user
@@ -309,7 +309,7 @@ static void curses_write_cmaps() {
     for(int icmap=1; icmap<cmh_n; icmap++) {
 	objs++;
 	move(row, col);
-	int att1 = (icmap==globs.cmapnum)*(A_UNDERLINE|A_BOLD);
+	int att1 = (icmap==shared.cmapnum)*(A_UNDERLINE|A_BOLD);
 	int att2 = (icmap==pending_cmapnum)*(A_REVERSE);
 	attron(att|att1|att2);
 	printw("%i. ", objs);
@@ -332,7 +332,7 @@ static void draw2d(const nct_var* var) {
 	return;
 
     /* defined either ind sdl_specific or wayland_specific depending on the choice in config.mk */
-    set_color(globs.color_bg);
+    set_color(shared.color_bg);
     clear_background();
     set_scale(g_pixels_per_datum[0], g_pixels_per_datum[1]);
 
@@ -344,7 +344,7 @@ static void draw2d(const nct_var* var) {
     int idataj = round(fdataj), j;
     if (plt.use_threshold) {
 	int count = 0;
-	if (globs.invert_y)
+	if (shared.invert_y)
 	    for (j=draw_h-g_pixels_per_datum[1]; j>=0; j-=g_pixels_per_datum[1]) {
 		count += draw_row_threshold(var->dtype, j,
 		    dataptr + g_size1*idataj*g_xlen, plt.threshold);
@@ -359,7 +359,7 @@ static void draw2d(const nct_var* var) {
 	plt.n_threshold = count;
     }
     else if (plt.use_cmapfun && dl_cmapfun) {
-	if (globs.invert_y)
+	if (shared.invert_y)
 	    for (j=draw_h-g_pixels_per_datum[1]; j>=0; j-=g_pixels_per_datum[1]) {
 		draw_row_cmapfun(var->dtype, j,
 		    dataptr + g_size1*idataj*g_xlen, dl_cmapfun);
@@ -373,7 +373,7 @@ static void draw2d(const nct_var* var) {
 	    }
     }
     else {
-	if (globs.invert_y)
+	if (shared.invert_y)
 	    for(j=draw_h-g_pixels_per_datum[1]; j>=0; j-=g_pixels_per_datum[1]) {
 		draw_row(var->dtype, j,
 		    dataptr + g_size1*idataj*g_xlen);
@@ -395,16 +395,16 @@ static void draw_colormap() {
     set_scale(1, 1);
     int j0 = colormap_top();
     int j1 = colormap_bottom();
-    if(!globs.invert_c)
+    if(!shared.invert_c)
 	for(int i=0; i<draw_w; i++, di+=cspace) {
-	    unsigned char* c = cmh_colorvalue(globs.cmapnum, (int)di);
+	    unsigned char* c = cmh_colorvalue(shared.cmapnum, (int)di);
 	    set_color(c);
 	    for(int j=j0; j<j1; j++)
 		graphics_draw_point(i,j);
 	}
     else
 	for(int i=draw_w-1; i>=0; i--, di+=cspace) {
-	    unsigned char* c = cmh_colorvalue(globs.cmapnum, (int)di);
+	    unsigned char* c = cmh_colorvalue(shared.cmapnum, (int)di);
 	    set_color(c);
 	    for(int j=j0; j<j1; j++)
 		graphics_draw_point(i,j);
@@ -425,11 +425,11 @@ static void printinfo(void* minmax) {
     if (use_ttra)
 	set_ttra();
 #endif
-    if (!(globs.echo && prog_mode > n_cursesmodes))
+    if (!(shared.echo && prog_mode > n_cursesmodes))
 	return;
     nct_var *zvar = plt.zvar;
     int size1 = nctypelen(var->dtype);
-    Printf("%s%s%s%s%s: ", A, var->name, B, plt.globs_detached ? " (detached)" : "", plt.truncated ? " (truncated)" : "");
+    Printf("%s%s%s%s%s: ", A, var->name, B, plt.shared_detached ? " (detached)" : "", plt.truncated ? " (truncated)" : "");
     Printf("min %s", A);   Nct_print_datum(var->dtype, minmax);       Printf("%s", B);
     Printf(", max %s", A); Nct_print_datum(var->dtype, minmax+size1); Printf("%s", B);
     Printf("\033[K\n");
@@ -457,7 +457,7 @@ static void printinfo(void* minmax) {
 	    "data/pixel = %s(%.4f, %.4f)%s\033[K\n"
 	    "colormap = %s%s%s%s\033[K\n",
 	    A,plt.minshift,B, A,plt.maxshift,B,
-	    A,data_per_pixel[0],data_per_pixel[1],B, A,cmh_colormaps[globs.cmapnum].name,B, globs.invert_c? " reversed": "");
+	    A,data_per_pixel[0],data_per_pixel[1],B, A,cmh_colormaps[shared.cmapnum].name,B, shared.invert_c? " reversed": "");
     lines_printed = printinfo_nlines; // mouseinfoline is already counted
     if (plt.use_threshold) {
 	Printf("threshold = %g, n(points) = %i\n", plt.threshold, plt.n_threshold);
@@ -481,7 +481,7 @@ static long get_varpos_xy(int x, int y) {
     long xlen = nct_get_vardim(var, xid)->len;
     long ylen = yid < 0 ? 0 : nct_get_vardim(var, yid)->len;
 
-    if (globs.invert_y)
+    if (shared.invert_y)
 	y = draw_h / g_pixels_per_datum[1] * g_pixels_per_datum[1] - y;
     int i = x / g_pixels_per_datum[0];
     int j = y / g_pixels_per_datum[1];
@@ -509,7 +509,7 @@ static void _maybe_print_mousecoordinate(int vardimid, int at) {
 }
 
 static void mousemotion(int xrel, int yrel) {
-    if (prog_mode < n_cursesmodes || !globs.echo)// || !count++)
+    if (prog_mode < n_cursesmodes || !shared.echo)// || !count++)
 	return;
     if (mousex >= draw_w || mousey >= draw_h)
 	return;
@@ -565,7 +565,7 @@ struct {
 
 static long get_allowed_bytes() {
     double memory_fraction = (double)var->len * nct_typelen[var->dtype] / memory.sum_of_variables;
-    long allowed_bytes = globs.cache_size * memory_fraction;
+    long allowed_bytes = shared.cache_size * memory_fraction;
     return allowed_bytes;
 }
 
@@ -639,8 +639,8 @@ static void update_minmax_fun() {
     }
 
     update_minmax = 0;
-    if (globs.usenan)
-	nct_minmax_nan_at(var, globs.nanval, start, end, plt.minmax);
+    if (shared.usenan)
+	nct_minmax_nan_at(var, shared.nanval, start, end, plt.minmax);
     else
 	nct_minmax_at(var, start, end, plt.minmax);
 }
@@ -665,7 +665,7 @@ static void redraw(nct_var* var) {
     SDL_SetRenderTarget(rend, base);
 #endif
     draw_funcptr(var);
-    if (globs.coastlines) {
+    if (shared.coastlines) {
 	if (!plt.area_xy->coasts)
 	    init_coastlines(plt.area_xy, NULL);
 	draw_coastlines(plt.area_xy);
@@ -719,7 +719,7 @@ static void set_draw_params() {
 	g_ylen  = win_h * data_per_pixel[1];
     }
     data_per_pixel *= plt.area_xy->zoom;
-    if (globs.exact)
+    if (shared.exact)
 	for (int i=0; i<2; i++)
 	    data_per_pixel[i] = data_per_pixel[i] >= 1 ? ceil(data_per_pixel[i]) :
 		1.0 / floor(1.0/data_per_pixel[i]);
@@ -737,7 +737,7 @@ static void set_draw_params() {
     plt.stepsize_z += plt.stepsize_z == 0; // length must be at least 1
 
     for (int i=0; i<2; i++) {
-	g_pixels_per_datum[i] = globs.exact ? round(1.0 / data_per_pixel[i]) : 1.0 / data_per_pixel[i];
+	g_pixels_per_datum[i] = shared.exact ? round(1.0 / data_per_pixel[i]) : 1.0 / data_per_pixel[i];
 	g_pixels_per_datum[i] += !g_pixels_per_datum[i];
 	g_data_per_step[i] = g_pixels_per_datum[i] * data_per_pixel[i]; // step is a virtual pixel >= physical pixel
     }
@@ -751,7 +751,7 @@ static void set_draw_params() {
     if_add_1 = draw_w / g_pixels_per_datum[0] < g_xlen - offset_i && draw_w < win_w;
     draw_w += if_add_1 * g_pixels_per_datum[0]; // may be larger than win_w which is not a problem in SDL
 
-    if (globs.invert_y) {
+    if (shared.invert_y) {
 	if_add_1 = draw_h / g_pixels_per_datum[1] < g_ylen - offset_j && draw_h < win_h && offset_j;
 	offset_j -= if_add_1;
 	plt.area_xy->offset_j = offset_j;
@@ -833,20 +833,20 @@ static void variable_changed() {
 	return var_ichange((Arg){.i=_variable_changed_direction}); // 0-dimensional variables are not supported.
 
     long wants = MAX(nct_nplottables, nct_pltind);
-    recalloc_list(&globslist, &globslistlen, wants, sizeof(struct nctplot_globals), &default_globals);
+    recalloc_list(&sharedlist, &sharedlistlen, wants, sizeof(struct nctplot_shared), &default_shared);
 
     /* Is previous was detached, take back the global state and put its state to memory. */
-    if (plt.globs_detached) {
-	globslist[nct_pltind] = globs;
-	globs = globs_mem;
+    if (plt.shared_detached) {
+	sharedlist[nct_pltind] = shared;
+	shared = shared_mem;
     }
 
     nct_pltind = nct_varid(var); // this is the core change
     recalloc_list(&nct_plottables, &nct_nplottables, nct_pltind+1, sizeof(nct_plottable), NULL);
 
-    if (plt.globs_detached) {
-	globs_mem = globs;
-	globs = globslist[nct_pltind];
+    if (plt.shared_detached) {
+	shared_mem = shared;
+	shared = sharedlist[nct_pltind];
     }
 
     /* Order matters here. */
@@ -864,8 +864,8 @@ static void variable_changed() {
     nct_att* att;
     if (var->dtype != NC_FLOAT && var->dtype != NC_DOUBLE &&
 	    ((att = nct_get_varatt(var, "_FillValue")) || (att = nct_get_varatt(var, "FillValue")))) {
-	globs.usenan = 1;
-	globs.nanval = nct_getatt_integer(att, 0);
+	shared.usenan = 1;
+	shared.nanval = nct_getatt_integer(att, 0);
     }
     call_redraw = 1;
 }
@@ -903,13 +903,13 @@ static void end_typing_crs() {
 
 static void cmap_ichange(Arg jump) {
     int len = cmh_n - 1;
-    globs.cmapnum = (globs.cmapnum-1+len+jump.i) % len + 1;
+    shared.cmapnum = (shared.cmapnum-1+len+jump.i) % len + 1;
     call_redraw = 1;
 }
 
 static void toggle_detached(Arg _) {
-    plt.globs_detached = !plt.globs_detached;
-    globs_mem = globs;
+    plt.shared_detached = !plt.shared_detached;
+    shared_mem = shared;
     call_redraw = 1;
 }
 
@@ -924,10 +924,10 @@ static void toggle_play_rev(Arg _) {
 }
 
 static void invert_colors(Arg _) {
-    typeof(globs.color_bg) mem;
-    memcpy(mem,			globs.color_fg,	sizeof(globs.color_fg));
-    memcpy(globs.color_fg,	globs.color_bg,	sizeof(globs.color_fg));
-    memcpy(globs.color_bg,	mem,		sizeof(globs.color_fg));
+    typeof(shared.color_bg) mem;
+    memcpy(mem,			shared.color_fg,	sizeof(shared.color_fg));
+    memcpy(shared.color_fg,	shared.color_bg,	sizeof(shared.color_fg));
+    memcpy(shared.color_bg,	mem,		sizeof(shared.color_fg));
     call_redraw = 1;
 }
 
@@ -965,7 +965,7 @@ static void inc_offset_i(Arg arg) {
 }
 
 static void inc_offset_j(Arg arg) {
-    if (globs.invert_y)
+    if (shared.invert_y)
 	arg.i = -arg.i;
     int winh = win_h - additional_height();
     if (draw_h <= winh - g_pixels_per_datum[1] && arg.i > 0)
@@ -990,7 +990,7 @@ static void inc_znum(Arg intarg) {
 }
 
 static void multiply_zoom_fixed_point(float2 multiple, float xfraction, float yfraction) {
-    yfraction = (float[]){yfraction, 1-yfraction}[!!globs.invert_y];
+    yfraction = (float[]){yfraction, 1-yfraction}[!!shared.invert_y];
     float fixed_datax = draw_w*data_per_pixel[0] * xfraction + plt.area_xy->offset_i;
     float fixed_datay = draw_h*data_per_pixel[1] * yfraction + plt.area_xy->offset_j;
     plt.area_xy->zoom *= multiple;
@@ -1060,7 +1060,7 @@ static void pending_var_inc(Arg _) {
 }
 
 static void pending_map_dec(Arg _) {
-    if (!pending_cmapnum) pending_cmapnum = globs.cmapnum;
+    if (!pending_cmapnum) pending_cmapnum = shared.cmapnum;
     if (--pending_cmapnum <= 0)
 	pending_cmapnum += cmh_n-1;
     if (prog_mode == colormaps_m)
@@ -1068,7 +1068,7 @@ static void pending_map_dec(Arg _) {
 }
 
 static void pending_map_inc(Arg _) {
-    if (!pending_cmapnum) pending_cmapnum = globs.cmapnum;
+    if (!pending_cmapnum) pending_cmapnum = shared.cmapnum;
     if (++pending_cmapnum >= cmh_n)
 	pending_cmapnum -= cmh_n-1;
     if (prog_mode == colormaps_m)
@@ -1090,7 +1090,7 @@ static void set_typingmode(Arg arg) {
 #ifndef HAVE_WAYLAND
     SDL_StartTextInput();
 #elif defined HAVE_TTRA
-    set_color(globs.color_bg);
+    set_color(shared.color_bg);
     clear_unused_bottom();
 #endif
 }
@@ -1148,8 +1148,8 @@ static void end_typing_nan() {
     long long result;
     if (sscanf(prompt_input, "%lli", &result) != 1)
 	return;
-    globs.nanval = result;
-    globs.usenan = update_minmax = call_redraw = 1;
+    shared.nanval = result;
+    shared.usenan = update_minmax = call_redraw = 1;
 }
 
 static void use_pending(Arg _) {
@@ -1165,8 +1165,8 @@ static void use_pending(Arg _) {
 static void use_pending_cmap(Arg _) {
     if (pending_cmapnum <= 0)
 	return;
-    int help = globs.cmapnum;
-    globs.cmapnum = pending_cmapnum;
+    int help = shared.cmapnum;
+    shared.cmapnum = pending_cmapnum;
     pending_cmapnum = help;
     call_redraw = 1;
 }
@@ -1269,7 +1269,7 @@ static void quit(Arg _) {
 	dl_cmapfun_handle = NULL;
 	dl_cmapfun = NULL;
     }
-    free(globslist); globslist = NULL; globslistlen = 0;
+    free(sharedlist); sharedlist = NULL; sharedlistlen = 0;
     mp_params = (struct Mp_params){0};
     memset(&memory, 0, sizeof(memory));
     quit_graphics();
@@ -1566,7 +1566,7 @@ void* nctplot_(void* vobject, int isset) {
     }
 
 variable_found:
-    globs = default_globals; // must be early because globals may be modified or needed by functions
+    shared = default_shared; // must be early because these may be modified or needed by functions
     nct_nplottables = var->super->nvars;
     nct_plottables = calloc(nct_nplottables, sizeof(nct_plottable));
     nct_pltind = nct_varid(var);
@@ -1592,6 +1592,6 @@ variable_found:
     return vobject;
 }
 
-struct nctplot_globals* nctplot_get_globals() {
-    return &globs;
+struct nctplot_shared* nctplot_get_shared() {
+    return &shared;
 }

@@ -4,7 +4,7 @@
 #include <nctietue3.h> // Voiko tämän poistaa?
 #define nctplot(set_or_var) nctplot_(set_or_var, nct_isset(*(set_or_var)))
 
-struct nctplot_globals {
+struct nctplot_shared {
     long long nanval; // custom nan-value if usenan = 1
     char usenan, coastlines, echo, invert_y, exact, invert_c;
     int cmapnum;
@@ -13,13 +13,13 @@ struct nctplot_globals {
 };
 
 void* nctplot_(void* set_or_var, int isset); // returns the input pointer
-struct nctplot_globals* nctplot_get_globals();
+struct nctplot_shared* nctplot_get_shared();
 
 typedef struct {
     nct_var *var, *zvar;
     unsigned truncated : 1,
 	     use_threshold : 1,
-	     globs_detached : 1,
+	     shared_detached : 1,
 	     use_cmapfun : 1;
     nct_anyd time0;
     char minmax[8*2];
