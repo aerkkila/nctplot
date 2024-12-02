@@ -5,6 +5,10 @@
    or function returns ctype.
    */
 
+/* The typedef is needed because the perl program can't recognize function pointers
+   and doing a typedef is easier than fixing a perl program. */
+typedef void cmapfun_t(unsigned char*, const void*);
+
 @startperl // entry for the perl program
 
 #define ctype @ctype
@@ -72,6 +76,34 @@ static void draw_row_@nctype(int jpixel, const void* vrowptr) {
 	int value = CVAL(val, g_minmax_@nctype);
 	if (globs.invert_c) value = 0xff-value;
 	unsigned char* c = cmh_colorvalue(globs.cmapnum,value);
+	set_color(c);
+#ifdef HAVE_WAYLAND // the #else would also work but this is more optimal
+	draw_point_in_xscale(ipixel/g_pixels_per_datum[0], jpixel/g_pixels_per_datum[1]);
+#else
+	graphics_draw_point(ipixel/g_pixels_per_datum[0], jpixel/g_pixels_per_datum[1]);
+#endif
+    }
+#ifdef HAVE_WAYLAND // same comment as above
+    expand_row_to_yscale(jpixel/g_pixels_per_datum[1]);
+#endif
+}
+
+static void draw_row_cmapfun_@nctype(int jpixel, const void* vrowptr, cmapfun_t cmapfun) {
+    float idata_f = plt.area_xy->offset_i;
+    for (int ipixel=0; ipixel<draw_w; ipixel+=g_pixels_per_datum[0], idata_f+=g_data_per_step[0]) {
+	long ind = (size_t)round(idata_f);
+	if (ind >= g_xlen)
+	    return;
+	const ctype *val = (const ctype*)vrowptr+ind;
+#if __nctype__ == NC_DOUBLE
+	if (my_isnan_double(*val)) continue;
+#elif __nctype__ == NC_FLOAT
+	if (my_isnan_float(*val)) continue;
+#endif
+	if (globs.usenan && *val==globs.nanval)
+	    continue;
+	unsigned char c[4];
+	cmapfun(c, val);
 	set_color(c);
 #ifdef HAVE_WAYLAND // the #else would also work but this is more optimal
 	draw_point_in_xscale(ipixel/g_pixels_per_datum[0], jpixel/g_pixels_per_datum[1]);

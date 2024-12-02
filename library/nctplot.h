@@ -17,14 +17,16 @@ struct nctplot_globals* nctplot_get_globals();
 
 typedef struct {
     nct_var *var, *zvar;
-    int truncated;
+    unsigned truncated : 1,
+	     use_threshold : 1,
+	     globs_detached : 1,
+	     use_cmapfun : 1;
     nct_anyd time0;
     char minmax[8*2];
     size_t stepsize_z;
     float minshift, maxshift;
     double threshold;
-    int use_threshold, n_threshold;
-    char globs_detached;
+    int n_threshold;
     struct shown_area_xy *area_xy;
     struct shown_area_z *area_z;
 } nct_plottable;

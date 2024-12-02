@@ -26,6 +26,8 @@ static struct nctplot_globals globs;
 static struct nctplot_globals globs_mem;
 static struct nctplot_globals* globslist;
 int globslistlen;
+static void *dl_cmapfun_handle,
+	    (*dl_cmapfun)(unsigned char* rgb_out, const void* datum_in);
 
 struct shown_area_xy;
 
@@ -343,18 +345,32 @@ static void draw2d(const nct_var* var) {
     if (plt.use_threshold) {
 	int count = 0;
 	if (globs.invert_y)
-	    for(j=draw_h-g_pixels_per_datum[1]; j>=0; j-=g_pixels_per_datum[1]) {
+	    for (j=draw_h-g_pixels_per_datum[1]; j>=0; j-=g_pixels_per_datum[1]) {
 		count += draw_row_threshold(var->dtype, j,
 		    dataptr + g_size1*idataj*g_xlen, plt.threshold);
 		idataj = round(fdataj += g_data_per_step[1]);
 	    }
 	else
-	    for(j=0; j<draw_h; j+=g_pixels_per_datum[1]) {
+	    for (j=0; j<draw_h; j+=g_pixels_per_datum[1]) {
 		count += draw_row_threshold(var->dtype, j,
 		    dataptr + g_size1*idataj*g_xlen, plt.threshold);
 		idataj = round(fdataj += g_data_per_step[1]);
 	    }
 	plt.n_threshold = count;
+    }
+    else if (plt.use_cmapfun && dl_cmapfun) {
+	if (globs.invert_y)
+	    for (j=draw_h-g_pixels_per_datum[1]; j>=0; j-=g_pixels_per_datum[1]) {
+		draw_row_cmapfun(var->dtype, j,
+		    dataptr + g_size1*idataj*g_xlen, dl_cmapfun);
+		idataj = round(fdataj += g_data_per_step[1]);
+	    }
+	else
+	    for (j=0; j<draw_h; j+=g_pixels_per_datum[1]) {
+		draw_row_cmapfun(var->dtype, j,
+		    dataptr + g_size1*idataj*g_xlen, dl_cmapfun);
+		idataj = round(fdataj += g_data_per_step[1]);
+	    }
     }
     else {
 	if (globs.invert_y)
@@ -1248,6 +1264,11 @@ static void quit(Arg _) {
 	free_plottable(nct_plottables+i);
     nct_plottables = (free(nct_plottables), NULL);
     nct_nplottables = 0;
+    if (dl_cmapfun_handle) {
+	dlclose(dl_cmapfun_handle);
+	dl_cmapfun_handle = NULL;
+	dl_cmapfun = NULL;
+    }
     free(globslist); globslist = NULL; globslistlen = 0;
     mp_params = (struct Mp_params){0};
     memset(&memory, 0, sizeof(memory));
@@ -1417,22 +1438,33 @@ static void mousepaint() {
     }
 }
 
-static void execute_cfile(const char *filename) {
-    char *libname = "/tmp/nctplot_ext.so";
-    int len = snprintf(NULL, 0, "cc %s -fpic -shared -o %s %s", getenv("CFLAGS"), libname, filename);
-    char *cmd = malloc(len+1);
-    snprintf(cmd, len+1, "cc %s -fpic -shared -o %s %s", getenv("CFLAGS"), libname, filename);
-    if (system(cmd) < 0) warn("system %s", cmd);
-    free(cmd);
+static void* load_from_cfile(const char *filename, const char *objectname, void** Dlhandle) {
+    int isobject = 0, flen = strlen(filename);
+    isobject = flen >= 3 && filename[flen-3] == '.' && filename[flen-2] == 's' && filename[flen-1] == 'o';
 
-    void* dlhandle = dlopen(libname, RTLD_LAZY);
-    void (*fun)() = dlsym(dlhandle, "function");
-    printf("%p\n", fun);
-    dlclose(dlhandle);
-
+    const char *libname = "/tmp/nctplot_ext.so";
     char help[strlen(libname) + 10];
     sprintf(help, "rm %s", libname);
-    if (system(help) < 0) warn("system %s", help);
+
+    if (!isobject) {
+	int len = snprintf(NULL, 0, "cc %s -fpic -shared -o %s %s", getenv("CFLAGS"), libname, filename);
+	char *cmd = malloc(len+1);
+	snprintf(cmd, len+1, "cc %s -fpic -shared -o %s %s", getenv("CFLAGS"), libname, filename);
+	if (system(cmd) < 0) warn("system %s", cmd);
+	free(cmd);
+    }
+    else
+	libname = filename;
+
+    void* dlhandle = dlopen(libname, RTLD_LAZY);
+    if (!dlhandle)
+	return warn("dlopen %s", libname), NULL;
+    void *object = dlsym(dlhandle, objectname ? objectname : "function");
+    if (!isobject && system(help) < 0)
+	warn("system %s", help);
+
+    *Dlhandle = dlhandle;
+    return object;
 }
 
 static void end_typing_command() {
@@ -1449,9 +1481,17 @@ static void end_typing_command() {
 	if (str) sscanf(str, "%g", &num);
 	setmin(num);
     }
-    else if (!strcmp(str, "c")) {
+    else if (!strcmp(str, "cmapfun")) {
 	str = strtok(NULL, " \t");
-	execute_cfile(str);
+	if (str && dl_cmapfun_handle) {
+	    dlclose(dl_cmapfun_handle);
+	    dl_cmapfun_handle = NULL;
+	    dl_cmapfun = NULL;
+	}
+	if (str)
+	    dl_cmapfun = load_from_cfile(str, strtok(NULL, " \t"), &dl_cmapfun_handle);
+	plt.use_cmapfun = 1;
+	call_redraw = 1;
     }
 }
 
@@ -1467,7 +1507,7 @@ static void typing_input(const char *utf8input) {
 	    case '\r': // return or kp_enter makes a carriage return, not a newline
 	    case '\n': // Ctrl+j makes a newline
 		end_typingmode();
-	    case '\0':
+	    case 0:
 		goto endfor;
 	    default:
 		prompt_input[len_prompt_input++] = utf8input[i];
