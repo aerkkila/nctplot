@@ -13,6 +13,9 @@
 #include <nctproj.h>
 #endif
 
+#define Min(a,b) ((a) < (b) ? a : (b))
+#define Max(a,b) ((a) > (b) ? a : (b))
+
 static const struct nctplot_shared default_shared = {
     .color_fg = {255, 255, 255},
     .echo = 1,
@@ -45,11 +48,11 @@ int nct_pltind, nct_prev_pltind, nct_nplottables;
 
 /* Static variables. Global in the context of this library. */
 #define plt (nct_plottables[nct_pltind])
-static nct_var* var; // = plt.var
+static nct_var varbuff;
+static nct_var *const var = &varbuff; // = plt.var
 static WINDOW *wnd;
 static const unsigned default_sleep_ms=8;
 static const double default_fps=50;
-static size_t cache_size = 1L<<31;
 static unsigned sleeptime;
 static double fps;
 static int win_w, win_h, xid, yid, zid, draw_w, draw_h, pending_varnum=-1, pending_cmapnum;
@@ -67,20 +70,27 @@ static enum {no_m, variables_m=-100, colormaps_m, n_cursesmodes/*not a mode*/, m
 static float2 g_data_per_step;
 typedef int int2 __attribute__((vector_size(2*sizeof(int))));
 static int2 g_pixels_per_datum;
-static int g_xlen, g_ylen, g_size1, g_only_nans, g_extended_y;
+static int g_xlen, g_ylen, g_only_nans, g_extended_y;
 static char g_minmax[2*8]; // a buffer, which is used with a g_minmax_@nctype pointer
 /* When coming backwards to a 0-dimensional variable, we want to jump to previous and not to next. */
 static char _variable_changed_direction = 1;
+static struct memory {
+    size_t totsize, chunksize, used;
+    int nchunks, ichunk;
+    void **chunks;
+    short *ivar;
+    size_t *istart, *iend, *bytes;
+} memory;
+static void free_memory();
 
 typedef union Arg Arg;
 typedef struct Binding Binding;
 
-static int my_isnan_float(float f);
-static int my_isnan_double(double f);
 static void printinfo(void* minmax);
 static void redraw(nct_var* var);
 static void multiply_zoom_fixed_point(float2 multiple, float xfraction, float yfraction);
 static void draw_colormap();
+static void* get_data(size_t start, size_t *Len);
 static void set_dimids();
 static void set_draw_params();
 static void end_curses(Arg);
@@ -217,30 +227,9 @@ static inline int __attribute__((pure)) additional_height() {
     return total_height() - draw_h;
 }
 
-static void get_zoombox(long *xlen, long *ylen) {
-    *xlen = draw_w * data_per_pixel[0];
-    *ylen = draw_h * data_per_pixel[1];
-}
-
 #include "functions.c" // draw1d, draw_row, make_minmax; automatically generated from functions.in.c
 #include "coastlines.c"
 #include "png.c"
-
-/* These isnan functions can be used even with -ffinite-math-only optimization,
-   which is part of -Ofast optimization. */
-static int my_isnan_float(float f) {
-    const unsigned exponent = ((1u<<31)-1) - ((1u<<(31-8))-1);
-    uint32_t bits;
-    memcpy(&bits, &f, 4);
-    return (bits & exponent) == exponent;
-}
-
-static int my_isnan_double(double f) {
-    const long unsigned exponent = ((1lu<<63)-1) - ((1lu<<(63-11))-1);
-    uint64_t bits;
-    memcpy(&bits, &f, 8);
-    return (bits & exponent) == exponent;
-}
 
 static int omit_utf8(const char *str, int len) {
     if ((signed char)str[len-1] >= 0)
@@ -344,53 +333,85 @@ static void draw2d(const nct_var* var) {
 
     if (g_only_nans) return;
 
-    void* dataptr = var->data + (plt.area_z->znum*plt.stepsize_z*(zid>=0) - var->startpos) * g_size1;
+    double fdataj = plt.area_xy->offset_j,
+	   fdatai = plt.area_xy->offset_i;
+    long idataj = round(fdataj),
+	 idatai = round(fdatai);
+    size_t length, start = plt.stepsize_z * plt.area_z->znum*(zid>=0) + idataj * g_xlen + idatai;
+    int drawwleft = draw_w;
 
-    float fdataj = plt.area_xy->offset_j;
-    int idataj = round(fdataj), j;
+    int jimag = draw_h - g_pixels_per_datum[1],
+	iimag = 0;
+    int step = -g_pixels_per_datum[1];
+    if (!shared.invert_y) {
+	step = g_pixels_per_datum[1];
+	jimag = 0;
+    }
+
     if (plt.use_threshold) {
 	int count = 0;
-	if (shared.invert_y)
-	    for (j=draw_h-g_pixels_per_datum[1]; j>=0; j-=g_pixels_per_datum[1]) {
-		count += draw_row_threshold(var->dtype, j,
-		    dataptr + g_size1*idataj*g_xlen, plt.threshold);
-		idataj = round(fdataj += g_data_per_step[1]);
+	while (0 <= jimag && jimag < draw_h) {
+	    char* dataptr = get_data(start, &length);
+	    int npix = round(length / data_per_pixel[0]);
+	    npix = Min(npix, drawwleft);
+	    count += draw_row_threshold(var->dtype, jimag, iimag, iimag+npix, dataptr, plt.threshold);
+	    drawwleft -= npix;
+	    if (drawwleft > 0) {
+		fdatai += npix / g_pixels_per_datum[0] * g_data_per_step[0];
+		iimag += npix;
 	    }
-	else
-	    for (j=0; j<draw_h; j+=g_pixels_per_datum[1]) {
-		count += draw_row_threshold(var->dtype, j,
-		    dataptr + g_size1*idataj*g_xlen, plt.threshold);
+	    else {
+		jimag += step;
+		iimag = 0;
 		idataj = round(fdataj += g_data_per_step[1]);
+		fdatai = plt.area_xy->offset_i;
+		drawwleft = draw_w;
 	    }
+	    start = plt.stepsize_z * plt.area_z->znum*(zid>=0) + idataj * g_xlen + round(fdatai);
+	}
 	plt.n_threshold = count;
     }
     else if (plt.use_cmapfun && dl_cmapfun) {
-	if (shared.invert_y)
-	    for (j=draw_h-g_pixels_per_datum[1]; j>=0; j-=g_pixels_per_datum[1]) {
-		draw_row_cmapfun(var->dtype, j,
-		    dataptr + g_size1*idataj*g_xlen, dl_cmapfun);
-		idataj = round(fdataj += g_data_per_step[1]);
+	while (0 <= jimag && jimag < draw_h) {
+	    char* dataptr = get_data(start, &length);
+	    int npix = round(length / data_per_pixel[0]);
+	    npix = Min(npix, drawwleft);
+	    draw_row_cmapfun(var->dtype, jimag, iimag, iimag+npix, dataptr, dl_cmapfun);
+	    drawwleft -= npix;
+	    if (drawwleft > 0) {
+		fdatai += npix / g_pixels_per_datum[0] * g_data_per_step[0];
+		iimag += npix;
 	    }
-	else
-	    for (j=0; j<draw_h; j+=g_pixels_per_datum[1]) {
-		draw_row_cmapfun(var->dtype, j,
-		    dataptr + g_size1*idataj*g_xlen, dl_cmapfun);
+	    else {
+		jimag += step;
+		iimag = 0;
 		idataj = round(fdataj += g_data_per_step[1]);
+		fdatai = plt.area_xy->offset_i;
+		drawwleft = draw_w;
 	    }
+	    start = plt.stepsize_z * plt.area_z->znum*(zid>=0) + idataj * g_xlen + round(fdatai);
+	}
     }
     else {
-	if (shared.invert_y)
-	    for(j=draw_h-g_pixels_per_datum[1]; j>=0; j-=g_pixels_per_datum[1]) {
-		draw_row(var->dtype, j,
-		    dataptr + g_size1*idataj*g_xlen);
-		idataj = round(fdataj += g_data_per_step[1]);
+	while (0 <= jimag && jimag < draw_h) {
+	    char* dataptr = get_data(start, &length);
+	    int npix = round(length / data_per_pixel[0]);
+	    npix = Min(npix, drawwleft);
+	    draw_row(var->dtype, jimag, iimag, iimag+npix, dataptr);
+	    drawwleft -= npix;
+	    if (drawwleft > 0) {
+		fdatai += npix / g_pixels_per_datum[0] * g_data_per_step[0];
+		iimag += npix;
 	    }
-	else
-	    for(j=0; j<draw_h; j+=g_pixels_per_datum[1]) {
-		draw_row(var->dtype, j,
-		    dataptr + g_size1*idataj*g_xlen);
+	    else {
+		jimag += step;
+		iimag = 0;
 		idataj = round(fdataj += g_data_per_step[1]);
+		fdatai = plt.area_xy->offset_i;
+		drawwleft = draw_w;
 	    }
+	    start = plt.stepsize_z * plt.area_z->znum*(zid>=0) + idataj * g_xlen + round(fdatai);
+	}
     }
     if (plt.show_cmap)
 	draw_colormap();
@@ -436,7 +457,7 @@ static void printinfo(void* minmax) {
 	return;
     nct_var *zvar = plt.zvar;
     int size1 = nctypelen(var->dtype);
-    Printf("%s%s%s%s%s: ", A, var->name, B, plt.shared_detached ? " (detached)" : "", plt.truncated ? " (truncated)" : "");
+    Printf("%s%s%s%s: ", A, var->name, B, plt.shared_detached ? " (detached)" : "");
     Printf("min %s", A);   Nct_print_datum(var->dtype, minmax);       Printf("%s", B);
     Printf(", max %s", A); Nct_print_datum(var->dtype, minmax+size1); Printf("%s", B);
     Printf("\033[K\n");
@@ -524,7 +545,8 @@ static void mousemotion(int xrel, int yrel) {
     if (pos < 0)
 	return;
     Printf("\033[%iB\r", line_mouseinfo);
-    Nct_print_datum(var->dtype, var->data + (pos - var->startpos) * nctypelen(var->dtype));
+    size_t _;
+    Nct_print_datum(var->dtype, get_data(pos, &_));
     int xlen = nct_get_vardim(var, xid)->len;
     Printf(" [%zu pos=(%i,%i: %i) coords=(", pos, varpos_xy_j, varpos_xy_i, varpos_xy_j*xlen + varpos_xy_i);
     if (yid >= 0) {
@@ -566,78 +588,63 @@ static void mousemove(float xrel, float yrel) {
     call_redraw = 1;
 }
 
-struct {
-    long sum_of_variables, used_memory;
-} memory;
+static void* get_data(size_t start, size_t *Len) {
+    int ichunk = memory.ichunk;
+    do {
+	if (memory.ivar[ichunk] == nct_pltind &&
+	    memory.istart[ichunk] <= start &&
+	    memory.iend[ichunk] > start)
+	    goto found;
+	ichunk--;
+	ichunk += memory.nchunks * (ichunk < 0);
+    } while (ichunk != memory.ichunk);
 
-static long get_allowed_bytes() {
-    double memory_fraction = (double)var->len * nct_typelen[var->dtype] / memory.sum_of_variables;
-    long allowed_bytes = cache_size * memory_fraction;
-    return allowed_bytes;
-}
-
-static void manage_memory() {
-    long startpos = plt.area_z->znum * plt.stepsize_z;
-    if (var->startpos <= startpos && var->endpos >= startpos+plt.stepsize_z)
-	return;
-    if (!nct_loadable(var))
-	return;
-
-    if (memory.sum_of_variables == 0)
-	nct_foreach(var->super, v)
-	    memory.sum_of_variables += v->len * nct_typelen[v->dtype];
-
-    long thisbytes = var->len * nct_typelen[var->dtype];
-    long allowed_bytes = get_allowed_bytes();
-
-    if (thisbytes <= allowed_bytes) {
-	nct_load(var);
-	memory.used_memory += thisbytes;
-	return;
+    /* load new data */
+    ichunk = (memory.ichunk+1) % memory.nchunks;
+    size_t wanted = var->len - start;
+    size_t ndata = Min(wanted, memory.chunksize/nct_typelen[var->dtype]);
+    if (memory.used - memory.bytes[ichunk] + ndata*nct_typelen[var->dtype] >= memory.totsize)
+	ndata = (memory.totsize - (memory.used - memory.bytes[ichunk])) / nct_typelen[var->dtype];
+    if (ndata == 0) {
+	for (int i=ichunk; i<memory.nchunks; i++)
+	    if (memory.bytes[i] > nct_typelen[var->dtype]*100) {
+		ichunk = i;
+		goto found1;
+	    }
+	for (int i=0; i<ichunk; i++)
+	    if (memory.bytes[i] > nct_typelen[var->dtype]*100) {
+		ichunk = i;
+		goto found1;
+	    }
     }
+found1:
+    ndata = Min(wanted, memory.chunksize/nct_typelen[var->dtype]);
+    if (memory.used - memory.bytes[ichunk] + ndata*nct_typelen[var->dtype] >= memory.totsize)
+	ndata = (memory.totsize - (memory.used - memory.bytes[ichunk])) / nct_typelen[var->dtype];
 
-    nct_var *xdim = nct_get_vardim(var, xid);
-    nct_var *ydim = nct_get_vardim(var, yid);
+    free(memory.chunks[ichunk]);
+    memory.used -= memory.bytes[ichunk];
+    memory.chunks[ichunk] = var->data = malloc(ndata * nct_typelen[var->dtype]);
+    memory.used += ndata * nct_typelen[var->dtype];
+    memory.bytes[ichunk] = ndata * nct_typelen[var->dtype];
+    memory.istart[ichunk] = start;
+    memory.iend[ichunk] = start + ndata;
+    memory.ivar[ichunk] = nct_pltind;
+    *Len = ndata = var->capacity = ndata;
+    nct_load_partially(var, start, start+ndata);
+    if (var->data != memory.chunks[ichunk])
+	fprintf(stderr, "Varoitus: %s: %i (%s)\n", __FILE__, __LINE__, __func__);
+    return memory.chunks[ichunk];
 
-    long thislen = allowed_bytes / nct_typelen[var->dtype] / plt.stepsize_z * plt.stepsize_z;
-    if (thislen == 0) {
-	/* zoom to an area which fits into memory */
-	long xlen, ylen;
-	get_zoombox(&xlen, &ylen);
-	ylen += ylen == 0;
-	while (xlen * ylen * nct_typelen[var->dtype] > allowed_bytes) {
-	    plt.area_xy->zoom[0] *= 0.8;
-	    set_draw_params();
-	    get_zoombox(&xlen, &ylen);
-	    ylen += ylen == 0;
-	}
-	thislen = xlen * ylen;
-	/* Load only the zoom area and not the whole frame. */
-	nct_set_start(xdim, xdim->len/2 - 0.5*xlen);
-	nct_set_length(xdim, xlen);
-	if (ydim) {
-	    nct_set_start(ydim, ydim->len/2 - 0.5*ylen);
-	    nct_set_length(ydim, ylen);
-	}
-	plt.truncated = 1;
-    }
-    long endpos = startpos + thislen;
-    int frames_behind = thislen / plt.stepsize_z / 5;
-    startpos -= frames_behind * plt.stepsize_z;
-    endpos -= frames_behind * plt.stepsize_z;
-    if (startpos < 0) {
-	endpos += -startpos;
-	startpos = 0;
-    }
-    if (endpos > var->len)
-	endpos = var->len;
-    nct_load_partially(var, startpos, endpos);
-    memory.used_memory += (endpos - startpos) * nctypelen(var->dtype);
+found:
+    memory.ichunk = ichunk;
+    *Len = memory.iend[ichunk] - start;
+    return (char*)memory.chunks[ichunk] + (start - memory.istart[ichunk]) * nct_typelen[var->dtype];
 }
 
 static void update_minmax_fun() {
     long start = 0;
-    long end = var->endpos - var->startpos;
+    long end = var->len;
 
     if (update_minmax_cur) {
 	start = (zid>=0) * plt.stepsize_z * plt.area_z->znum;
@@ -647,9 +654,9 @@ static void update_minmax_fun() {
 
     update_minmax = 0;
     if (shared.usenan)
-	nct_minmax_nan_at(var, shared.nanval, start, end, plt.minmax);
+	minmax_nan_at(var->dtype, shared.nanval, start, end, plt.minmax);
     else
-	nct_minmax_at(var, start, end, plt.minmax);
+	minmax_at(var->dtype, start, end, plt.minmax);
 }
 
 static void redraw(nct_var* var) {
@@ -660,8 +667,6 @@ static void redraw(nct_var* var) {
 	return;
     }
     lasttime = thistime;
-
-    manage_memory();
 
     if (update_minmax | update_minmax_cur) {
 	update_minmax_fun();
@@ -714,7 +719,6 @@ static void set_draw_params() {
 
     g_only_nans = make_minmax(var->dtype);
 
-    g_size1 = nctypelen(var->dtype);
     g_xlen = nct_get_vardim(var, xid)->len;
     if (yid>=0) {
 	g_ylen  = nct_get_vardim(var, yid)->len;
@@ -859,16 +863,16 @@ static void variable_changed() {
     /* Order matters here. */
     if (!plt.noreset) {
 	plt = default_plottable;
+	plt.var = &plt.varbuff;
 	update_minmax = 1;
     }
-    plt.var = var;
+    plt.varbuff = *var;
     set_dimids();
     if (!plt.area_xy)
 	plt.area_xy = get_ref_shown_area_xy(nct_pltind);
     if (!plt.area_z)
 	plt.area_z = get_ref_shown_area_z(nct_pltind);
-    set_draw_params(); // sets stepsize_z needed in manage_memory
-    manage_memory();
+    set_draw_params();
 
     nct_att* att;
     if (var->dtype != NC_FLOAT && var->dtype != NC_DOUBLE &&
@@ -1164,7 +1168,7 @@ static void end_typing_nan() {
 static void use_pending(Arg _) {
     nct_prev_pltind = nct_pltind;
     if (pending_varnum >= 0) {
-	var = var->super->vars[pending_varnum];
+	varbuff = *var->super->vars[pending_varnum];
 	pending_varnum = -1;
     }
     _variable_changed_direction = 1;
@@ -1206,7 +1210,7 @@ static void var_ichange(Arg jump) {
 	nct_puterror("This is impossible. A variable was not found.\n");
 	return;
     }
-    var = v;
+    varbuff = *v;
     variable_changed();
 }
 
@@ -1249,7 +1253,7 @@ static void end_typing_threshold() {
 static void use_lastvar(Arg _) {
     if (nct_prev_pltind < 0) return;
     int tmp = nct_pltind;
-    var = var->super->vars[nct_prev_pltind];
+    varbuff = *var->super->vars[nct_prev_pltind];
     nct_prev_pltind = tmp;
     variable_changed();
 }
@@ -1263,6 +1267,7 @@ static void quit(Arg _) {
     stop = 1;
     if (quit_done)
 	return;
+    free_memory();
     if (prog_mode < n_cursesmodes)
 	end_curses((Arg){0});
     if (lines_printed > 0) {
@@ -1292,7 +1297,7 @@ static void end_typing_coord_from() {
 }
 
 static void end_typing_coord_to() {
-    var = nctproj_open_converted_var(var, plt.area_xy->crs, prompt_input, NULL);
+    varbuff = *nctproj_open_converted_var(var, plt.area_xy->crs, prompt_input, NULL);
     variable_changed();
     plt.area_xy->crs = strdup(prompt_input); // not before variable_changed()
 }
@@ -1561,29 +1566,61 @@ static void keydown_func(int keysym, unsigned mod) {
     handle_keybindings(keysym, mod, keydown_bindings);
 }
 
+static void init_memory(size_t totsize) {
+    memory = (struct memory) {
+	.totsize = totsize,
+	.chunksize = 1L<<27,
+    };
+    memory.nchunks = memory.totsize / memory.chunksize * 4;
+#define alloc(a) a = malloc(memory.nchunks * sizeof(a[0]))
+    alloc(memory.chunks);
+    alloc(memory.istart);
+    alloc(memory.iend);
+    alloc(memory.ivar);
+    alloc(memory.bytes);
+#undef alloc
+    memset(memory.chunks, 0, sizeof(memory.chunks[0])*memory.nchunks);
+    memset(memory.ivar, -1, sizeof(memory.ivar[0])*memory.nchunks);
+    memset(memory.bytes, 0, sizeof(memory.bytes[0])*memory.nchunks);
+}
+
+static void free_memory() {
+    for (int i=0; i<memory.nchunks; i++)
+	free(memory.chunks[i]);
+    free(memory.chunks);
+    free(memory.istart);
+    free(memory.iend);
+    free(memory.ivar);
+    free(memory.bytes);
+    memset(&memory, 0, sizeof(memory));
+}
+
 /* Only following functions should be called from programs. */
 
 void* nctplot_(void* vobject, int isset) {
     if (isset) {
 	nct_foreach(vobject, varnow)
 	    if (varnow->ndims > 1) {
-		var = varnow;
+		varbuff = *varnow;
 		goto variable_found;
 	    }
 	nct_foreach(vobject, varnow)
 	    if (varnow->ndims >= 1) {
-		var = varnow;
+		varbuff = *varnow;
 		goto variable_found;
 	    }
 	nct_puterror("Only 0-dimensional variables\n");
 	return vobject;
     }
-    else if (!(var = vobject)) {
+    else if (!vobject) {
 	nct_puterror("No variable to plot\n");
 	return vobject;
     }
+    else
+	varbuff = *(nct_var*)vobject;
 
 variable_found:
+    init_memory(1L<<33);
     shared = default_shared; // must be early because these may be modified or needed by functions
     nct_nplottables = var->super->nvars;
     nct_plottables = calloc(nct_nplottables, sizeof(nct_plottable));

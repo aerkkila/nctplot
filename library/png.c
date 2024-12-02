@@ -50,7 +50,6 @@ static int write_png(unsigned char* rgb, const char* name) {
     return 0;
 }
 
-#ifdef HAVE_WAYLAND
 static void rgba_to_rgb(char *to) {
     char *from = (void*)wlh.data;
     for (int j=0; j<draw_h + additional_height(); j++) {
@@ -64,44 +63,19 @@ static void rgba_to_rgb(char *to) {
     }
 }
 
-#else
-static void draw2d_buffer(void* buff, int offset_j) {
-    for (int i=0; i<draw_w*draw_h; i++)
-	memcpy(buff+i*3, globs.color_bg, 3);
-    if (g_only_nans) return;
-
-    void* dataptr = var->data + (plt.area_z->znum*plt.stepsize_z*(zid>=0) - var->startpos) * g_size1;
-
-    float fdataj = offset_j;
-    int idataj = round(fdataj), j;
-    if (globs.invert_y)
-	for(j=draw_h-g_pixels_per_datum; j>=0; j-=g_pixels_per_datum) {
-	    draw_row_buffer(var->dtype,
-		    dataptr + g_size1*idataj*g_xlen,
-		    buff + j * draw_w*3);
-	    idataj = round(fdataj += g_data_per_step);
-	}
-    else
-	for(j=0; j<draw_h; j+=g_pixels_per_datum) {
-	    draw_row_buffer(var->dtype,
-		    dataptr + g_size1*idataj*g_xlen,
-		    buff + j * draw_w*3);
-	    idataj = round(fdataj += g_data_per_step);
-	}
-}
-#endif
-
+#ifdef HAVE_WAYLAND
 static void save_png(Arg _) {
     void* buffer = malloc(draw_w * (draw_h+additional_height()) * 3);
-#ifdef HAVE_WAYLAND
     rgba_to_rgb(buffer);
-#else
-    draw2d_buffer(buffer, plt.area_xy->offset_j);
-#endif
     char name[100];
     sprintf(name, "nctplot_%li.png", (long)time(NULL));
     write_png(buffer, name);
     free(buffer);
 }
+#else
+static void save_png(Arg _) {
+    fprintf(stderr, "funktio %s ei toimi ilman waylandia\n", __func__);
+}
+#endif
 
 #endif // HAVE_PNG

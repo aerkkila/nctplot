@@ -74,10 +74,10 @@ static void draw_point_in_xscale(int i, int j) {
 	wlh.data[j*wlh_scaley*win_w + ii] = wlh_color;
 }
 
-static void expand_row_to_yscale(int j) {
-    uint32_t* ptr = wlh.data + j*wlh_scaley*win_w;
+static void expand_row_to_yscale(int j, int istart, int iend) {
+    uint32_t* ptr = wlh.data + j*wlh_scaley*win_w + istart;
     for (int jj=1; jj<wlh_scaley; jj++)
-	memcpy(ptr+jj*win_w, ptr, win_w*4);
+	memcpy(ptr+jj*win_w, ptr, (iend-istart)*4);
 }
 
 #define draw_line_$method draw_line_bresenham

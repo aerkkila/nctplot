@@ -20,13 +20,15 @@ static const char* usage[] = {
     " %-22sSpecify binary file datatype: NC_BYTE, NC_INT, NC_FLOAT, etc.\n",	// opt 6 t
     " %-22s  See [/usr/include/?]netcdf.h for all types. Default is NC_UBYTE.\n",
     " %-22s  Sets filetype as binary as otherwise this has no effect.\n",
+    " %-22sSelect area which is only shown.\n",					// opt 7 a
 };
 
 static const char* usage_args[] = {
     /*b*/"", /*d*/" <name> ", /*h*/"", /*v*/"", /*y*/" <length> ", /*x*/" <length> ", /*t*/ " <nc_type> ",
+    /*a*/" <dimension:start:end> ",
 };
 
-static int extra_lines_per_opt[] = {/*b*/0, /*d*/3, /*h*/0, /*v*/0, /*y*/1, /*x*/2, /*t*/2,};
+static int extra_lines_per_opt[] = {/*b*/0, /*d*/3, /*h*/0, /*v*/0, /*y*/1, /*x*/2, /*t*/2, /*a*/0};
 
 static void print_usage(const char* thisprog, int exitcode) {
     printf(usage_, thisprog);

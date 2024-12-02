@@ -17,7 +17,6 @@ struct nctplot_shared* nctplot_get_shared();
 typedef struct {
     nct_var *var, *zvar;
     unsigned noreset		: 1,
-	     truncated		: 1,
 	     use_threshold	: 1,
 	     shared_detached	: 1,
 	     use_cmapfun	: 1,
@@ -30,6 +29,7 @@ typedef struct {
     int n_threshold;
     struct shown_area_xy *area_xy;
     struct shown_area_z *area_z;
+    nct_var varbuff;
 } nct_plottable;
 
 extern nct_plottable *nct_plottables;

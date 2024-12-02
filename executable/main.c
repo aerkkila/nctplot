@@ -12,9 +12,10 @@ struct option longopts[] = {
     { "y",		required_argument,	NULL,	'y' },
     { "x",		required_argument,	NULL,	'x' },
     { "datatype",	required_argument,	NULL,	't' },
+    { "area",		required_argument,	NULL,	'a' },
     {0},
 };
-const char* opt_str = "bd:hvx:y:t:";
+const char* opt_str = "bd:hvx:y:t:a:";
 
 #include "usage.c" // print_usage
 #include "binary.c"
@@ -52,6 +53,8 @@ int main(int argc, char** argv) {
     char concat_buff[concatbufflen];
     concat_buff[concatbufflen-1] = '\0';
     nc_type bin_dtype = NC_UBYTE;
+    char *areas[32];
+    int nareas = 0;
 
     while ((opt = getopt_long(argc, argv, opt_str, longopts, NULL)) >= 0) {
 	switch (opt) {
@@ -79,6 +82,10 @@ int main(int argc, char** argv) {
 		bin_dtype = str_to_nctype(optarg);
 		filetype = binary;
 		break;
+	    case 'a':
+		if (nareas < sizeof(areas)/sizeof(areas[0]))
+		    areas[nareas++] = optarg;
+		break;
 	}
     }
 
@@ -101,6 +108,38 @@ int main(int argc, char** argv) {
 		nct_free1(set1);
 	    }
 	    break;
+    }
+
+    for (int i=0; i<nareas; i++) {
+	char *str = strtok(areas[i], ":");
+	nct_var *dim;
+	if (!str || !(dim = nct_get_var(set, str)))
+	    continue;
+	if (!(str = strtok(NULL, ":")))
+	    continue;
+	int reverse = nct_get_floating_last(dim, 1) < nct_get_floating(dim, 0);
+	if (str[0]) {
+	    double val = atof(str);
+	    if (reverse) {
+		long ind = nct_bsearch_reversed(dim, val, 1);
+		nct_set_length(dim, ind+1);
+	    }
+	    else {
+		long ind = nct_bsearch(dim, val, 0);
+		nct_set_start(dim, ind);
+	    }
+	}
+	if (!(str = strtok(NULL, ":")) || str[0] == 0)
+	    continue;
+	double val = atof(str);
+	if (reverse) {
+	    long ind = nct_bsearch_reversed(dim, val, 0);
+	    nct_set_start(dim, ind);
+	}
+	else {
+	    long ind = nct_bsearch(dim, val, 1);
+	    nct_set_length(dim, ind+1);
+	}
     }
 
     nctplot(set);

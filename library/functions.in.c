@@ -8,15 +8,13 @@
 /* The typedef is needed because the perl program can't recognize function pointers
    and doing a typedef is easier than fixing a perl program. */
 typedef void cmapfun_t(unsigned char*, const void*);
+#include "my_isnan.h"
 
 @startperl // entry for the perl program
 
 #define ctype @ctype
 #define form @form
 #define __nctype__ @nctype
-
-void* nct_minmax_@nctype(const nct_var*, void* result); // a global but hidden function
-void* nct_minmax_nan_@nctype(const nct_var*, long nanval, void* result); // a global but hidden function
 
 static ctype* g_minmax_@nctype = (ctype*)g_minmax;
 
@@ -26,16 +24,14 @@ static ctype* g_minmax_@nctype = (ctype*)g_minmax;
 			  (val) >= (minmax)[1] ? 255 :			\
 			  (@uctype)((val)-(minmax)[0])*255 / (@uctype)((minmax)[1]-(minmax)[0]) )
 
-static int draw_row_threshold_@nctype(int jpixel, const void* vrowptr, double dthr) {
-    float idata_f = plt.area_xy->offset_i;
+static int draw_row_threshold_@nctype(int jpixel, int istart, int iend, const void* vdataptr, double dthr) {
+    float idata_f = 0;
     const ctype thr = dthr;
     const int cvals[] = {255*1/10, 255*9/10, 255*1/10};
     int count = 0;
-    for (int ipixel=0; ipixel<draw_w; ipixel+=g_pixels_per_datum[0], idata_f+=g_data_per_step[0]) {
-	long ind = (size_t)round(idata_f);
-	if (ind >= g_xlen)
-	    return 0;
-	ctype val = ((const ctype*)vrowptr)[ind];
+    for (int ipixel=istart; ipixel<iend; ipixel+=g_pixels_per_datum[0], idata_f+=g_data_per_step[0]) {
+	long ind = round(idata_f);
+	ctype val = ((const ctype*)vdataptr)[ind];
 #if __nctype__ == NC_DOUBLE
 	if (my_isnan_double(val)) continue;
 #elif __nctype__ == NC_FLOAT
@@ -54,18 +50,16 @@ static int draw_row_threshold_@nctype(int jpixel, const void* vrowptr, double dt
 #endif
     }
 #ifdef HAVE_WAYLAND // same comment as above
-    expand_row_to_yscale(jpixel/g_pixels_per_datum[1]);
+    expand_row_to_yscale(jpixel/g_pixels_per_datum[1], istart, iend);
 #endif
     return count;
 }
 
-static void draw_row_@nctype(int jpixel, const void* vrowptr) {
-    float idata_f = plt.area_xy->offset_i;
-    for (int ipixel=0; ipixel<draw_w; ipixel+=g_pixels_per_datum[0], idata_f+=g_data_per_step[0]) {
-	long ind = (size_t)round(idata_f);
-	if (ind >= g_xlen)
-	    return;
-	ctype val = ((const ctype*)vrowptr)[ind];
+static void draw_row_@nctype(int jpixel, int istart, int iend, const void* vdataptr) {
+    double idata_f = 0;
+    for (int ipixel=istart; ipixel<iend; ipixel+=g_pixels_per_datum[0], idata_f+=g_data_per_step[0]) {
+	long ind = round(idata_f);
+	ctype val = ((const ctype*)vdataptr)[ind];
 #if __nctype__ == NC_DOUBLE
 	if (my_isnan_double(val)) continue;
 #elif __nctype__ == NC_FLOAT
@@ -84,17 +78,15 @@ static void draw_row_@nctype(int jpixel, const void* vrowptr) {
 #endif
     }
 #ifdef HAVE_WAYLAND // same comment as above
-    expand_row_to_yscale(jpixel/g_pixels_per_datum[1]);
+    expand_row_to_yscale(jpixel/g_pixels_per_datum[1], istart, iend);
 #endif
 }
 
-static void draw_row_cmapfun_@nctype(int jpixel, const void* vrowptr, cmapfun_t cmapfun) {
-    float idata_f = plt.area_xy->offset_i;
-    for (int ipixel=0; ipixel<draw_w; ipixel+=g_pixels_per_datum[0], idata_f+=g_data_per_step[0]) {
-	long ind = (size_t)round(idata_f);
-	if (ind >= g_xlen)
-	    return;
-	const ctype *val = (const ctype*)vrowptr+ind;
+static void draw_row_cmapfun_@nctype(int jpixel, int istart, int iend, const void* vdataptr, cmapfun_t cmapfun) {
+    float idata_f = 0;
+    for (int ipixel=istart; ipixel<iend; ipixel+=g_pixels_per_datum[0], idata_f+=g_data_per_step[0]) {
+	long ind = round(idata_f);
+	const ctype *val = (const ctype*)vdataptr+ind;
 #if __nctype__ == NC_DOUBLE
 	if (my_isnan_double(*val)) continue;
 #elif __nctype__ == NC_FLOAT
@@ -112,38 +104,8 @@ static void draw_row_cmapfun_@nctype(int jpixel, const void* vrowptr, cmapfun_t 
 #endif
     }
 #ifdef HAVE_WAYLAND // same comment as above
-    expand_row_to_yscale(jpixel/g_pixels_per_datum[1]);
+    expand_row_to_yscale(jpixel/g_pixels_per_datum[1], istart, iend);
 #endif
-}
-
-static void __attribute__((unused)) draw_row_buffer_@nctype(const void* vrowptr, void* buff) {
-    float idata_f = plt.area_xy->offset_i;
-    void* ptr = buff;
-    for (int ipixel=0; ipixel<draw_w;
-	    ipixel	+= g_pixels_per_datum[0],
-	    idata_f	+= g_data_per_step[0],
-	    ptr		+= 3*g_pixels_per_datum[0])
-    {
-	long ind = (size_t)round(idata_f);
-	if (ind >= g_xlen)
-	    return;
-	ctype val = ((const ctype*)vrowptr)[ind];
-#if __nctype__ == NC_DOUBLE
-	if (my_isnan_double(val)) continue;
-#elif __nctype__ == NC_FLOAT
-	if (my_isnan_float(val)) continue;
-#endif
-	if (shared.usenan && val==shared.nanval)
-	    continue;
-	int value = CVAL(val, g_minmax_@nctype);
-	if (shared.invert_c) value = 0xff-value;
-	unsigned char* c = cmh_colorvalue(shared.cmapnum, value);
-	/* put value */
-	for(int i=0; i<g_pixels_per_datum[0]; i++)
-	    memcpy(ptr+i*3, c, 3);
-    }
-    for (int j=1; j<g_pixels_per_datum[1]; j++, ptr+=draw_w*3)
-	memcpy(ptr, buff, draw_w*3);
 }
 #undef CVAL
 
@@ -196,6 +158,87 @@ static void draw1d_@nctype(const nct_var* var) {
 	int y = (dataptr[(int)di] - g_minmax_@nctype[0]) * win_h / (g_minmax_@nctype[1]-g_minmax_@nctype[0]);
 	graphics_draw_point(i, y);
     }
+}
+
+static void minmax_at_@nctype(long start, long end, void *buff) {
+    size_t length;
+    ctype *data = get_data(start, &length), min, max;
+
+    long ind = 0;
+#if __nctype__ == NC_FLOAT || __nctype__ == NC_DOUBLE
+    while (1) {
+	ind = 0;
+	long len = Min(length, end-start);
+	for (; ind<len && my_isnan(data[ind]); ind++);
+	if ((start += ind) >= end) {
+	    min = max = (ctype)0/0.0;
+	    goto Ret;
+	}
+	if (ind < len)
+	    break; // start found
+	data = get_data(start, &length);
+    }
+#endif
+
+    max = data[ind];
+    min = data[ind];
+    start = ind+1;
+    while (start < end) {
+	data = get_data(start, &length);
+	long len = Min(length, end-start);
+	for (long i=0; i<len; i++)
+	    if (my_isnan(data[i]));
+	    else if (data[i] < min)
+		min = data[i];
+	    else if (data[i] > max)
+		max = data[i];
+	start += len;
+    }
+
+Ret: __attribute__((unused));
+    ((ctype*)buff)[0] = min;
+    ((ctype*)buff)[1] = max;
+}
+
+void minmax_nan_at_@nctype(long nanval_long, long start, long end, void* buff) {
+    size_t length;
+    ctype *data = get_data(start, &length);
+    ctype nanval = nanval_long, min, max;
+
+#define _my_isnan(a) (my_isnan(a) || (a) == nanval)
+    long ind = 0;
+    while (1) {
+	ind = 0;
+	long len = Min(length, end-start);
+	for (; ind<len && _my_isnan(data[ind]); ind++);
+	if ((start += ind) >= end) {
+	    min = max = nanval;
+	    goto Ret;
+	}
+	if (ind < len)
+	    break; // start found
+	data = get_data(start, &length);
+    }
+
+    max = data[ind];
+    min = data[ind];
+    start = ind+1;
+    while (start < end) {
+	data = get_data(start, &length);
+	long len = Min(length, end-start);
+	for (long i=0; i<len; i++)
+	    if (_my_isnan(data[i]));
+	    else if (data[i] < min)
+		min = data[i];
+	    else if (data[i] > max)
+		max = data[i];
+	start += len;
+    }
+
+Ret:
+    ((ctype*)buff)[0] = min;
+    ((ctype*)buff)[1] = max;
+#undef _my_isnan
 }
 
 #undef ctype
