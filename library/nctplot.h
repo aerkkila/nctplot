@@ -9,7 +9,6 @@ struct nctplot_shared {
     char usenan, coastlines, echo, invert_y, exact, invert_c;
     int cmapnum;
     unsigned char color_fg[3], color_bg[3];
-    size_t cache_size;
 };
 
 void* nctplot_(void* set_or_var, int isset); // returns the input pointer
@@ -17,10 +16,12 @@ struct nctplot_shared* nctplot_get_shared();
 
 typedef struct {
     nct_var *var, *zvar;
-    unsigned truncated : 1,
-	     use_threshold : 1,
-	     shared_detached : 1,
-	     use_cmapfun : 1;
+    unsigned noreset		: 1,
+	     truncated		: 1,
+	     use_threshold	: 1,
+	     shared_detached	: 1,
+	     use_cmapfun	: 1,
+	     show_cmap		: 1;
     nct_anyd time0;
     char minmax[8*2];
     size_t stepsize_z;

@@ -18,8 +18,12 @@ static const struct nctplot_shared default_shared = {
     .echo = 1,
     .invert_y = 1,
     .exact = 1,
-    .cache_size = 1L<<31,
     .cmapnum = cmh_jet_e,
+};
+
+static const nct_plottable default_plottable = {
+    .noreset = 1,
+    .show_cmap = 1,
 };
 
 static struct nctplot_shared shared;
@@ -45,10 +49,11 @@ static nct_var* var; // = plt.var
 static WINDOW *wnd;
 static const unsigned default_sleep_ms=8;
 static const double default_fps=50;
+static size_t cache_size = 1L<<31;
 static unsigned sleeptime;
 static double fps;
 static int win_w, win_h, xid, yid, zid, draw_w, draw_h, pending_varnum=-1, pending_cmapnum;
-static char stop, fill_on, play_on, update_minmax=1, update_minmax_cur, too_small_to_draw;
+static char quit_done, stop, fill_on, play_on, update_minmax=1, update_minmax_cur, too_small_to_draw;
 static const int printinfo_nlines = 6;
 static int lines_printed, line_mouseinfo;
 static int cmappix=30, cmapspace=10, call_redraw;
@@ -81,6 +86,7 @@ static void set_draw_params();
 static void end_curses(Arg);
 static void curses_write_vars();
 static void curses_write_cmaps();
+static void delete_cmapfun();
 static uint_fast64_t time_now_ms();
 static void inc_offset_j(Arg);
 static void inc_offset_i(Arg);
@@ -195,7 +201,7 @@ static int __attribute__((pure)) colormap_top() {
 }
 
 static int __attribute__((pure)) colormap_bottom() {
-    return colormap_top() + cmappix;
+    return colormap_top() + cmappix * plt.show_cmap;
 }
 
 static inline int __attribute__((pure)) total_height() {
@@ -386,7 +392,8 @@ static void draw2d(const nct_var* var) {
 		idataj = round(fdataj += g_data_per_step[1]);
 	    }
     }
-    draw_colormap();
+    if (plt.show_cmap)
+	draw_colormap();
 }
 
 static void draw_colormap() {
@@ -565,7 +572,7 @@ struct {
 
 static long get_allowed_bytes() {
     double memory_fraction = (double)var->len * nct_typelen[var->dtype] / memory.sum_of_variables;
-    long allowed_bytes = shared.cache_size * memory_fraction;
+    long allowed_bytes = cache_size * memory_fraction;
     return allowed_bytes;
 }
 
@@ -578,7 +585,7 @@ static void manage_memory() {
 
     if (memory.sum_of_variables == 0)
 	nct_foreach(var->super, v)
-	    memory.sum_of_variables += v->len * nctypelen(v->dtype);
+	    memory.sum_of_variables += v->len * nct_typelen[v->dtype];
 
     long thisbytes = var->len * nct_typelen[var->dtype];
     long allowed_bytes = get_allowed_bytes();
@@ -850,8 +857,10 @@ static void variable_changed() {
     }
 
     /* Order matters here. */
-    if (!plt.var) // using this variable for the first time
+    if (!plt.noreset) {
+	plt = default_plottable;
 	update_minmax = 1;
+    }
     plt.var = var;
     set_dimids();
     if (!plt.area_xy)
@@ -1252,6 +1261,8 @@ static void free_plottable(nct_plottable* plott) {
 
 static void quit(Arg _) {
     stop = 1;
+    if (quit_done)
+	return;
     if (prog_mode < n_cursesmodes)
 	end_curses((Arg){0});
     if (lines_printed > 0) {
@@ -1260,19 +1271,16 @@ static void quit(Arg _) {
     if (mp_params.dlhandle)
 	dlclose(mp_params.dlhandle);
     free_coastlines();
+    delete_cmapfun(); // before free_plottable
     for(int i=0; i<nct_nplottables; i++)
 	free_plottable(nct_plottables+i);
     nct_plottables = (free(nct_plottables), NULL);
     nct_nplottables = 0;
-    if (dl_cmapfun_handle) {
-	dlclose(dl_cmapfun_handle);
-	dl_cmapfun_handle = NULL;
-	dl_cmapfun = NULL;
-    }
     free(sharedlist); sharedlist = NULL; sharedlistlen = 0;
     mp_params = (struct Mp_params){0};
     memset(&memory, 0, sizeof(memory));
     quit_graphics();
+    quit_done = 1;
 }
 
 #ifdef HAVE_NCTPROJ
@@ -1467,6 +1475,16 @@ static void* load_from_cfile(const char *filename, const char *objectname, void*
     return object;
 }
 
+static void delete_cmapfun() {
+    plt.use_cmapfun = 0;
+    plt.show_cmap = 1;
+    dl_cmapfun = NULL;
+    if (dl_cmapfun_handle) {
+	dlclose(dl_cmapfun_handle);
+	dl_cmapfun_handle = NULL;
+    }
+}
+
 static void end_typing_command() {
     char *str = strtok(prompt_input, " \t");
     if (!strcmp(str, "max")) {
@@ -1483,16 +1501,16 @@ static void end_typing_command() {
     }
     else if (!strcmp(str, "cmapfun")) {
 	str = strtok(NULL, " \t");
-	if (str && dl_cmapfun_handle) {
-	    dlclose(dl_cmapfun_handle);
-	    dl_cmapfun_handle = NULL;
-	    dl_cmapfun = NULL;
-	}
+	if (str && dl_cmapfun_handle)
+	    delete_cmapfun();
 	if (str)
 	    dl_cmapfun = load_from_cfile(str, strtok(NULL, " \t"), &dl_cmapfun_handle);
 	plt.use_cmapfun = 1;
-	call_redraw = 1;
+	plt.show_cmap = 0;
     }
+    else if (!strcmp(str, "Cmapfun"))
+	delete_cmapfun();
+    call_redraw = 1;
 }
 
 static void typing_input(const char *utf8input) {
@@ -1589,6 +1607,7 @@ variable_found:
     mp_params = (struct Mp_params){0};
 
     mainloop();
+    quit_done = 0;
     return vobject;
 }
 
