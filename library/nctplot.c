@@ -18,7 +18,6 @@
 
 static const struct nctplot_shared default_shared = {
     .color_fg = {255, 255, 255},
-    .echo = 1,
     .invert_y = 1,
     .exact = 1,
     .cmapnum = cmh_jet_e,
@@ -56,14 +55,14 @@ static const double default_fps=50;
 static unsigned sleeptime;
 static double fps;
 static int win_w, win_h, xid, yid, zid, draw_w, draw_h, pending_varnum=-1, pending_cmapnum;
-static char quit_done, stop, fill_on, play_on, update_minmax=1, update_minmax_cur, too_small_to_draw;
+static char quit_done, stop, fill_on, play_on, info_on=1, update_minmax=1, update_minmax_cur, too_small_to_draw;
 static const int printinfo_nlines = 6;
 static int lines_printed, line_mouseinfo;
 static int cmappix=30, cmapspace=10, call_redraw;
 static float minshift_abs, maxshift_abs;
 typedef float float2 __attribute__((vector_size(2*sizeof(float))));
 static float2 data_per_pixel; // (n(data) / n(pixels)) in one direction
-static const char* echo_highlight = "\033[1;93m";
+static const char* info_highlight = "\033[1;93m";
 static void (*draw_funcptr)(const nct_var*);
 static enum {no_m, variables_m=-100, colormaps_m, n_cursesmodes/*not a mode*/, mousepaint_m} prog_mode = no_m;
 /* drawing parameters */
@@ -446,14 +445,14 @@ static void clear_infoprint() {
     lines_printed = 0;
 }
 
-#define A echo_highlight
+#define A info_highlight
 #define B nct_default_color
 static void printinfo(void* minmax) {
 #ifdef HAVE_TTRA
     if (use_ttra)
 	set_ttra();
 #endif
-    if (!(shared.echo && prog_mode > n_cursesmodes))
+    if (!(info_on && prog_mode > n_cursesmodes))
 	return;
     nct_var *zvar = plt.zvar;
     int size1 = nctypelen(var->dtype);
@@ -537,7 +536,7 @@ static void _maybe_print_mousecoordinate(int vardimid, int at) {
 }
 
 static void mousemotion(int xrel, int yrel) {
-    if (prog_mode < n_cursesmodes || !shared.echo)// || !count++)
+    if (prog_mode < n_cursesmodes || !info_on)// || !count++)
 	return;
     if (mousex >= draw_w || mousey >= draw_h)
 	return;
@@ -1285,7 +1284,7 @@ static void quit(Arg _) {
     if (prog_mode < n_cursesmodes)
 	end_curses((Arg){0});
     if (lines_printed > 0) {
-	Printf("\r\033[%iB", lines_printed); fflush(stdout); }	// move cursor past the echo region
+	Printf("\r\033[%iB", lines_printed); fflush(stdout); }	// move cursor past the info region
     lines_printed = 0;
     if (mp_params.dlhandle)
 	dlclose(mp_params.dlhandle);

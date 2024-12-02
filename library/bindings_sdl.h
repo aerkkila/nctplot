@@ -82,7 +82,7 @@ static Binding keydown_bindings[] = {
     /* Print information about the dataset which is being plotted. */
     { SDLK_p,		0,			print_var,				},
     /* Toggle whether information such as the current variable is printed into the terminal. */
-    { SDLK_e,		0,			toggle_var,	{.v=&shared.echo}	},
+    { SDLK_e,		0,			toggle_var,	{.v=&info_on}		},
     /* If enabled, virtual pixels correspond exactly to data. This disables the chance for stepless zoom. */
     { SDLK_e,		KMOD_SHIFT,		toggle_var,	{.v=&shared.exact}	},
     /* Toggle whether the largest y-coordinate is in the top or in the bottom. */

@@ -6,7 +6,7 @@
 
 struct nctplot_shared {
     long long nanval; // custom nan-value if usenan = 1
-    char usenan, coastlines, echo, invert_y, exact, invert_c;
+    char usenan, coastlines, invert_y, exact, invert_c;
     int cmapnum;
     unsigned char color_fg[3], color_bg[3];
 };
