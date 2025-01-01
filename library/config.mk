@@ -25,7 +25,7 @@ have_wayland = 1
 # Without wayland, text can only be printed to terminal.
 have_ttra = 1
 
-CFLAGS = -Wall -g -fPIC -Ofast
+CFLAGS = -Wall -g -fPIC -Ofast -O0
 CC = gcc
 
 prefix = /usr/local

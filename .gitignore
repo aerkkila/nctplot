@@ -1,9 +1,8 @@
-library/pager.h
+library/config.h
 library/colormaps.h
 library/functions.c
 library/function_wrappers.c
 library/ne_10m_coastline*
-library/shpname.h
 executable/nctplot
 core
 vgcore.*
@@ -11,3 +10,6 @@ vgcore.*
 *.out
 *.so
 *.o
+library/shpname.h
+library/pager.h
+*/.nclangcomplete*

@@ -8,7 +8,7 @@
 #include <unistd.h> // fork
 #include <sys/wait.h> // waitpid
 #include "nctplot.h"
-#include "pager.h" // pager_path, pager_args
+#include "config.h" // pager_path, pager_args
 #ifdef HAVE_NCTPROJ
 #include <nctproj.h>
 #endif
@@ -144,19 +144,29 @@ union Arg {
 	int   i;
 };
 
-#define size_coastl_params (sizeof(int)*2 + sizeof(data_per_pixel) + sizeof(shared.invert_y) + sizeof(win_w)*2)
+#define size_feature_params (sizeof(int)*2 + sizeof(data_per_pixel) + sizeof(shared.invert_y) + sizeof(win_w)*2)
 
+/* coastlines etc. */
+struct feature {
+	/* helpers */
+	int nusers;
+	/* set in initialization */
+	double* coords;
+	double x0, y0, xunits_per_datum, yunits_per_datum;
+	int *lengths, nparts, total;
+	/* set just in time */
+	void* points;			// pixelcoordinates of the feature
+	int *breaks, nbreaks;	// indices where to lift pen from the paper
+};
+
+#define max_nfeatures 64
 struct shown_area_xy {
 	int offset_i, offset_j, nusers, j_off_by_one; // nusers = 0, when 1 user
 	float2 zoom;
 	nct_var *xdim, *ydim;
-	/* for coastlines */
-	double* coasts;	// coordinates of coastlines
-	void* points;	// pixelcoordinates of coastlines
-	int *breaks, nbreaks; // indices where to lift pen from the paper
 	char* crs;
-	double x0, y0, xunits_per_datum, yunits_per_datum;
-	char coastl_params[size_coastl_params]; // to tell if coastlines need to be redrawn
+	struct feature *features[max_nfeatures];
+	char featureparams[size_feature_params]; // to tell if features need to be redrawn
 };
 
 #define ARRSIZE(a) (sizeof(a) / sizeof(*(a)))
@@ -690,10 +700,12 @@ static void redraw(nct_var* var) {
 	SDL_SetRenderTarget(rend, base);
 #endif
 	draw_funcptr(var);
-	if (shared.coastlines) {
-		if (!plt.area_xy->coasts)
-			init_coastlines(plt.area_xy, NULL);
-		draw_coastlines(plt.area_xy);
+	for (int i=0; i<max_nfeatures; i++) {
+		if (!(shared.used_features & (1L<<i)))
+			continue;
+		if (!plt.area_xy->features[i])
+			plt.area_xy->features[i] = init_feature(i, NULL, plt.area_xy->crs);
+		draw_feature(plt.area_xy, i);
 	}
 	printinfo(g_minmax);
 #ifndef HAVE_WAYLAND
@@ -794,12 +806,22 @@ static uint_fast64_t time_now_ms() {
 	return t.tv_sec*1000 + t.tv_usec/1000;
 }
 
+static void unlink_feature(struct feature *feature) {
+	if (--feature->nusers > 0)
+		return;
+	free(feature->lengths);
+	free(feature->coords);
+	free(feature->points);
+	free(feature->breaks);
+	free(feature);
+}
+
 static void unlink_area_xy(struct shown_area_xy *area) {
 	if (!area || area->nusers--)
 		return;
-	free(area->coasts);
-	free(area->points);
-	free(area->breaks);
+	for (int i=0; i<max_nfeatures; i++)
+		if (area->features[i])
+			unlink_feature(area->features[i]);
 	free(area->crs);
 	free(area);
 }
@@ -867,6 +889,8 @@ static void variable_changed() {
 
 	nct_pltind = nct_varid(var); // this is the core change
 	recalloc_list(&nct_plottables, &nct_nplottables, nct_pltind+1, sizeof(nct_plottable), NULL);
+	for (int i=0; i<nct_nplottables; i++)
+		nct_plottables[i].var = &nct_plottables[i].varbuff;
 
 	if (plt.shared_detached) {
 		shared_mem = shared;
@@ -923,9 +947,18 @@ static void end_typing_crs() {
 	free(plt.area_xy->crs);
 	plt.area_xy->crs = strdup(prompt_input);
 	export_projection();
-	free(plt.area_xy->coasts);
-	plt.area_xy->coasts = NULL;
+	for (int i=0; i<max_nfeatures; i++) {
+		if (!plt.area_xy->features[i])
+			continue;
+		unlink_feature(plt.area_xy->features[i]);
+		plt.area_xy->features[i] = NULL;
+	}
 }
+
+static void toggle_feature(Arg arg) {
+	shared.used_features ^= 1L<<arg.i;
+	call_redraw = 1;
+};
 
 static void cmap_ichange(Arg jump) {
 	int len = cmh_n - 1;
@@ -1288,7 +1321,6 @@ static void quit(Arg _) {
 	lines_printed = 0;
 	if (mp_params.dlhandle)
 		dlclose(mp_params.dlhandle);
-	free_coastlines();
 	delete_cmapfun(); // before free_plottable
 	for (int i=0; i<nct_nplottables; i++)
 		free_plottable(nct_plottables+i);
@@ -1303,8 +1335,10 @@ static void quit(Arg _) {
 
 #ifdef HAVE_NCTPROJ
 static void end_typing_coord_from() {
-	if (prompt_input[0])
+	if (prompt_input[0]) {
+		free(plt.area_xy->crs);
 		plt.area_xy->crs = strdup(prompt_input);
+	}
 	export_projection();
 	set_typingmode((union Arg){.i=typing_coord_to});
 }
@@ -1312,6 +1346,7 @@ static void end_typing_coord_from() {
 static void end_typing_coord_to() {
 	varbuff = *nctproj_open_converted_var(var, plt.area_xy->crs, prompt_input, NULL);
 	variable_changed();
+	free(plt.area_xy->crs);
 	plt.area_xy->crs = strdup(prompt_input); // not before variable_changed()
 }
 #endif

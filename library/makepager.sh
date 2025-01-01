@@ -1,18 +1,14 @@
 #!/bin/sh
 
-outfile="pager.h"
-
 write_and_exit() {
-    printf "/* This file was automatically created by makepager.sh.\n" >$outfile
-    printf "   That program was probably called with \$pager from config.mk as arguments. */\n\n" >>$outfile
-    printf "static const char* pager_path = \"$1\";\n" >>$outfile
+    printf "static const char* pager_path = \"$1\";\n"
     shift
-    printf "static char* const pager_args[] = {" >>$outfile
+    printf "static char* const pager_args[] = {"
     while [ "$1" != "" ]; do
-	printf "\"$1\", " >>$outfile
+	printf "\"$1\", "
 	shift
     done
-    printf "\"$file_to_open\", NULL};\n" >>$outfile
+    printf "\"$file_to_open\", NULL};\n"
     exit 0
 }
 

@@ -97,7 +97,7 @@ static Binding keydown_bindings[] = {
        By default, the fastet changing coordinates are handled as longitudes
        and the second fastest changing as latitudes.
        For other options, see ask_crs. */
-    { SDLK_l,		0,			toggle_var,	{.v=&shared.coastlines}	},
+    { SDLK_l,		0,			toggle_feature,	{.i=coastlines_e}	},
     /* In mousepaint mode, the file can be edited by drawing to it with mouse.
        Further documentation and the keybindings are listed in keydown_bindings_mousepaint_m. */
     { SDLK_m,		0,			set_prog_mode,	{.i=mousepaint_m}	},

@@ -2,26 +2,33 @@
 #include <shapefil.h>
 #include <math.h>
 #include <stdlib.h>
-#include "shpname.h"
+#include "config.h" // sharedir
 
 #ifdef HAVE_PROJ
 #include "proj.c"
 #endif
 
-static int* coastl_lengths = NULL;
-static int coastl_nparts = 0, coastl_total = 0;
+#define arrlen(a) (sizeof(a)/sizeof((a)[0]))
+
+static const char *features_dirnames[] = {
+	[0]="ne_10m_coastline",
+};
+static const char *features_shown_names[] = {
+	[0]="coastlines, ne, 10m",
+};
+enum features_e {coastlines_e};
 
 void no_conversion(void* _, float x, float y, double out[2]) {
 	out[0] = x;
 	out[1] = y;
 }
 
-/* This returns the coastlines in the desired coordinates.
+/* This returns the feature in the desired coordinates.
    Conversion to pixel indices will be done later, just-in-time when drawing.
    Variable 'coordinates' is the string to pass to proj library, e.g. "+proj=laea lat_0=90".
    Alternatively, a custom conversion function, latlon2other, can be passed as an argument.
    It is not useful to give both arguments. */
-static double* make_coastlines(const char* coordinates, void (*conversion)(void*,float,float,double[2])) {
+static double* make_feature(struct feature *feature, const char *shpname, const char* coordinates, void (*conversion)(void*,float,float,double[2])) {
 	void *cookie = NULL;
 	if (coordinates) {
 		cookie = init_proj("+proj=lonlat", coordinates);
@@ -35,17 +42,17 @@ static double* make_coastlines(const char* coordinates, void (*conversion)(void*
 	double padfmin[4], padfmax[4];
 	SHPGetInfo(shp, &nent, &shptype, padfmin, padfmax);
 
-	if (!coastl_total)
+	if (!feature->total)
 		for (int i=0; i<nent; i++) {
 			SHPObject* restrict obj = SHPReadObject(shp, i);
-			coastl_nparts += obj->nParts;
-			coastl_total += obj->nVertices;
+			feature->nparts += obj->nParts;
+			feature->total += obj->nVertices;
 			SHPDestroyObject(obj);
 		}
-	if (!coastl_lengths)
-		coastl_lengths = malloc(coastl_nparts*sizeof(int));
+	if (!feature->lengths)
+		feature->lengths = malloc(feature->nparts*sizeof(int));
 
-	double* coords = malloc(coastl_total*sizeof(double)*2);
+	double* coords = malloc(feature->total*sizeof(double)*2);
 
 	int point_ind = 0;
 	int length_ind = 0;
@@ -54,7 +61,7 @@ static double* make_coastlines(const char* coordinates, void (*conversion)(void*
 		for (int p=0; p<obj->nParts; p++) {
 			int end = p<obj->nParts-1 ? obj->panPartStart[p+1] : obj->nVertices;
 			int count = end - obj->panPartStart[p];
-			coastl_lengths[length_ind++] = count;
+			feature->lengths[length_ind++] = count;
 			for (int v=obj->panPartStart[p], p=0; v<end; v++, p++) {
 				float x = obj->padfX[v];
 				float y = obj->padfY[v];
@@ -79,20 +86,25 @@ static int __attribute__((pure)) outside_window(const point_t *point) {
 	return point->x < 0 || point->y < 0 || point->x >= win_w || point->y >= win_h;
 }
 
-static void init_coastlines(struct shown_area_xy* area, void* funptr) {
+static struct feature __attribute__((malloc))* init_feature(int ifeature, void* funptr, char *crs) {
 	if (yid < 0)
-		return;
-	area->coasts = make_coastlines(area->crs, funptr);
-	free(area->points); area->points = NULL;
+		return NULL;
+	struct feature *feature = calloc(1, sizeof(struct feature));
+	feature->nusers = 1;
+	char shpname[1024];
+	snprintf(shpname, sizeof(shpname), "%s/%s/%s.nc", sharedir, features_dirnames[ifeature], features_dirnames[ifeature]);
+	feature->coords = make_feature(feature, shpname, crs, funptr);
+	free(feature->points); feature->points = NULL;
 	nct_var* var1;
 	var1 = nct_get_vardim(plt.var, xid);
-	area->x0 = nct_getg_floating(var1, 0);
-	area->xunits_per_datum = nct_getg_floating(var1, 1) - area->x0;
-	area->x0 -= 0.5*area->xunits_per_datum;
+	feature->x0 = nct_getg_floating(var1, 0);
+	feature->xunits_per_datum = nct_getg_floating(var1, 1) - feature->x0;
+	feature->x0 -= 0.5*feature->xunits_per_datum;
 	var1 = nct_get_vardim(plt.var, yid);
-	area->y0 = nct_getg_floating(var1, 0);
-	area->yunits_per_datum = nct_getg_floating(var1, 1) - area->y0;
-	area->y0 -= 0.5*area->yunits_per_datum;
+	feature->y0 = nct_getg_floating(var1, 0);
+	feature->yunits_per_datum = nct_getg_floating(var1, 1) - feature->y0;
+	feature->y0 -= 0.5*feature->yunits_per_datum;
+	return feature;
 }
 
 static double tmp_x0, tmp_y0, tmp_xpixels_per_unit, tmp_ypixels_per_unit;
@@ -114,24 +126,24 @@ static int line_break(int *breaks, int ibreak, int ipoint) {
 	return ibreak;
 }
 
-static void make_coastlinepoints(struct shown_area_xy *area) {
-	/* tmp_x0 is coordinate value, therefore offset is multiplied with coordinate interval, area->xunits_per_datum */
-	tmp_x0 = area->x0 + area->offset_i * area->xunits_per_datum;
-	tmp_y0 = area->y0 + area->offset_j * area->yunits_per_datum;
-	tmp_xpixels_per_unit = 1 / area->xunits_per_datum / data_per_pixel[0];
-	tmp_ypixels_per_unit = 1 / area->yunits_per_datum / data_per_pixel[1];
-	double* coords = area->coasts;
-	int* breaks = area->breaks;
+static void _make_featurepoints(int offset_i, int offset_j, struct feature *feature) {
+	/* tmp_x0 is coordinate value, therefore offset is multiplied with coordinate interval, feature->xunits_per_datum */
+	tmp_x0 = feature->x0 + offset_i * feature->xunits_per_datum;
+	tmp_y0 = feature->y0 + offset_j * feature->yunits_per_datum;
+	tmp_xpixels_per_unit = 1 / feature->xunits_per_datum / data_per_pixel[0];
+	tmp_ypixels_per_unit = 1 / feature->yunits_per_datum / data_per_pixel[1];
+	double* coords = feature->coords;
+	int* breaks = feature->breaks;
 
 	int ibreak = 0, ipoint = 0, ind_from = 0;
 
-	point_t* points = area->points;
+	point_t* points = feature->points;
 	void (*coord_to_point_fun)(double, double, point_t*) =
 		shared.invert_y ? coord_to_point_inv_y : coord_to_point;
 
-	for (int e=0; e<coastl_nparts; e++) {
+	for (int e=0; e<feature->nparts; e++) {
 		int irun = 0;
-		for (int ipoint_from=0; ipoint_from<coastl_lengths[e]; ipoint_from++) {
+		for (int ipoint_from=0; ipoint_from<feature->lengths[e]; ipoint_from++) {
 			if (!valid_point(coords + (ind_from+ipoint_from)*2))
 				goto not_valid_point; // coordinates cannot be presented in the used projection
 			coord_to_point_fun(
@@ -152,9 +164,18 @@ not_valid_point:
 		ibreak = line_break(breaks, ibreak, ipoint+irun);
 		ipoint = ibreak ? breaks[ibreak-1] : 0;
 		irun = 0;
-		ind_from += coastl_lengths[e];
+		ind_from += feature->lengths[e];
 	}
-	area->nbreaks = ibreak;
+	feature->nbreaks = ibreak;
+}
+
+static void make_featurepoints(struct shown_area_xy *area) {
+	uint64_t features = shared.used_features;
+	for (int i=0; i<sizeof(features)*8 && features; i++)
+		if (features & (1L<<i)) {
+			_make_featurepoints(area->offset_i, area->offset_j, area->features[i]);
+			features ^= 1L<<i;
+		}
 }
 
 #define putval(buff, val) (buff += (memcpy(buff, &(val), sizeof(val)), sizeof(val)))
@@ -168,31 +189,32 @@ static void save_state(char* buff, const struct shown_area_xy *area) {
 }
 #undef putval
 
-static void check_coastlines(struct shown_area_xy *area) {
-	if (!area->points) {
-		area->points = malloc(coastl_total * sizeof(point_t));
-		area->breaks = malloc(coastl_total * sizeof(int));
-		make_coastlinepoints(area);
-		save_state(area->coastl_params, area);
+static void check_features(struct shown_area_xy *area, struct feature *feature) {
+	if (!feature->points) {
+		feature->points = malloc(feature->total * sizeof(point_t));
+		feature->breaks = malloc(feature->total * sizeof(int));
+		make_featurepoints(area);
+		save_state(area->featureparams, area);
 	}
 	else {
-		char new_params[size_coastl_params];
+		char new_params[size_feature_params];
 		save_state(new_params, area);
 		/* If current state differs from previous, save the new one and remake the coastlines. */
-		if (memcmp(area->coastl_params, new_params, size_coastl_params)) {
-			memcpy(area->coastl_params, new_params, size_coastl_params);
-			make_coastlinepoints(area);
+		if (memcmp(area->featureparams, new_params, size_feature_params)) {
+			memcpy(area->featureparams, new_params, size_feature_params);
+			make_featurepoints(area);
 		}
 	}
 }
 
-static void draw_coastlines(struct shown_area_xy *area) {
-	check_coastlines(area); // must be before the assignment of the variables
-	int nib = area->nbreaks;
-	int* breaks = area->breaks;
+static void draw_feature(struct shown_area_xy *area, int ifeature) {
+	check_features(area, area->features[ifeature]); // must be before the assignment of the variables
+	struct feature *feature = area->features[ifeature];
+	int nib = feature->nbreaks;
+	int* breaks = feature->breaks;
 	int istart = 0;
 	set_color(shared.color_fg);
-	point_t* points = area->points;
+	point_t* points = feature->points;
 	for (int ib=0; ib<nib; ib++) {
 		draw_lines(points+istart, breaks[ib]-istart);
 		istart = breaks[ib];
@@ -202,12 +224,8 @@ static void draw_coastlines(struct shown_area_xy *area) {
 #undef size_params
 #undef coastl_get_point
 
-static void free_coastlines() {
-	coastl_lengths = (free(coastl_lengths), NULL);
-}
-
 #else // not HAVE_SHPLIB
-#define init_coastlines(...) // ignored
-#define draw_coastlines(...) // ignored
-#define free_coastlines(...) // ignored
+#define init_feature(...) // ignored
+#define draw_feature(...) // ignored
+#define free_feature(...) // ignored
 #endif // HAVE_SHPLIB
