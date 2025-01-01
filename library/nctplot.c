@@ -79,6 +79,7 @@ static struct memory {
 	void **chunks;
 	short *ivar;
 	size_t *istart, *iend, *bytes;
+	int **nusers;
 } memory;
 static void free_memory();
 
@@ -150,6 +151,7 @@ union Arg {
 struct feature {
 	/* helpers */
 	int nusers;
+	char featureparams[size_feature_params]; // to tell if this need to be redrawn
 	/* set in initialization */
 	double* coords;
 	double x0, y0, xunits_per_datum, yunits_per_datum;
@@ -166,7 +168,6 @@ struct shown_area_xy {
 	nct_var *xdim, *ydim;
 	char* crs;
 	struct feature *features[max_nfeatures];
-	char featureparams[size_feature_params]; // to tell if features need to be redrawn
 };
 
 #define ARRSIZE(a) (sizeof(a) / sizeof(*(a)))
@@ -608,24 +609,31 @@ static void* get_data(size_t start, size_t *Len) {
 		ichunk += memory.nchunks * (ichunk < 0);
 	} while (ichunk != memory.ichunk);
 
-	/* load new data */
+	/* until 'found': loading new data */
 	ichunk = (memory.ichunk+1) % memory.nchunks;
 	size_t wanted = var->len - start;
+
+	/* how many data can be loaded to this spot */
 	size_t ndata = Min(wanted, memory.chunksize/nct_typelen[var->dtype]);
 	if (memory.used - memory.bytes[ichunk] + ndata*nct_typelen[var->dtype] >= memory.totsize)
 		ndata = (memory.totsize - (memory.used - memory.bytes[ichunk])) / nct_typelen[var->dtype];
+	if (memory.nusers[ichunk] && *memory.nusers[ichunk])
+		ndata = 0;
+
+	/* find another spot if none */
 	if (ndata == 0) {
 		for (int i=ichunk; i<memory.nchunks; i++)
-			if (memory.bytes[i] > nct_typelen[var->dtype]*100) {
+			if ((!memory.nusers[i] || !*memory.nusers[i]) && memory.bytes[i] > nct_typelen[var->dtype]*100) {
 				ichunk = i;
 				goto found1;
 			}
 		for (int i=0; i<ichunk; i++)
-			if (memory.bytes[i] > nct_typelen[var->dtype]*100) {
+			if ((!memory.nusers[i] || !*memory.nusers[i]) && memory.bytes[i] > nct_typelen[var->dtype]*100) {
 				ichunk = i;
 				goto found1;
 			}
 	}
+
 found1:
 	memory.ichunk = ichunk;
 	ndata = Min(wanted, memory.chunksize/nct_typelen[var->dtype]);
@@ -1344,7 +1352,15 @@ static void end_typing_coord_from() {
 }
 
 static void end_typing_coord_to() {
+	size_t len = var->len;
+	var->data = get_data(0, &len);
+	if (len < var->len)
+		return;
 	varbuff = *nctproj_open_converted_var(var, plt.area_xy->crs, prompt_input, NULL);
+	memory.nusers[memory.ichunk] = var->nusers;
+	var->nusers = NULL;
+	var->data = NULL;
+
 	variable_changed();
 	free(plt.area_xy->crs);
 	plt.area_xy->crs = strdup(prompt_input); // not before variable_changed()
@@ -1626,20 +1642,31 @@ static void init_memory(size_t totsize) {
 	alloc(memory.iend);
 	alloc(memory.ivar);
 	alloc(memory.bytes);
+	alloc(memory.nusers);
 #undef alloc
 	memset(memory.chunks, 0, sizeof(memory.chunks[0])*memory.nchunks);
 	memset(memory.ivar, -1, sizeof(memory.ivar[0])*memory.nchunks);
 	memset(memory.bytes, 0, sizeof(memory.bytes[0])*memory.nchunks);
+	memset(memory.nusers, 0, sizeof(memory.nusers[0])*memory.nchunks);
 }
 
 static void free_memory() {
 	for (int i=0; i<memory.nchunks; i++)
-		free(memory.chunks[i]);
+		if (memory.nusers[i])
+			if (!*memory.nusers[i]) {
+				free(memory.chunks[i]);
+				free(memory.nusers[i]);
+			}
+			else
+				--*memory.nusers[i];
+		else
+			free(memory.chunks[i]);
 	free(memory.chunks);
 	free(memory.istart);
 	free(memory.iend);
 	free(memory.ivar);
 	free(memory.bytes);
+	free(memory.nusers);
 	memset(&memory, 0, sizeof(memory));
 }
 

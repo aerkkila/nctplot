@@ -8,7 +8,7 @@ dependencies = nctplot.c functions.c nctplot.h config.h config.mk
 ifdef have_shapelib
 	CFLAGS += -DHAVE_SHPLIB
 	libraries += -lshp -lm
-	alltarget += ne_10m_coastline
+	alltarget += ne_10m_coastline ne_10m_lakes
 	dependencies += coastlines.c proj.c
 endif
 
@@ -78,10 +78,16 @@ test.out: $(objects_test)
 	$(CC) -o $@ $^ $(libraries)
 
 ne_10m_coastline:
-	curl https://www.naturalearthdata.com/http//www.naturalearthdata.com/download/10m/physical/ne_10m_coastline.zip -OL
-	mkdir ne_10m_coastline
-	unzip -d ne_10m_coastline ne_10m_coastline.zip
+	curl -OL https://naciscdn.org/naturalearth/10m/physical/ne_10m_coastline.zip
+	mkdir $@
+	unzip -d $@ ne_10m_coastline.zip
 	rm ne_10m_coastline.zip
+
+ne_10m_lakes:
+	curl -OL https://naciscdn.org/naturalearth/10m/physical/ne_10m_lakes.zip
+	mkdir $@
+	unzip -d $@ ne_10m_lakes.zip
+	rm ne_10m_lakes.zip
 
 #pager.h:n ja shpname.h:n voi poistaa tästä myöhemmin
 clean:
@@ -94,7 +100,7 @@ install: $(alltarget)
 	mkdir -p $(shrdir)/nctplot
 	cp $(bindings_file) $(shrdir)/nctplot
 ifdef have_shapelib
-	cp -r ne_10m_coastline $(shrdir)/nctplot
+	cp -r ne_10m_coastline ne_10m_lakes $(shrdir)/nctplot
 endif
 
 uninstall:

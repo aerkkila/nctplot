@@ -102,6 +102,7 @@ static Binding keydown_bindings[] = {
 	   and the second fastest changing as latitudes.
 	   For other options, see ask_crs. */
 	{ XKB_KEY_l,	0,		toggle_feature,	{.i=coastlines_e}	},
+	{ XKB_KEY_L,	SHIFT,	toggle_feature,	{.i=lakes_e}		},
 	/* In mousepaint mode, the file can be edited by drawing to it with mouse.
 	   Further documentation and the keybindings are listed in keydown_bindings_mousepaint_m. */
 	{ XKB_KEY_m,	0,		set_prog_mode,	{.i=mousepaint_m}	},

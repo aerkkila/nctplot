@@ -10,13 +10,15 @@
 
 #define arrlen(a) (sizeof(a)/sizeof((a)[0]))
 
+enum features_e {coastlines_e, lakes_e};
 static const char *features_dirnames[] = {
-	[0]="ne_10m_coastline",
+	[coastlines_e]="ne_10m_coastline",
+	[lakes_e]="ne_10m_lakes",
 };
 static const char *features_shown_names[] = {
-	[0]="coastlines, ne, 10m",
+	[coastlines_e]="coastlines, ne, 10m",
+	[lakes_e]="lakes, ne, 10m",
 };
-enum features_e {coastlines_e};
 
 void no_conversion(void* _, float x, float y, double out[2]) {
 	out[0] = x;
@@ -126,7 +128,7 @@ static int line_break(int *breaks, int ibreak, int ipoint) {
 	return ibreak;
 }
 
-static void _make_featurepoints(int offset_i, int offset_j, struct feature *feature) {
+static void make_featurepoints(int offset_i, int offset_j, struct feature *feature) {
 	/* tmp_x0 is coordinate value, therefore offset is multiplied with coordinate interval, feature->xunits_per_datum */
 	tmp_x0 = feature->x0 + offset_i * feature->xunits_per_datum;
 	tmp_y0 = feature->y0 + offset_j * feature->yunits_per_datum;
@@ -169,15 +171,6 @@ not_valid_point:
 	feature->nbreaks = ibreak;
 }
 
-static void make_featurepoints(struct shown_area_xy *area) {
-	uint64_t features = shared.used_features;
-	for (int i=0; i<sizeof(features)*8 && features; i++)
-		if (features & (1L<<i)) {
-			_make_featurepoints(area->offset_i, area->offset_j, area->features[i]);
-			features ^= 1L<<i;
-		}
-}
-
 #define putval(buff, val) (buff += (memcpy(buff, &(val), sizeof(val)), sizeof(val)))
 static void save_state(char* buff, const struct shown_area_xy *area) {
 	putval(buff, area->offset_j);
@@ -193,16 +186,16 @@ static void check_features(struct shown_area_xy *area, struct feature *feature) 
 	if (!feature->points) {
 		feature->points = malloc(feature->total * sizeof(point_t));
 		feature->breaks = malloc(feature->total * sizeof(int));
-		make_featurepoints(area);
-		save_state(area->featureparams, area);
+		make_featurepoints(area->offset_i, area->offset_j, feature);
+		save_state(feature->featureparams, area);
 	}
 	else {
 		char new_params[size_feature_params];
 		save_state(new_params, area);
 		/* If current state differs from previous, save the new one and remake the coastlines. */
-		if (memcmp(area->featureparams, new_params, size_feature_params)) {
-			memcpy(area->featureparams, new_params, size_feature_params);
-			make_featurepoints(area);
+		if (memcmp(feature->featureparams, new_params, size_feature_params)) {
+			memcpy(feature->featureparams, new_params, size_feature_params);
+			make_featurepoints(area->offset_i, area->offset_j, feature);
 		}
 	}
 }
