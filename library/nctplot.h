@@ -18,6 +18,7 @@ struct nctplot_shared* nctplot_get_shared();
 typedef struct {
 	nct_var *var, *zvar;
 	unsigned noreset			: 1,
+			 data_in_var		: 1,
 			 use_threshold		: 1,
 			 shared_detached	: 1,
 			 use_cmapfun		: 1,

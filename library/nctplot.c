@@ -599,6 +599,10 @@ static void mousemove(float xrel, float yrel) {
 }
 
 static void* get_data(size_t start, size_t *Len) {
+	if (plt.data_in_var) {
+		*Len = var->endpos - start;
+		return (char*)var->data + (start - var->startpos) * nct_typelen[var->dtype]; }
+
 	int ichunk = memory.ichunk;
 	do {
 		if (memory.ivar[ichunk] == nct_pltind &&
@@ -905,12 +909,19 @@ static void variable_changed() {
 		shared = sharedlist[nct_pltind];
 	}
 
+	/* Editing plt before this is a bad idea. */
+
 	/* Order matters here. */
 	if (!plt.noreset) {
 		plt = default_plottable;
 		plt.var = &plt.varbuff;
 		update_minmax = 1;
 	}
+
+	/* If necessary, turn off the memory handler for this variable. */
+	if (!nct_loadable(var) || var->len == var->endpos - var->startpos)
+		plt.data_in_var = 1;
+
 	plt.varbuff = *var;
 	set_dimids();
 	if (!plt.area_xy)
