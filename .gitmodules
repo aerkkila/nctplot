@@ -4,3 +4,6 @@
 [submodule "library/ttra"]
 	path = library/ttra
 	url = https://codeberg.org/aerkkila/ttra
+[submodule "library/colormap-headers"]
+	path = library/colormap-headers
+	url = https://codeberg.org/aerkkila/colormap-headers

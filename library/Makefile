@@ -3,7 +3,7 @@ include config.mk
 alltarget = libnctplot.so
 libraries = -lnctietue3 -lncurses -ldl -lnetcdf -lm
 objects =
-dependencies = nctplot.c nctplot_graphics.c functions.c nctplot.h config.h config.mk
+dependencies = nctplot.c nctplot_graphics.c functions.c nctplot.h config.h config.mk colormap-headers/cmh_colormaps.h
 
 ifdef have_shapelib
 	CFLAGS += -DHAVE_SHPLIB
@@ -73,6 +73,10 @@ waylandhelper/waylandhelper.o: waylandhelper/*
 
 ttra/ttra.o: ttra/*
 	cd ttra && $(MAKE) ttra.o --no-print-directory
+
+colormap-headers/cmh_colormaps.h ttra/* waylandhelper/*:
+	git submodule init
+	git submodule update
 
 ne_10m_coastline:
 	curl -OL https://naciscdn.org/naturalearth/10m/physical/ne_10m_coastline.zip

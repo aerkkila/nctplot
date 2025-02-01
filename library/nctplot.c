@@ -1,5 +1,5 @@
 #include <nctietue3.h>
-#include <cmh_colormaps.h>
+#include "colormap-headers/cmh_colormaps.h"
 #include <stdint.h>
 #include <curses.h>
 #include <sys/time.h>
