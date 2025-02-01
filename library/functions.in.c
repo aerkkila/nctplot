@@ -45,8 +45,6 @@ loop:
 	}
 	if ((wdatum = iend - ipixel) > 0)
 		goto loop; // draw a partial wide pixel
-
-	expand_row_to_yscale(g_pixels_per_datum[1], jpixel, istart, iend);
 	return count;
 }
 
@@ -67,8 +65,6 @@ loop:
 	}
 	if ((wdatum = iend - ipixel) > 0)
 		goto loop; // draw a partial wide pixel
-
-	expand_row_to_yscale(g_pixels_per_datum[1], jpixel, istart, iend);
 }
 
 static void draw_row_cmapfun_@nctype(uint32_t *canvas, int jpixel, int istart, int iend, const void* vdataptr, cmapfun_t cmapfun) {
@@ -88,8 +84,6 @@ loop:
 	}
 	if ((wdatum = iend - ipixel) > 0)
 		goto loop; // draw a partial wide pixel
-
-	expand_row_to_yscale(g_pixels_per_datum[1], jpixel, istart, iend);
 }
 #undef CVAL
 

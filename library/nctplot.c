@@ -56,7 +56,7 @@ static unsigned sleeptime;
 static double fps;
 static int win_w, win_h, xid, yid, zid, draw_w, draw_h, pending_varnum=-1, pending_cmapnum;
 static uint32_t *canvas = NULL;
-static char quit_done, stop, fill_on, play_on, info_on=1, update_minmax=1, update_minmax_cur, too_small_to_draw;
+static char quit_done, stop, fill_on, play_on, info_on=1, update_minmax=1, update_minmax_cur;
 static const int printinfo_nlines = 6;
 static int lines_printed, line_mouseinfo;
 static int cmappix=30, cmapspace=10, call_redraw;
@@ -334,8 +334,24 @@ static void curses_write_cmaps() {
 	refresh();
 }
 
+static int how_to_draw_this_row(int *jimag, int *ystep_pix, int draw_h) {
+	if (*ystep_pix < 0) {
+		if (*jimag < 0) {
+			*ystep_pix -= *jimag;
+			*jimag = 0;
+			if (*ystep_pix == 0)
+				return 1;
+		}
+	}
+	else {
+		if (*jimag >= draw_h)
+			return 1;
+		*ystep_pix = Min(*ystep_pix, draw_h-*jimag);
+	}
+	return 0;
+}
+
 static void draw2d(const nct_var* var) {
-	if (too_small_to_draw) return;
 	clear_background(color_ptr_to_number(shared.color_bg));
 	if (g_only_nans)       return;
 
@@ -349,79 +365,48 @@ static void draw2d(const nct_var* var) {
 		idatai;                                      // x-coordinate
 	int drawwleft = draw_w;
 
-	int step=g_pixels_per_datum[1], jimag=0, iimag=0;
+	int ystep_pix=g_pixels_per_datum[1], jimag=0, iimag=0;
 	if (shared.invert_y) {
-		jimag = draw_h - g_pixels_per_datum[1],
-		step = -step;
+		jimag = draw_h - ystep_pix;
+		ystep_pix = -ystep_pix;
 	}
 
-	if (plt.use_threshold) {
-		int count = 0;
-		while (0 <= jimag && jimag < draw_h) {
-			char* dataptr = get_data(start, &length);
-			double npix = round(length / data_per_pixel[0]); // this can grow without limit when zoomed
-			npix = Min(npix, drawwleft);
-			count += draw_row_threshold(var->dtype, canvas, jimag, iimag, iimag+npix, dataptr, plt.threshold);
-			drawwleft -= npix;
-			if (drawwleft > 0) {
-				fdatai += npix / g_pixels_per_datum[0] * g_data_per_step[0];
-				iimag += npix;
-			}
-			else {
-				jimag += step;
-				iimag = 0;
-				idataj = round(fdataj += g_data_per_step[1]);
-				fdatai = plt.area_xy->offset_i;
-				drawwleft = draw_w;
-			}
-			start = plt.stepsize_z * plt.area_z->znum*(zid>=0) + idataj * g_xlen + round(fdatai);
-		}
-		plt.n_threshold = count;
-	}
-	else if (plt.use_cmapfun && dl_cmapfun) {
-		while (0 <= jimag && jimag < draw_h) {
-			char* dataptr = get_data(start, &length);
-			double npix = round(length / data_per_pixel[0]); // this can grow without limit when zoomed
-			npix = Min(npix, drawwleft);
-			draw_row_cmapfun(var->dtype, canvas, jimag, iimag, iimag+npix, dataptr, dl_cmapfun);
-			drawwleft -= npix;
-			if (drawwleft > 0) {
-				fdatai += npix / g_pixels_per_datum[0] * g_data_per_step[0];
-				iimag += npix;
-			}
-			else {
-				jimag += step;
-				iimag = 0;
-				idataj = round(fdataj += g_data_per_step[1]);
-				fdatai = plt.area_xy->offset_i;
-				drawwleft = draw_w;
-			}
-			start = plt.stepsize_z * plt.area_z->znum*(zid>=0) + idataj * g_xlen + round(fdatai);
-		}
-	}
-	else {
-		while (0 <= jimag && jimag < draw_h) {
-			char* dataptr = get_data(start, &length);
-			double npix = round(length / data_per_pixel[0]); // this can grow without limit when zoomed
-			npix = Min(npix, drawwleft);
-			draw_row(var->dtype, canvas, jimag, iimag, iimag+npix, dataptr);
-			drawwleft -= npix;
-			if (drawwleft > 0) {
-				fdatai += npix / g_pixels_per_datum[0] * g_data_per_step[0];
-				iimag += npix;
-			}
-			else {
-				jimag += step;
-				iimag = 0;
-				idataj = round(fdataj += g_data_per_step[1]);
-				fdatai = plt.area_xy->offset_i;
-				drawwleft = draw_w;
-			}
-			start = plt.stepsize_z * plt.area_z->znum*(zid>=0) + idataj * g_xlen + round(fdatai);
-		}
-	}
 	if (plt.show_cmap)
 		draw_colormap();
+
+	if (how_to_draw_this_row(&jimag, &ystep_pix, draw_h))
+		return;
+
+	int ifun = plt.use_threshold ? 0 : plt.use_cmapfun && dl_cmapfun ? 1 : 2;
+	plt.n_threshold = 0;
+
+	while (1) {
+		char* dataptr = get_data(start, &length);
+		double npix = round(length / data_per_pixel[0]); // this can grow without limit when zoomed
+		npix = Min(npix, drawwleft);
+		switch (ifun) {
+			case 0: plt.n_threshold +=
+					draw_row_threshold(var->dtype, canvas, jimag, iimag, iimag+npix, dataptr, plt.threshold); break;
+			case 1: draw_row_cmapfun(var->dtype, canvas, jimag, iimag, iimag+npix, dataptr, dl_cmapfun); break;
+			case 2: draw_row(var->dtype, canvas, jimag, iimag, iimag+npix, dataptr); break;
+		}
+		expand_row_to_yscale(Abs(ystep_pix), jimag, iimag, iimag+npix);
+		drawwleft -= npix;
+		if (drawwleft > 0) {
+			fdatai += npix / g_pixels_per_datum[0] * g_data_per_step[0];
+			iimag += npix;
+		}
+		else {
+			jimag += ystep_pix;
+			if (how_to_draw_this_row(&jimag, &ystep_pix, draw_h))
+				break;
+			iimag = 0;
+			idataj = round(fdataj += g_data_per_step[1]);
+			fdatai = plt.area_xy->offset_i;
+			drawwleft = draw_w;
+		}
+		start = plt.stepsize_z * plt.area_z->znum*(zid>=0) + idataj * g_xlen + round(fdatai);
+	}
 }
 
 static void draw_colormap() {
@@ -769,7 +754,6 @@ static void set_draw_params() {
 	draw_w = MIN(win_w, draw_w);
 	draw_h = MIN(win_h-additional_height(), draw_h);
 	draw_h = MAX(draw_h, 0);
-	too_small_to_draw = draw_h < 0;
 	if (zid < 0) zid = -1;
 	plt.stepsize_z = nct_get_len_from(var, zid+1); // works even if zid == -1
 	plt.stepsize_z += plt.stepsize_z == 0; // length must be at least 1
@@ -779,24 +763,6 @@ static void set_draw_params() {
 		g_pixels_per_datum[i] += !g_pixels_per_datum[i];
 		g_data_per_step[i] = g_pixels_per_datum[i] * data_per_pixel[i]; // step is a virtual pixel >= physical pixel
 	}
-
-	//draw_w = draw_w / g_pixels_per_datum[0] * g_pixels_per_datum[0]; // partial pixel is not a problem anymore
-	draw_h = draw_h / g_pixels_per_datum[1] * g_pixels_per_datum[1];
-
-#ifndef HAVE_WAYLAND
-	/* The last virtual pixel fits only partly to the screen and is truncated. */
-	int if_add_1;
-	if (shared.invert_y) {
-		if_add_1 = draw_h / g_pixels_per_datum[1] < g_ylen - offset_j && draw_h < win_h && offset_j;
-		offset_j -= if_add_1;
-		plt.area_xy->offset_j = offset_j;
-		plt.area_xy->j_off_by_one = if_add_1;
-	}
-	else
-		if_add_1 = draw_h / g_pixels_per_datum[1] < g_ylen - offset_j && draw_h < win_h;
-	draw_h += if_add_1 * g_pixels_per_datum[1]; // may be larger than win_h which is not a problem in SDL
-	g_extended_y = if_add_1;
-#endif
 }
 
 static uint_fast64_t time_now_ms() {
