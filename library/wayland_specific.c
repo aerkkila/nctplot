@@ -1,14 +1,14 @@
 #include <xkbcommon/xkbcommon.h>
-#include "wayland_helper/wayland_helper.h"
+#include "waylandhelper/waylandhelper.h"
 
-static struct wayland_helper wlh;
+static struct waylandhelper wlh;
 #define bindings_file "bindings_xkb.h"
 
 static void quit_graphics() {
 	wlh.stop = 1;
 }
 
-static void key_callback(struct wayland_helper *wlh) {
+static void key_callback(struct waylandhelper *wlh) {
 	if (!wlh->keydown)
 		return;
 
@@ -24,7 +24,7 @@ static void key_callback(struct wayland_helper *wlh) {
 		keydown_func(syms[isym], wlh->last_keymods);
 }
 
-static void motion_callback(struct wayland_helper *wlh, int xrel, int yrel) {
+static void motion_callback(struct waylandhelper *wlh, int xrel, int yrel) {
 	if (!wlh->button) {
 		mousemotion(xrel, yrel);
 		return;
@@ -37,7 +37,7 @@ static void motion_callback(struct wayland_helper *wlh, int xrel, int yrel) {
 		mousemove(xrel, yrel);
 }
 
-static void wheel_callback(struct wayland_helper *wlh, int axis, int num) {
+static void wheel_callback(struct waylandhelper *wlh, int axis, int num) {
 	if (axis == WL_POINTER_AXIS_VERTICAL_SCROLL)
 		mousewheel(num < 0 ? 1 : -1);
 }
@@ -46,7 +46,7 @@ static void wheel_callback(struct wayland_helper *wlh, int axis, int num) {
 #define mousey wlh.mousey
 
 static void init_graphics(int xlen, int ylen) {
-	wlh = (struct wayland_helper) {
+	wlh = (struct waylandhelper) {
 		.key_callback = key_callback,
 			.motion_callback = motion_callback,
 			.wheel_callback = wheel_callback,
@@ -67,7 +67,7 @@ static void mainloop() {
 	long play_start_ms = 0;
 	int play_start_znum;
 
-	while (wl_display_roundtrip(wlh.display) > 0 && !wlh.stop) {
+	while (!wlh.stop && wlh_roundtrip(&wlh) >= 0) {
 		if (wlh_key_should_repeat(&wlh))
 			key_callback(&wlh);
 

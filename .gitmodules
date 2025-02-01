@@ -1,0 +1,3 @@
+[submodule "library/waylandhelper"]
+	path = library/waylandhelper
+	url = https://codeberg.org/aerkkila/waylandhelper
