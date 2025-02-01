@@ -29,24 +29,16 @@ static const int ttra_space = 8;
 
 typedef struct {
 	int x, y;
-} point_t; // for compatibility with SDL
-
-union point_u { // access the struct as an array
-	point_t p;
-	int i[2];
-};
+} point_t;
 
 static struct wayland_helper wlh;
-static uint32_t wlh_color = 0;
-int wlh_scalex = 1,
-	wlh_scaley = 1;
 
-static void set_color(unsigned char* c) {
-	wlh_color =
+static inline uint32_t color_ptr_to_number(unsigned char* c) {
+	return
+		(0xff << 24) |
 		(c[0] << 16 ) |
 		(c[1] << 8 ) |
-		(c[2] << 0) |
-		(0xff << 24);
+		(c[2] << 0);
 }
 
 static void clear_background(uint32_t color) {
@@ -54,37 +46,23 @@ static void clear_background(uint32_t color) {
 		wlh.data[i] = color;
 }
 
-static void set_scale(int scalex, int scaley) {
-	wlh_scalex = scalex;
-	wlh_scaley = scaley;
-}
-
 static void quit_graphics() {
 	wlh.stop = 1;
 }
 
-static void graphics_draw_point(int i, int j) {
-	for (int jj=j*wlh_scaley; jj<(j+1)*wlh_scaley; jj++)
-		for (int ii=i*wlh_scalex; ii<(i+1)*wlh_scalex; ii++)
-			wlh.data[jj*win_w + ii] = wlh_color;
-}
-
-static void draw_point_in_xscale(int i, int j) {
-	for (int ii=i*wlh_scalex; ii<(i+1)*wlh_scalex; ii++)
-		wlh.data[j*wlh_scaley*win_w + ii] = wlh_color;
-}
-
-static void expand_row_to_yscale(int j, int istart, int iend) {
-	uint32_t* ptr = wlh.data + j*wlh_scaley*win_w + istart;
-	for (int jj=1; jj<wlh_scaley; jj++)
-		memcpy(ptr+jj*win_w, ptr, (iend-istart)*4);
+static void expand_row_to_yscale(int scale, int jpixel, int istart, int iend) {
+	for (int jj=1; jj<scale; jj++)
+		memcpy(
+			wlh.data + (jpixel+jj)*win_w + istart,
+			wlh.data + jpixel*win_w + istart,
+			(iend-istart) * sizeof(wlh.data[0]));
 }
 
 #define draw_line_$method draw_line_bresenham
 
 /* https://en.wikipedia.org/wiki/Bresenham's_line_algorithm */
 /* This method is nice because it uses only integers. */
-static void draw_line_bresenham(const int *xy) {
+static void draw_line_bresenham(uint32_t color, const int *xy) {
 	int nosteep = Abs(xy[3] - xy[1]) < Abs(xy[2] - xy[0]);
 	int backwards = xy[2+!nosteep] < xy[!nosteep]; // m1 < m0
 	int m1=xy[2*!backwards+!nosteep], m0=xy[2*backwards+!nosteep],
@@ -98,22 +76,22 @@ static void draw_line_bresenham(const int *xy) {
 	int D = 2*dn - dm;
 	if (nosteep) // (m,n) = (x,y)
 		for (; m0<=m1; m0++) {
-			wlh.data[n0*win_w + m0] = wlh_color;
+			wlh.data[n0*win_w + m0] = color;
 			n0 += D > 0 ? n_add : 0;
 			D  += D > 0 ? D_add1 : D_add0;
 		}
 	else // (m,n) = (y,x)
 		for (; m0<=m1; m0++) {
-			wlh.data[m0*win_w + n0] = wlh_color;
+			wlh.data[m0*win_w + n0] = color;
 			n0 += D > 0 ? n_add : 0;
 			D  += D > 0 ? D_add1 : D_add0;
 		}
 }
 
-static void draw_lines(const void *v, int n) {
-	const union point_u *u = v;
+static void draw_lines(uint32_t color, const void *v, int n) {
+	const point_t *p = v;
 	for (int i=0; i<n-1; i++)
-		draw_line_$method(u[i].i);
+		draw_line_$method(color, (int*)(p+i));
 }
 
 static void key_callback(struct wayland_helper *wlh) {
@@ -179,10 +157,10 @@ static void set_ttra() {
 }
 #endif
 
-static void clear_unused_bottom() {
+static void clear_unused_bottom(uint32_t color) {
 	for (int j=total_height(); j<win_h; j++)
 		for (int i=0; i<win_w; i++)
-			wlh.data[j*win_w+i] = wlh_color;
+			wlh.data[j*win_w+i] = color;
 }
 
 static void mainloop() {

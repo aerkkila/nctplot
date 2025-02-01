@@ -237,7 +237,7 @@ static inline int __attribute__((pure)) additional_height() {
 	return total_height() - draw_h;
 }
 
-#include "functions.c" // draw1d, draw_row, make_minmax; automatically generated from functions.in.c
+#include "functions.c" // draw_row, make_minmax; automatically generated from functions.in.c
 #include "coastlines.c"
 #include "png.c"
 
@@ -333,36 +333,31 @@ static void curses_write_cmaps() {
 }
 
 static void draw2d(const nct_var* var) {
-	if (too_small_to_draw)
-		return;
-
-	/* defined either ind sdl_specific or wayland_specific depending on the choice in config.mk */
-	set_color(shared.color_bg);
-	clear_background();
-	set_scale(g_pixels_per_datum[0], g_pixels_per_datum[1]);
-
-	if (g_only_nans) return;
+	if (too_small_to_draw) return;
+	clear_background(color_ptr_to_number(shared.color_bg));
+	if (g_only_nans)       return;
 
 	double fdataj = plt.area_xy->offset_j,
 		   fdatai = plt.area_xy->offset_i;
 	long idataj = round(fdataj),
 		 idatai = round(fdatai);
-	size_t length, start = plt.stepsize_z * plt.area_z->znum*(zid>=0) + idataj * g_xlen + idatai;
+	size_t length, start =
+		plt.area_z->znum*(zid>=0) * plt.stepsize_z + // z-coordinate
+		idataj * g_xlen +                            // y-coordinate
+		idatai;                                      // x-coordinate
 	int drawwleft = draw_w;
 
-	int jimag = draw_h - g_pixels_per_datum[1],
-	iimag = 0;
-	int step = -g_pixels_per_datum[1];
-	if (!shared.invert_y) {
-		step = g_pixels_per_datum[1];
-		jimag = 0;
+	int step=g_pixels_per_datum[1], jimag=0, iimag=0;
+	if (shared.invert_y) {
+		jimag = draw_h - g_pixels_per_datum[1],
+		step = -step;
 	}
 
 	if (plt.use_threshold) {
 		int count = 0;
 		while (0 <= jimag && jimag < draw_h) {
 			char* dataptr = get_data(start, &length);
-			int npix = round(length / data_per_pixel[0]);
+			double npix = round(length / data_per_pixel[0]); // this can grow without limit when zoomed
 			npix = Min(npix, drawwleft);
 			count += draw_row_threshold(var->dtype, jimag, iimag, iimag+npix, dataptr, plt.threshold);
 			drawwleft -= npix;
@@ -384,7 +379,7 @@ static void draw2d(const nct_var* var) {
 	else if (plt.use_cmapfun && dl_cmapfun) {
 		while (0 <= jimag && jimag < draw_h) {
 			char* dataptr = get_data(start, &length);
-			int npix = round(length / data_per_pixel[0]);
+			double npix = round(length / data_per_pixel[0]); // this can grow without limit when zoomed
 			npix = Min(npix, drawwleft);
 			draw_row_cmapfun(var->dtype, jimag, iimag, iimag+npix, dataptr, dl_cmapfun);
 			drawwleft -= npix;
@@ -405,7 +400,7 @@ static void draw2d(const nct_var* var) {
 	else {
 		while (0 <= jimag && jimag < draw_h) {
 			char* dataptr = get_data(start, &length);
-			int npix = round(length / data_per_pixel[0]);
+			double npix = round(length / data_per_pixel[0]); // this can grow without limit when zoomed
 			npix = Min(npix, drawwleft);
 			draw_row(var->dtype, jimag, iimag, iimag+npix, dataptr);
 			drawwleft -= npix;
@@ -430,29 +425,28 @@ static void draw2d(const nct_var* var) {
 static void draw_colormap() {
 	float cspace = 255.0f/draw_w;
 	float di = 0;
-	set_scale(1, 1);
 	int j0 = colormap_top();
 	int j1 = colormap_bottom();
 	if (!shared.invert_c)
 		for (int i=0; i<draw_w; i++, di+=cspace) {
 			unsigned char* c = cmh_colorvalue(shared.cmapnum, (int)di);
-			set_color(c);
+			uint32_t color = color_ptr_to_number(c);
 			for (int j=j0; j<j1; j++)
-				graphics_draw_point(i,j);
+				wlh.data[j*win_w + i] = color;
 		}
 	else
 		for (int i=draw_w-1; i>=0; i--, di+=cspace) {
 			unsigned char* c = cmh_colorvalue(shared.cmapnum, (int)di);
-			set_color(c);
+			uint32_t color = color_ptr_to_number(c);
 			for (int j=j0; j<j1; j++)
-				graphics_draw_point(i,j);
+				wlh.data[j*win_w + i] = color;
 		}
 }
 
 static void clear_infoprint() {
 	for (int i=0; i<lines_printed; i++)
-		Printf("\033[2K\n");			// clear the line
-	Printf("\r\033[%iA", lines_printed);	// move cursor to start
+		Printf("\033[2K\n");             // clear the line
+	Printf("\r\033[%iA", lines_printed); // move cursor to start
 	lines_printed = 0;
 }
 
@@ -492,7 +486,7 @@ static void printinfo(void* minmax) {
 	}
 	Printf("\033[K\n"
 		"minshift %s%.4f%s, maxshift %s%.4f%s\033[K\n"
-		"data/pixel = %s(%.4f, %.4f)%s\033[K\n"
+		"data/pixel = %s(%.4g, %.4g)%s\033[K\n"
 		"colormap = %s%s%s%s\033[K\n",
 		A,plt.minshift,B, A,plt.maxshift,B,
 		A,data_per_pixel[0],data_per_pixel[1],B, A,cmh_colormaps[shared.cmapnum].name,B, shared.invert_c? " reversed": "");
@@ -730,7 +724,7 @@ static void set_dimids() {
 	xid = var->ndims-1;
 	yid = var->ndims-2;
 	zid = var->ndims-3;
-	draw_funcptr = yid<0? draw1d: draw2d;
+	draw_funcptr = yid<0? nop : draw2d;
 	if (zid < 0)
 		zid = -1;
 	if (zid >= 0) {
@@ -790,15 +784,12 @@ static void set_draw_params() {
 		g_data_per_step[i] = g_pixels_per_datum[i] * data_per_pixel[i]; // step is a virtual pixel >= physical pixel
 	}
 
-	draw_w = draw_w / g_pixels_per_datum[0] * g_pixels_per_datum[0];
+	//draw_w = draw_w / g_pixels_per_datum[0] * g_pixels_per_datum[0]; // partial pixel is not a problem anymore
 	draw_h = draw_h / g_pixels_per_datum[1] * g_pixels_per_datum[1];
 
 #ifndef HAVE_WAYLAND
 	/* The last virtual pixel fits only partly to the screen and is truncated. */
 	int if_add_1;
-	if_add_1 = draw_w / g_pixels_per_datum[0] < g_xlen - offset_i && draw_w < win_w;
-	draw_w += if_add_1 * g_pixels_per_datum[0]; // may be larger than win_w which is not a problem in SDL
-
 	if (shared.invert_y) {
 		if_add_1 = draw_h / g_pixels_per_datum[1] < g_ylen - offset_j && draw_h < win_h && offset_j;
 		offset_j -= if_add_1;
@@ -1168,8 +1159,7 @@ static void set_typingmode(Arg arg) {
 #ifndef HAVE_WAYLAND
 	SDL_StartTextInput();
 #elif defined HAVE_TTRA
-	set_color(shared.color_bg);
-	clear_unused_bottom();
+	clear_unused_bottom(color_ptr_to_number(shared.color_bg));
 #endif
 }
 

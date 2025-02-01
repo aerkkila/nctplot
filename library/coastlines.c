@@ -206,10 +206,10 @@ static void draw_feature(struct shown_area_xy *area, int ifeature) {
 	int nib = feature->nbreaks;
 	int* breaks = feature->breaks;
 	int istart = 0;
-	set_color(shared.color_fg);
+	uint32_t color = color_ptr_to_number(shared.color_fg);
 	point_t* points = feature->points;
 	for (int ib=0; ib<nib; ib++) {
-		draw_lines(points+istart, breaks[ib]-istart);
+		draw_lines(color, points+istart, breaks[ib]-istart);
 		istart = breaks[ib];
 	}
 }

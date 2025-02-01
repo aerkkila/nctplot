@@ -25,87 +25,71 @@ static ctype* g_minmax_@nctype = (ctype*)g_minmax;
 	(@uctype)((val)-(minmax)[0])*255 / (@uctype)((minmax)[1]-(minmax)[0]) )
 
 static int draw_row_threshold_@nctype(int jpixel, int istart, int iend, const void* vdataptr, double dthr) {
-	float idata_f = 0;
 	const ctype thr = dthr;
 	const int cvals[] = {255*1/10, 255*9/10, 255*1/10};
 	int count = 0;
-	for (int ipixel=istart; ipixel<iend; ipixel+=g_pixels_per_datum[0], idata_f+=g_data_per_step[0]) {
+
+	float idata_f = 0;
+	int wdatum = g_pixels_per_datum[0], ipixel = istart;
+	for (; ipixel<=iend-wdatum; idata_f+=g_data_per_step[0]) {
+loop:
 		long ind = round(idata_f);
 		ctype val = ((const ctype*)vdataptr)[ind];
-#if __nctype__ == NC_DOUBLE
-		if (my_isnan_double(val)) continue;
-#elif __nctype__ == NC_FLOAT
-		if (my_isnan_float(val)) continue;
-#endif
-		if (shared.usenan && val==shared.nanval)
+		if (my_isnan(val) || (shared.usenan && val==shared.nanval))
 			continue;
 		count += val >= thr;
 		int value = cvals[(val >= thr) + shared.invert_c];
-		unsigned char* c = cmh_colorvalue(shared.cmapnum,value);
-		set_color(c);
-#ifdef HAVE_WAYLAND // the #else would also work but this is faster
-		draw_point_in_xscale(ipixel/g_pixels_per_datum[0], jpixel/g_pixels_per_datum[1]);
-#else
-		graphics_draw_point(ipixel/g_pixels_per_datum[0], jpixel/g_pixels_per_datum[1]);
-#endif
+		uint32_t color = color_ptr_to_number(cmh_colorvalue(shared.cmapnum, value));
+		for (int ii=0; ii<wdatum; ii++)
+			wlh.data[jpixel*win_w + ipixel++] = color;
 	}
-#ifdef HAVE_WAYLAND // same comment as above
-	expand_row_to_yscale(jpixel/g_pixels_per_datum[1], istart, iend);
-#endif
+	if ((wdatum = iend - ipixel) > 0)
+		goto loop; // draw a partial wide pixel
+
+	expand_row_to_yscale(g_pixels_per_datum[1], jpixel, istart, iend);
 	return count;
 }
 
 static void draw_row_@nctype(int jpixel, int istart, int iend, const void* vdataptr) {
-	double idata_f = 0;
-	for (int ipixel=istart; ipixel<iend; ipixel+=g_pixels_per_datum[0], idata_f+=g_data_per_step[0]) {
+	float idata_f = 0;
+	int wdatum = g_pixels_per_datum[0], ipixel = istart;
+	for (; ipixel<=iend-wdatum; idata_f+=g_data_per_step[0]) {
+loop:
 		long ind = round(idata_f);
 		ctype val = ((const ctype*)vdataptr)[ind];
-#if __nctype__ == NC_DOUBLE
-		if (my_isnan_double(val)) continue;
-#elif __nctype__ == NC_FLOAT
-		if (my_isnan_float(val)) continue;
-#endif
-		if (shared.usenan && val==shared.nanval)
+		if (my_isnan(val) || (shared.usenan && val==shared.nanval))
 			continue;
 		int value = CVAL(val, g_minmax_@nctype);
 		if (shared.invert_c) value = 0xff-value;
-		unsigned char* c = cmh_colorvalue(shared.cmapnum,value);
-		set_color(c);
-#ifdef HAVE_WAYLAND // the #else would also work but this is faster
-		draw_point_in_xscale(ipixel/g_pixels_per_datum[0], jpixel/g_pixels_per_datum[1]);
-#else
-		graphics_draw_point(ipixel/g_pixels_per_datum[0], jpixel/g_pixels_per_datum[1]);
-#endif
+		uint32_t color = color_ptr_to_number(cmh_colorvalue(shared.cmapnum,value));
+		for (int ii=0; ii<wdatum; ii++)
+			wlh.data[jpixel*win_w + ipixel++] = color;
 	}
-#ifdef HAVE_WAYLAND // same comment as above
-	expand_row_to_yscale(jpixel/g_pixels_per_datum[1], istart, iend);
-#endif
+	if ((wdatum = iend - ipixel) > 0)
+		goto loop; // draw a partial wide pixel
+
+	expand_row_to_yscale(g_pixels_per_datum[1], jpixel, istart, iend);
 }
 
 static void draw_row_cmapfun_@nctype(int jpixel, int istart, int iend, const void* vdataptr, cmapfun_t cmapfun) {
 	float idata_f = 0;
-	for (int ipixel=istart; ipixel<iend; ipixel+=g_pixels_per_datum[0], idata_f+=g_data_per_step[0]) {
+	int wdatum = g_pixels_per_datum[0], ipixel = istart;
+	for (; ipixel<=iend-wdatum; idata_f+=g_data_per_step[0]) {
+loop:
 		long ind = round(idata_f);
 		const ctype *val = (const ctype*)vdataptr+ind;
-#if __nctype__ == NC_DOUBLE
-		if (my_isnan_double(*val)) continue;
-#elif __nctype__ == NC_FLOAT
-		if (my_isnan_float(*val)) continue;
-#endif
-		if (shared.usenan && *val==shared.nanval)
+		if (my_isnan(*val) || (shared.usenan && *val==shared.nanval))
 			continue;
 		unsigned char c[4];
 		cmapfun(c, val);
-		set_color(c);
-#ifdef HAVE_WAYLAND // the #else would also work but this is faster
-		draw_point_in_xscale(ipixel/g_pixels_per_datum[0], jpixel/g_pixels_per_datum[1]);
-#else
-		graphics_draw_point(ipixel/g_pixels_per_datum[0], jpixel/g_pixels_per_datum[1]);
-#endif
+		uint32_t color = color_ptr_to_number(c);
+		for (int ii=0; ii<wdatum; ii++)
+			wlh.data[jpixel*win_w + ipixel++] = color;
 	}
-#ifdef HAVE_WAYLAND // same comment as above
-	expand_row_to_yscale(jpixel/g_pixels_per_datum[1], istart, iend);
-#endif
+	if ((wdatum = iend - ipixel) > 0)
+		goto loop; // draw a partial wide pixel
+
+	expand_row_to_yscale(g_pixels_per_datum[1], jpixel, istart, iend);
 }
 #undef CVAL
 
@@ -133,31 +117,6 @@ static double get_min_@nctype() {
 
 static double get_max_@nctype() {
 	return g_minmax_@nctype[1];
-}
-
-static void draw1d_@nctype(const nct_var* var) {
-	if (too_small_to_draw)
-		return;
-	make_minmax_@nctype();
-	if (g_minmax_@nctype[1] == g_minmax_@nctype[0])
-		g_minmax_@nctype [1] += 1;
-	if (prog_mode == variables_m)
-		curses_write_vars();
-	printinfo(g_minmax_@nctype);
-	set_color(shared.color_bg);
-	clear_background();
-#if __nctype__ == NC_DOUBLE
-	if (my_isnan_double(g_minmax_@nctype[0])) return;
-#elif __nctype__ == NC_FLOAT
-	if (my_isnan_float(g_minmax_@nctype[0])) return;
-#endif
-	double di=0;
-	set_color(shared.color_fg);
-	ctype* dataptr = (ctype*)var->data - var->startpos;
-	for(int i=0; i<win_w; i++, di+=data_per_pixel[0]) {
-		int y = (dataptr[(int)di] - g_minmax_@nctype[0]) * win_h / (g_minmax_@nctype[1]-g_minmax_@nctype[0]);
-		graphics_draw_point(i, y);
-	}
 }
 
 static void minmax_at_@nctype(long start, long end, void *buff) {
