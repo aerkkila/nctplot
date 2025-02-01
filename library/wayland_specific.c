@@ -4,10 +4,6 @@
 static struct waylandhelper wlh;
 #define bindings_file "bindings_xkb.h"
 
-static void quit_graphics() {
-	wlh.stop = 1;
-}
-
 static void key_callback(struct waylandhelper *wlh) {
 	if (!wlh->keydown)
 		return;
@@ -55,6 +51,10 @@ static void init_graphics(int xlen, int ylen) {
 	win_h = 1;
 	win_w = 1;
 	canvas = wlh.data;
+}
+
+static void quit_graphics() {
+	wlh.stop = 1;
 }
 
 static void mainloop() {

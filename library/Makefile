@@ -40,7 +40,7 @@ ifdef have_wayland
 	dependencies += wayland_specific.c
 	bindings_file = bindings_xkb.h
 else
-	libraries += -lSDL2
+	libraries += -lSDL3
 	dependencies += sdl_specific.c
 	bindings_file = bindings_sdl.h
 endif

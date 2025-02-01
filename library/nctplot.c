@@ -196,9 +196,14 @@ struct Mp_params {
 }
 mp_params = {0};
 
-static int iround(float f) {
+static inline int iround(float f) {
 	int ifloor = f;
 	return ifloor + (f-ifloor >= 0.5) - (f-ifloor <= -0.5);
+}
+
+static inline int iround_pos(float f) {
+	long ifloor = f;
+	return ifloor + (f-ifloor >= 0.5);
 }
 
 static int __attribute__((pure)) colormap_top();

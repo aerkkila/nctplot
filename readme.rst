@@ -30,7 +30,7 @@ Compile time dependencies in addition to a C compiler:
 
 Dependencies:
     * nctietue3 (https://codeberg.org/aerkkila/nctietue3)
-    * wayland (preferred) **OR** SDL2
+    * wayland (preferred) **OR** SDL3
     * ncurses
 
 Optional dependencies:

@@ -16,9 +16,8 @@ have_proj = 1
 # png library is used to save figures. Comment this out if necessary.
 have_png = 1
 
-# Graphics work directly on wayland. Alternatively, SDL2 library can be used.
+# Graphics work directly on wayland. Alternatively, SDL3 library can be used.
 # Comment this out, if you don't have wayland or don't want direct wayland support.
-# If you use wayland, you should definitely not comment this out.
 have_wayland = 1
 
 # To print text to the window rather than to terminal when using wayland.

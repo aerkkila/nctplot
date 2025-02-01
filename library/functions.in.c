@@ -33,7 +33,7 @@ static int draw_row_threshold_@nctype(uint32_t *canvas, int jpixel, int istart, 
 	int wdatum = g_pixels_per_datum[0], ipixel = istart;
 	for (; ipixel<=iend-wdatum; idata_f+=g_data_per_step[0]) {
 loop:
-		long ind = round(idata_f);
+		long ind = iround_pos(idata_f);
 		ctype val = ((const ctype*)vdataptr)[ind];
 		if (my_isnan(val) || (shared.usenan && val==shared.nanval))
 			continue;
@@ -53,7 +53,7 @@ static void draw_row_@nctype(uint32_t *canvas, int jpixel, int istart, int iend,
 	int wdatum = g_pixels_per_datum[0], ipixel = istart;
 	for (; ipixel<=iend-wdatum; idata_f+=g_data_per_step[0]) {
 loop:
-		long ind = round(idata_f);
+		long ind = iround_pos(idata_f);
 		ctype val = ((const ctype*)vdataptr)[ind];
 		if (my_isnan(val) || (shared.usenan && val==shared.nanval))
 			continue;
@@ -72,7 +72,7 @@ static void draw_row_cmapfun_@nctype(uint32_t *canvas, int jpixel, int istart, i
 	int wdatum = g_pixels_per_datum[0], ipixel = istart;
 	for (; ipixel<=iend-wdatum; idata_f+=g_data_per_step[0]) {
 loop:
-		long ind = round(idata_f);
+		long ind = iround_pos(idata_f);
 		const ctype *val = (const ctype*)vdataptr+ind;
 		if (my_isnan(*val) || (shared.usenan && *val==shared.nanval))
 			continue;
