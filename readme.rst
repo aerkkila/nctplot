@@ -17,11 +17,6 @@ Features
 
 Installation
 ------------
-Clone submodules with
-
-    | git submodule init
-    | git submodule update
-
 If needed, edit configuration in library/config.mk and excecutable/Makefile, then:
 
     | make
@@ -30,6 +25,8 @@ If needed, edit configuration in library/config.mk and excecutable/Makefile, the
 Compile time dependencies in addition to a C compiler:
     * make
     * which
+
+    Internet connection and git are needed on the first compilation to clone the submodules.
 
 Dependencies:
     * nctietue3 (https://codeberg.org/aerkkila/nctietue3)
