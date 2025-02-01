@@ -75,6 +75,9 @@ static void resized() {
 	free(canvas);
 	canvas = malloc(win_w * win_h * sizeof(canvas[0]));
 	set_draw_params();
+#ifdef HAVE_TTRA
+	set_ttra();
+#endif
 }
 
 static int mousex, mousey;

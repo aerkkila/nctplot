@@ -40,6 +40,12 @@ static void clear_background(uint32_t color) {
 		canvas[i] = color;
 }
 
+static void clear_unused_bottom(uint32_t color) {
+	for (int j=total_height(); j<win_h; j++)
+		for (int i=0; i<win_w; i++)
+			canvas[j*win_w+i] = color;
+}
+
 static void expand_row_to_yscale(int scale, int jpixel, int istart, int iend) {
 	for (int jj=1; jj<scale; jj++)
 		memcpy(

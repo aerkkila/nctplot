@@ -1691,6 +1691,9 @@ variable_found:
 
 	mainloop();
 	quit_done = 0;
+#ifdef HAVE_TTRA
+	ttra_destroy(&ttra);
+#endif
 	return vobject;
 }
 

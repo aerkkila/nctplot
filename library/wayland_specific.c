@@ -57,12 +57,6 @@ static void init_graphics(int xlen, int ylen) {
 	canvas = wlh.data;
 }
 
-static void clear_unused_bottom(uint32_t color) {
-	for (int j=total_height(); j<win_h; j++)
-		for (int i=0; i<win_w; i++)
-			canvas[j*win_w+i] = color;
-}
-
 static void mainloop() {
 	long play_start_ms = 0;
 	int play_start_znum;
@@ -113,7 +107,4 @@ static void mainloop() {
 
 	quit((Arg){0});
 	wlh_destroy(&wlh);
-#ifdef HAVE_TTRA
-	ttra_destroy(&ttra);
-#endif
 }

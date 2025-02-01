@@ -98,6 +98,7 @@ static Binding keydown_bindings[] = {
 	   and the second fastest changing as latitudes.
 	   For other options, see ask_crs. */
 	{ SDLK_l,		0,			toggle_feature,	{.i=coastlines_e}	},
+	{ SDLK_l,		KMOD_SHIFT,	toggle_feature,	{.i=lakes_e}		},
 	/* In mousepaint mode, the file can be edited by drawing to it with mouse.
 	   Further documentation and the keybindings are listed in keydown_bindings_mousepaint_m. */
 	{ SDLK_m,		0,			set_prog_mode,	{.i=mousepaint_m}	},
@@ -143,6 +144,9 @@ static Binding keydown_bindings[] = {
 	/* Convert this variable into different coordinates.
 	   The original and target coordinate systems will be asked in terminal.
 	   See e.g. 'man proj' for how to express the coordinate systems. */
-	{ SDLK_t,		0,			set_typingmode,	{.i=typing_coord_from}	}
+	{ SDLK_t,		0,			set_typingmode,	{.i=typing_coord_from}	},
+#endif
+#ifdef HAVE_TTRA
+	{ SDLK_p,		KMOD_SHIFT,	toggle_var,		{.v=&use_ttra}			},
 #endif
 };
