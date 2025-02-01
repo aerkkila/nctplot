@@ -17,6 +17,11 @@ Features
 
 Installation
 ------------
+Clone submodules with
+
+    | git submodule init
+    | git submodule update
+
 If needed, edit configuration in library/config.mk and excecutable/Makefile, then:
 
     | make
@@ -29,7 +34,7 @@ Compile time dependencies in addition to a C compiler:
 Dependencies:
     * nctietue3 (https://codeberg.org/aerkkila/nctietue3)
     * colormap-headers (https://codeberg.org/aerkkila/colormap-headers)
-    * wayland (preferred) **OR** SDL2 (limited functionality)
+    * wayland (preferred) **OR** SDL2
     * ncurses
 
 Optional dependencies:
@@ -37,7 +42,7 @@ Optional dependencies:
     * nctietue3 compiled with proj-library (for coordinate transformations)
     * proj (for coordinate transformations and coastlines)
     * png (for saving the plotted figure)
-    * ttra (https://codeberg.org/aerkkila/ttra) (wayland only, for printing text to the window instead of terminal)
+    * ttra (https://codeberg.org/aerkkila/ttra) (for printing text to the window instead of terminal)
 
 See library/config.mk to disable optional dependencies.
 
