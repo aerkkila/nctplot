@@ -55,6 +55,7 @@ static const double default_fps=50;
 static unsigned sleeptime;
 static double fps;
 static int win_w, win_h, xid, yid, zid, draw_w, draw_h, pending_varnum=-1, pending_cmapnum;
+static uint32_t *canvas = NULL;
 static char quit_done, stop, fill_on, play_on, info_on=1, update_minmax=1, update_minmax_cur, too_small_to_draw;
 static const int printinfo_nlines = 6;
 static int lines_printed, line_mouseinfo;
@@ -202,6 +203,7 @@ static int __attribute__((pure)) colormap_bottom();
 static inline int __attribute__((pure)) total_height();
 static inline int __attribute__((pure)) additional_height();
 
+#include "nctplot_graphics.c"
 #ifdef HAVE_WAYLAND
 #include "wayland_specific.c"
 #else
@@ -359,7 +361,7 @@ static void draw2d(const nct_var* var) {
 			char* dataptr = get_data(start, &length);
 			double npix = round(length / data_per_pixel[0]); // this can grow without limit when zoomed
 			npix = Min(npix, drawwleft);
-			count += draw_row_threshold(var->dtype, jimag, iimag, iimag+npix, dataptr, plt.threshold);
+			count += draw_row_threshold(var->dtype, canvas, jimag, iimag, iimag+npix, dataptr, plt.threshold);
 			drawwleft -= npix;
 			if (drawwleft > 0) {
 				fdatai += npix / g_pixels_per_datum[0] * g_data_per_step[0];
@@ -381,7 +383,7 @@ static void draw2d(const nct_var* var) {
 			char* dataptr = get_data(start, &length);
 			double npix = round(length / data_per_pixel[0]); // this can grow without limit when zoomed
 			npix = Min(npix, drawwleft);
-			draw_row_cmapfun(var->dtype, jimag, iimag, iimag+npix, dataptr, dl_cmapfun);
+			draw_row_cmapfun(var->dtype, canvas, jimag, iimag, iimag+npix, dataptr, dl_cmapfun);
 			drawwleft -= npix;
 			if (drawwleft > 0) {
 				fdatai += npix / g_pixels_per_datum[0] * g_data_per_step[0];
@@ -402,7 +404,7 @@ static void draw2d(const nct_var* var) {
 			char* dataptr = get_data(start, &length);
 			double npix = round(length / data_per_pixel[0]); // this can grow without limit when zoomed
 			npix = Min(npix, drawwleft);
-			draw_row(var->dtype, jimag, iimag, iimag+npix, dataptr);
+			draw_row(var->dtype, canvas, jimag, iimag, iimag+npix, dataptr);
 			drawwleft -= npix;
 			if (drawwleft > 0) {
 				fdatai += npix / g_pixels_per_datum[0] * g_data_per_step[0];
@@ -432,14 +434,14 @@ static void draw_colormap() {
 			unsigned char* c = cmh_colorvalue(shared.cmapnum, (int)di);
 			uint32_t color = color_ptr_to_number(c);
 			for (int j=j0; j<j1; j++)
-				wlh.data[j*win_w + i] = color;
+				canvas[j*win_w + i] = color;
 		}
 	else
 		for (int i=draw_w-1; i>=0; i--, di+=cspace) {
 			unsigned char* c = cmh_colorvalue(shared.cmapnum, (int)di);
 			uint32_t color = color_ptr_to_number(c);
 			for (int j=j0; j<j1; j++)
-				wlh.data[j*win_w + i] = color;
+				canvas[j*win_w + i] = color;
 		}
 }
 
@@ -702,9 +704,6 @@ static void redraw(nct_var* var) {
 		g_only_nans = make_minmax(var->dtype);
 	}
 
-#ifndef HAVE_WAYLAND
-	SDL_SetRenderTarget(rend, base);
-#endif
 	draw_funcptr(var);
 	for (int i=0; i<max_nfeatures; i++) {
 		if (!(shared.used_features & (1L<<i)))
@@ -714,9 +713,6 @@ static void redraw(nct_var* var) {
 		draw_feature(plt.area_xy, i);
 	}
 	printinfo(g_minmax);
-#ifndef HAVE_WAYLAND
-	SDL_SetRenderTarget(rend, NULL);
-#endif
 	call_redraw = 0;
 }
 
@@ -1709,6 +1705,10 @@ variable_found:
 	else
 		ylen = 400;
 
+#ifdef HAVE_TTRA
+	ttra_init(&ttra);
+	ttra_set_fontheight(&ttra, fontheight_ttra);
+#endif
 	init_graphics(xlen, ylen); // defined either in sdl_specific.c or in wayland_specific.c depending on the choice in config.mk
 	variable_changed();
 

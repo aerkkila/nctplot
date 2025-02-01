@@ -53,10 +53,10 @@ static Binding keydown_bindings[] = {
 	{ SDLK_h,		0,			show_bindings,						}, // show this file
 	{ SDLK_v,		0,			var_ichange,	{.i=1}				}, // Next variable.
 	{ SDLK_v,		KMOD_SHIFT,	var_ichange,	{.i=-1}				}, // Previous variable.
-	{ SDLK_v,		KMOD_ALT	set_prog_mode,	{.i=variables_m}	}, // see keydown_bindings_variables_m for info
+	{ SDLK_v,		KMOD_ALT,	set_prog_mode,	{.i=variables_m}	}, // see keydown_bindings_variables_m for info
 	{ SDLK_w,		0,			use_lastvar,						}, // switch to that variable which was shown previously
-	{ SDLK_colon,	0,			set_typingmode,	{.i=typing_command}	}, // commands are not documented
-	{ SDLK_colon,	KMOD_SHIFT,	set_typingmode,	{.i=typing_command}	}, // commands are not documented
+	{ SDLK_COLON,	0,			set_typingmode,	{.i=typing_command}	}, // commands are not documented
+	{ SDLK_COLON,	KMOD_SHIFT,	set_typingmode,	{.i=typing_command}	}, // commands are not documented
 	/* Whether shared variables such as colormap, invert_y, etc. are not shared with other variables. */
 	{ SDLK_d,		0,			toggle_detached,			},
 	/* Colorscale adjustment.

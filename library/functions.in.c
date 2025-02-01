@@ -24,7 +24,7 @@ static ctype* g_minmax_@nctype = (ctype*)g_minmax;
 	(val) >= (minmax)[1] ? 255 :			\
 	(@uctype)((val)-(minmax)[0])*255 / (@uctype)((minmax)[1]-(minmax)[0]) )
 
-static int draw_row_threshold_@nctype(int jpixel, int istart, int iend, const void* vdataptr, double dthr) {
+static int draw_row_threshold_@nctype(uint32_t *canvas, int jpixel, int istart, int iend, const void* vdataptr, double dthr) {
 	const ctype thr = dthr;
 	const int cvals[] = {255*1/10, 255*9/10, 255*1/10};
 	int count = 0;
@@ -41,7 +41,7 @@ loop:
 		int value = cvals[(val >= thr) + shared.invert_c];
 		uint32_t color = color_ptr_to_number(cmh_colorvalue(shared.cmapnum, value));
 		for (int ii=0; ii<wdatum; ii++)
-			wlh.data[jpixel*win_w + ipixel++] = color;
+			canvas[jpixel*win_w + ipixel++] = color;
 	}
 	if ((wdatum = iend - ipixel) > 0)
 		goto loop; // draw a partial wide pixel
@@ -50,7 +50,7 @@ loop:
 	return count;
 }
 
-static void draw_row_@nctype(int jpixel, int istart, int iend, const void* vdataptr) {
+static void draw_row_@nctype(uint32_t *canvas, int jpixel, int istart, int iend, const void* vdataptr) {
 	float idata_f = 0;
 	int wdatum = g_pixels_per_datum[0], ipixel = istart;
 	for (; ipixel<=iend-wdatum; idata_f+=g_data_per_step[0]) {
@@ -63,7 +63,7 @@ loop:
 		if (shared.invert_c) value = 0xff-value;
 		uint32_t color = color_ptr_to_number(cmh_colorvalue(shared.cmapnum,value));
 		for (int ii=0; ii<wdatum; ii++)
-			wlh.data[jpixel*win_w + ipixel++] = color;
+			canvas[jpixel*win_w + ipixel++] = color;
 	}
 	if ((wdatum = iend - ipixel) > 0)
 		goto loop; // draw a partial wide pixel
@@ -71,7 +71,7 @@ loop:
 	expand_row_to_yscale(g_pixels_per_datum[1], jpixel, istart, iend);
 }
 
-static void draw_row_cmapfun_@nctype(int jpixel, int istart, int iend, const void* vdataptr, cmapfun_t cmapfun) {
+static void draw_row_cmapfun_@nctype(uint32_t *canvas, int jpixel, int istart, int iend, const void* vdataptr, cmapfun_t cmapfun) {
 	float idata_f = 0;
 	int wdatum = g_pixels_per_datum[0], ipixel = istart;
 	for (; ipixel<=iend-wdatum; idata_f+=g_data_per_step[0]) {
@@ -84,7 +84,7 @@ loop:
 		cmapfun(c, val);
 		uint32_t color = color_ptr_to_number(c);
 		for (int ii=0; ii<wdatum; ii++)
-			wlh.data[jpixel*win_w + ipixel++] = color;
+			canvas[jpixel*win_w + ipixel++] = color;
 	}
 	if ((wdatum = iend - ipixel) > 0)
 		goto loop; // draw a partial wide pixel

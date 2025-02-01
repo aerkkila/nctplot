@@ -2,35 +2,18 @@
 
 #define bindings_file "bindings_sdl.h"
 
-typedef SDL_Point point_t;
-
 static SDL_Renderer* rend;
 static SDL_Window* window;
-static SDL_Texture* base;
+static SDL_Texture* base = NULL;
 static SDL_Event event;
 static int call_resized;
-
-#define graphics_draw_point(i,j) SDL_RenderDrawPoint(rend, i, j)
-#define draw_lines(p, n) SDL_RenderDrawLines(rend, p, n)
-
-static inline void set_color(unsigned char* c) {
-	SDL_SetRenderDrawColor(rend, c[0], c[1], c[2], 255);
-}
-
-static inline void clear_background() {
-	SDL_RenderClear(rend);
-}
-
-static inline void set_scale(int scalex, int scaley) {
-	SDL_RenderSetScale(rend, scalex, scaley);
-}
 
 static void init_graphics(int xlen, int ylen) {
 	if (SDL_Init(SDL_INIT_VIDEO)) {
 		nct_puterror("sdl_init: %s\n", SDL_GetError());
 		return; }
 	SDL_Event event;
-	while(SDL_PollEvent(&event));
+	while (SDL_PollEvent(&event));
 	SDL_DisplayMode dm;
 	if (SDL_GetCurrentDisplayMode(0, &dm)) {
 		nct_puterror("getting monitor size: %s\n", SDL_GetError());
@@ -44,35 +27,39 @@ static void init_graphics(int xlen, int ylen) {
 		MIN(xlen, win_w), MIN(ylen+cmapspace+cmappix, win_h), SDL_WINDOW_RESIZABLE);
 	rend = SDL_CreateRenderer(window, -1, SDL_RENDERER_TARGETTEXTURE);
 	SDL_GetWindowSize(window, &win_w, &win_h);
-	base = SDL_CreateTexture(rend, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, win_w, win_h);
+	canvas = malloc(win_w * win_h * sizeof(canvas[0]));
 }
 
 static int get_modstate() {
 	/* makes modstate side-insensitive and removes other modifiers than [alt,ctrl,gui,shift] */
 	int mod = 0;
 	int mod0 = SDL_GetModState();
-	if(mod0 & KMOD_CTRL)
+	if (mod0 & KMOD_CTRL)
 		mod |= KMOD_CTRL;
-	if(mod0 & KMOD_SHIFT)
+	if (mod0 & KMOD_SHIFT)
 		mod |= KMOD_SHIFT;
-	if(mod0 & KMOD_ALT)
+	if (mod0 & KMOD_ALT)
 		mod |= KMOD_ALT;
-	if(mod0 & KMOD_GUI)
+	if (mod0 & KMOD_GUI)
 		mod |= KMOD_GUI;
 	return mod;
 }
 
 static void quit_graphics() {
-	SDL_DestroyTexture(base);
 	SDL_DestroyRenderer(rend);
 	SDL_DestroyWindow(window);
 	SDL_Quit();
+	if (base)
+		SDL_DestroyTexture(base);
+	base = NULL;
+	free(canvas);
+	canvas = NULL;
 }
 
 static void resized() {
 	static uint_fast64_t lasttime;
 	uint_fast64_t thistime = time_now_ms();
-	if(thistime-lasttime < 16) {
+	if (thistime-lasttime < 16) {
 		call_resized = 1;
 		return;
 	}
@@ -84,9 +71,9 @@ static void resized() {
 	win_w = w; win_h = h;
 	call_redraw = 1;
 	lasttime = thistime;
-	SDL_DestroyTexture(base);
 	SDL_GetWindowSize(window, &win_w, &win_h);
-	base = SDL_CreateTexture(rend, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, win_w, win_h);
+	free(canvas);
+	canvas = malloc(win_w * win_h * sizeof(canvas[0]));
 	set_draw_params();
 }
 
@@ -112,7 +99,7 @@ static void mainloop() {
 	int play_start_znum;
 start:
 	while (SDL_PollEvent(&event)) {
-		switch(event.type) {
+		switch (event.type) {
 			case SDL_QUIT:
 				quit((Arg){0}); break;
 			case SDL_WINDOWEVENT:
@@ -148,9 +135,9 @@ start:
 		if (stop) return;
 	}
 
-	if (stop)		return;
-	if (call_resized)	resized();
-	if (zid < 0)	play_on = 0;
+	if (stop)         return;
+	if (call_resized) resized();
+	if (zid < 0)      play_on = 0;
 	if (play_on) {
 		if (!play_start_ms) {
 			play_start_ms = time_now_ms();
@@ -166,7 +153,15 @@ start:
 	else
 		play_start_ms = 0;
 
-	if (call_redraw)	redraw(var);
+	if (call_redraw) {
+		redraw(var);
+		SDL_Surface *surface = SDL_CreateRGBSurfaceWithFormatFrom(
+			canvas, win_w, win_h, 0, win_w*sizeof(canvas[0]), SDL_PIXELFORMAT_ARGB8888);
+		if (base)
+			SDL_DestroyTexture(base);
+		base = SDL_CreateTextureFromSurface(rend, surface);
+		SDL_FreeSurface(surface);
+	}
 	SDL_RenderCopy(rend, base, NULL, NULL);
 	SDL_RenderPresent(rend);
 	SDL_Delay(sleeptime);

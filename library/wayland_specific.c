@@ -1,97 +1,11 @@
 #include <xkbcommon/xkbcommon.h>
-#include <string.h>
 #include "wayland_helper/wayland_helper.h"
 
-#ifndef Abs
-#define Abs(a) ((a)<0 ? -(a) : (a))
-#endif
-
-enum redraw_type {commit_only_e=2};
-#ifdef HAVE_TTRA
-#include <ttra.h>
-static struct ttra ttra;
-static int use_ttra = 1;
-static int fontheight_ttra = 20;
-static const int ttra_space = 8;
-#define Printf(...) do { if (use_ttra) ttra_printf(&ttra, __VA_ARGS__); else printf(__VA_ARGS__); } while (0)
-#define Nct_print_datum(dtype, datum) do {						\
-	if (use_ttra) nct_fprint_datum(dtype, (nct_fprint_t)ttra_printf, &ttra, datum);	\
-	else nct_print_datum(dtype, datum);							\
-} while (0)
-#define update_printarea() do {					\
-	if (use_ttra) { 						\
-		if (!call_redraw) call_redraw = commit_only_e; }	\
-	else fflush(stdout);					\
-} while (0)
-#endif
-
-#define bindings_file "bindings_xkb.h"
-
-typedef struct {
-	int x, y;
-} point_t;
-
 static struct wayland_helper wlh;
-
-static inline uint32_t color_ptr_to_number(unsigned char* c) {
-	return
-		(0xff << 24) |
-		(c[0] << 16 ) |
-		(c[1] << 8 ) |
-		(c[2] << 0);
-}
-
-static void clear_background(uint32_t color) {
-	for (int i=0; i<win_h*win_w; i++)
-		wlh.data[i] = color;
-}
+#define bindings_file "bindings_xkb.h"
 
 static void quit_graphics() {
 	wlh.stop = 1;
-}
-
-static void expand_row_to_yscale(int scale, int jpixel, int istart, int iend) {
-	for (int jj=1; jj<scale; jj++)
-		memcpy(
-			wlh.data + (jpixel+jj)*win_w + istart,
-			wlh.data + jpixel*win_w + istart,
-			(iend-istart) * sizeof(wlh.data[0]));
-}
-
-#define draw_line_$method draw_line_bresenham
-
-/* https://en.wikipedia.org/wiki/Bresenham's_line_algorithm */
-/* This method is nice because it uses only integers. */
-static void draw_line_bresenham(uint32_t color, const int *xy) {
-	int nosteep = Abs(xy[3] - xy[1]) < Abs(xy[2] - xy[0]);
-	int backwards = xy[2+!nosteep] < xy[!nosteep]; // m1 < m0
-	int m1=xy[2*!backwards+!nosteep], m0=xy[2*backwards+!nosteep],
-	n1=xy[2*!backwards+nosteep],  n0=xy[2*backwards+nosteep];
-
-	const int n_add = n1 > n0 ? 1 : -1;
-	const int dm = m1 - m0;
-	const int dn = n1 > n0 ? n1 - n0 : n0 - n1;
-	const int D_add0 = 2 * dn;
-	const int D_add1 = 2 * (dn - dm);
-	int D = 2*dn - dm;
-	if (nosteep) // (m,n) = (x,y)
-		for (; m0<=m1; m0++) {
-			wlh.data[n0*win_w + m0] = color;
-			n0 += D > 0 ? n_add : 0;
-			D  += D > 0 ? D_add1 : D_add0;
-		}
-	else // (m,n) = (y,x)
-		for (; m0<=m1; m0++) {
-			wlh.data[m0*win_w + n0] = color;
-			n0 += D > 0 ? n_add : 0;
-			D  += D > 0 ? D_add1 : D_add0;
-		}
-}
-
-static void draw_lines(uint32_t color, const void *v, int n) {
-	const point_t *p = v;
-	for (int i=0; i<n-1; i++)
-		draw_line_$method(color, (int*)(p+i));
 }
 
 static void key_callback(struct wayland_helper *wlh) {
@@ -138,29 +52,15 @@ static void init_graphics(int xlen, int ylen) {
 			.wheel_callback = wheel_callback,
 	};
 	wlh_init(&wlh);
-#ifdef HAVE_TTRA
-	ttra_init(&ttra);
-	ttra_set_fontheight(&ttra, fontheight_ttra);
-#endif
 	win_h = 1;
 	win_w = 1;
+	canvas = wlh.data;
 }
-
-#ifdef HAVE_TTRA
-static void set_ttra() {
-	ttra.canvas = wlh.data;
-	ttra_set_xy0(&ttra, 0, draw_h + cmapspace + cmappix + ttra_space);
-	ttra.w = win_w;
-	ttra.h = win_h - ttra.y0;
-	ttra.realh = win_h;
-	ttra.realw = win_w;
-}
-#endif
 
 static void clear_unused_bottom(uint32_t color) {
 	for (int j=total_height(); j<win_h; j++)
 		for (int i=0; i<win_w; i++)
-			wlh.data[j*win_w+i] = color;
+			canvas[j*win_w+i] = color;
 }
 
 static void mainloop() {
@@ -192,6 +92,7 @@ static void mainloop() {
 			wlh.res_changed = 0;
 			win_h = wlh.yres;
 			win_w = wlh.xres;
+			canvas = wlh.data;
 			set_draw_params();
 			call_redraw = 1;
 #ifdef HAVE_TTRA

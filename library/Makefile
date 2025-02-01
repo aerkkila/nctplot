@@ -3,7 +3,7 @@ include config.mk
 alltarget = libnctplot.so
 libraries = -lnctietue3 -lncurses -ldl -lnetcdf -lm
 objects = nctplot.o
-dependencies = nctplot.c functions.c nctplot.h config.h config.mk
+dependencies = nctplot.c nctplot_graphics.c functions.c nctplot.h config.h config.mk
 
 ifdef have_shapelib
 	CFLAGS += -DHAVE_SHPLIB
@@ -27,6 +27,11 @@ ifdef have_png
 	dependencies += png.c
 endif
 
+ifdef have_ttra
+	CFLAGS += -DHAVE_TTRA
+	libraries += -lttra
+endif
+
 ifdef have_wayland
 	CFLAGS += -DHAVE_WAYLAND
 	objects += wayland_helper/wayland_helper.o
@@ -34,10 +39,6 @@ ifdef have_wayland
 	dependencies += wayland_specific.c wayland_helper/wayland_helper.o
 	objects_test = nctplot_debug.o test.o wayland_helper/wayland_helper.o
 	bindings_file = bindings_xkb.h
-ifdef have_ttra
-	CFLAGS += -DHAVE_TTRA
-	libraries += -lttra
-endif
 else
 	libraries += -lSDL2
 	dependencies += sdl_specific.c

@@ -50,10 +50,10 @@ static int write_png(unsigned char* rgb, const char* name) {
     return 0;
 }
 
-static void rgba_to_rgb(char *to) {
-    char *from = (void*)wlh.data;
+static void rgba_to_rgb(uint32_t *from_, char *to) {
+    char *from = (void*)from_;
     for (int j=0; j<draw_h + additional_height(); j++) {
-	int indfrom = j*wlh.xres,
+	int indfrom = j*win_w,
 	    indto = j*draw_w;
 	for (int i=0; i<draw_w; i++) {
 	    to[(indto+i)*3+0] = from[(indfrom+i)*4+2];
@@ -63,19 +63,13 @@ static void rgba_to_rgb(char *to) {
     }
 }
 
-#ifdef HAVE_WAYLAND
 static void save_png(Arg _) {
     void* buffer = malloc(draw_w * (draw_h+additional_height()) * 3);
-    rgba_to_rgb(buffer);
+    rgba_to_rgb(canvas, buffer);
     char name[100];
     sprintf(name, "nctplot_%li.png", (long)time(NULL));
     write_png(buffer, name);
     free(buffer);
 }
-#else
-static void save_png(Arg _) {
-    fprintf(stderr, "funktio %s ei toimi ilman waylandia\n", __func__);
-}
-#endif
 
 #endif // HAVE_PNG
