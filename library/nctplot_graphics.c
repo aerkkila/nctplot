@@ -5,7 +5,6 @@
 #endif
 
 #ifdef HAVE_TTRA
-#include <ttra.h>
 static struct ttra ttra;
 static int use_ttra = 1;
 static int fontheight_ttra = 20;

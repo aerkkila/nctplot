@@ -12,6 +12,9 @@
 #ifdef HAVE_NCTPROJ
 #include <nctproj.h>
 #endif
+#ifdef HAVE_TTRA
+#include "ttra/ttra.h"
+#endif
 
 #define Min(a,b) ((a) < (b) ? a : (b))
 #define Max(a,b) ((a) > (b) ? a : (b))
@@ -1120,7 +1123,8 @@ static void set_typingmode(Arg arg) {
 	printinfo(g_minmax);
 #ifndef HAVE_WAYLAND
 	SDL_StartTextInput();
-#elif defined HAVE_TTRA
+#endif
+#if defined HAVE_TTRA
 	clear_unused_bottom(color_ptr_to_number(shared.color_bg));
 #endif
 }

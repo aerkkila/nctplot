@@ -42,7 +42,7 @@ Optional dependencies:
     * nctietue3 compiled with proj-library (for coordinate transformations)
     * proj (for coordinate transformations and coastlines)
     * png (for saving the plotted figure)
-    * ttra (https://codeberg.org/aerkkila/ttra) (for printing text to the window instead of terminal)
+    * ttra (submodule, requires: freetype2, utf8proc, fontconfig) (for printing text to the window instead of terminal)
 
 See library/config.mk to disable optional dependencies.
 

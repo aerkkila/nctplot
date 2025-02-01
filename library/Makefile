@@ -2,7 +2,7 @@ include config.mk
 
 alltarget = libnctplot.so
 libraries = -lnctietue3 -lncurses -ldl -lnetcdf -lm
-objects = nctplot.o
+objects =
 dependencies = nctplot.c nctplot_graphics.c functions.c nctplot.h config.h config.mk
 
 ifdef have_shapelib
@@ -29,14 +29,15 @@ endif
 
 ifdef have_ttra
 	CFLAGS += -DHAVE_TTRA
-	libraries += -lttra
+	objects += ttra/ttra.o
+	libraries += `pkg-config --libs freetype2` -lutf8proc -lfontconfig
 endif
 
 ifdef have_wayland
 	CFLAGS += -DHAVE_WAYLAND
 	objects += waylandhelper/waylandhelper.o
 	libraries += -lwayland-client -lxkbcommon
-	dependencies += wayland_specific.c waylandhelper/waylandhelper.o
+	dependencies += wayland_specific.c
 	bindings_file = bindings_xkb.h
 else
 	libraries += -lSDL2
@@ -58,7 +59,7 @@ config.h: config.mk makepager.sh Makefile
 functions.c: make_functions.pl functions.in.c
 	./$<
 
-libnctplot.so: $(objects)
+libnctplot.so: nctplot.o $(objects)
 	$(CC) -o $@ -shared $^ $(libraries)
 
 nctplot.o: $(dependencies) config.mk
@@ -69,6 +70,9 @@ nctplot_debug.o: $(dependencies) config.mk
 
 waylandhelper/waylandhelper.o: waylandhelper/*
 	cd waylandhelper && $(MAKE) waylandhelper.o --no-print-directory
+
+ttra/ttra.o: ttra/*
+	cd ttra && $(MAKE) ttra.o --no-print-directory
 
 ne_10m_coastline:
 	curl -OL https://naciscdn.org/naturalearth/10m/physical/ne_10m_coastline.zip
